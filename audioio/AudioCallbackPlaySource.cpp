@@ -2,7 +2,7 @@
 
 /*
     A waveform viewer and audio annotation editor.
-    Chris Cannam, Queen Mary University of London, 2005
+    Chris Cannam, Queen Mary University of London, 2005-2006
     
     This is experimental software.  Not for distribution.
 */
@@ -118,21 +118,9 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     if (buffersChanged || srChanged) {
-
 	if (m_converter) {
 	    src_delete(m_converter);
 	    m_converter = 0;
-	}
-
-	if (getSourceSampleRate() != getTargetSampleRate()) {
-
-	    int err = 0;
-	    m_converter = src_new(SRC_SINC_FASTEST, m_bufferCount, &err);
-	    if (!m_converter) {
-		std::cerr
-		    << "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
-		    << src_strerror(err) << std::endl;
-	    }
 	}
     }
 
@@ -148,10 +136,9 @@ AudioCallbackPlaySource::addModel(Model *model)
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cerr << "AudioCallbackPlaySource::addModel: emitting modelReplaced" << std::endl;
 #endif
-    emit modelReplaced();
 
-    if (srChanged && (getSourceSampleRate() != getTargetSampleRate())) {
-	emit sampleRateMismatch(getSourceSampleRate(), getTargetSampleRate());
+    if (buffersChanged || srChanged) {
+	emit modelReplaced();
     }
 }
 
@@ -323,6 +310,19 @@ void
 AudioCallbackPlaySource::setTargetSampleRate(size_t sr)
 {
     m_targetSampleRate = sr;
+
+    if (getSourceSampleRate() != getTargetSampleRate()) {
+
+	int err = 0;
+	m_converter = src_new(SRC_SINC_BEST_QUALITY, m_bufferCount, &err);
+	if (!m_converter) {
+	    std::cerr
+		<< "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
+		<< src_strerror(err) << std::endl;
+	}
+
+	emit sampleRateMismatch(getSourceSampleRate(), getTargetSampleRate());
+    }
 }
 
 size_t
@@ -543,6 +543,11 @@ AudioCallbackPlaySource::fillBuffers()
 #endif
 
     bool resample = (getSourceSampleRate() != getTargetSampleRate());
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << (resample ? "" : "not ") << "resampling (source " << getSourceSampleRate() << ", target " << getTargetSampleRate() << ")" << std::endl;
+#endif
+
     size_t channels = getSourceChannelCount();
     size_t orig = space;
     size_t got = 0;
@@ -557,6 +562,14 @@ AudioCallbackPlaySource::fillBuffers()
     }
 
     size_t generatorBlockSize = m_audioGenerator->getBlockSize();
+
+    if (resample && !m_converter) {
+	static bool warned = false;
+	if (!warned) {
+	    std::cerr << "WARNING: sample rates differ, but no converter available!" << std::endl;
+	    warned = true;
+	}
+    }
 
     if (resample && m_converter) {
 
