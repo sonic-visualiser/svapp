@@ -47,6 +47,13 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager) :
     while (m_buffers.size() < 20) m_buffers.push_back(0);
 
     m_viewManager->setAudioPlaySource(this);
+
+    connect(m_viewManager, SIGNAL(selectionChanged()),
+	    this, SLOT(selectionChanged()));
+    connect(m_viewManager, SIGNAL(playLoopModeChanged()),
+	    this, SLOT(playLoopModeChanged()));
+    connect(m_viewManager, SIGNAL(playSelectionModeChanged()),
+	    this, SLOT(playSelectionModeChanged()));
 }
 
 AudioCallbackPlaySource::~AudioCallbackPlaySource()
@@ -214,6 +221,40 @@ AudioCallbackPlaySource::stop()
 }
 
 void
+AudioCallbackPlaySource::selectionChanged()
+{
+    if (m_viewManager->getPlaySelectionMode()) {
+	m_mutex.lock();
+	for (size_t c = 0; c < m_bufferCount; ++c) {
+	    getRingBuffer(c).reset();
+	}
+	m_mutex.unlock();
+    }
+}
+
+void
+AudioCallbackPlaySource::playLoopModeChanged()
+{
+    m_mutex.lock();
+    for (size_t c = 0; c < m_bufferCount; ++c) {
+	getRingBuffer(c).reset();
+    }
+    m_mutex.unlock();
+}
+
+void
+AudioCallbackPlaySource::playSelectionModeChanged()
+{
+    if (!m_viewManager->getSelections().empty()) {
+	m_mutex.lock();
+	for (size_t c = 0; c < m_bufferCount; ++c) {
+	    getRingBuffer(c).reset();
+	}
+	m_mutex.unlock();
+    }
+}
+
+void
 AudioCallbackPlaySource::setTargetBlockSize(size_t size)
 {
     std::cerr << "AudioCallbackPlaySource::setTargetBlockSize() -> " << size << std::endl;
@@ -263,13 +304,6 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	readSpace = size_t(readSpace * ratio + 0.1);
     }
 
-    size_t lastRequestedFrame = 0;
-    if (m_bufferedToFrame > readSpace) {
-	lastRequestedFrame = m_bufferedToFrame - readSpace;
-    }
-
-    size_t framePlaying = lastRequestedFrame;
-
     size_t latency = m_playLatency;
     if (resample) latency = size_t(m_playLatency * ratio + 0.1);
     
@@ -278,15 +312,65 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	latency += timeStretcher->getStretcher(0)->getProcessingLatency();
     }
 
-    if (framePlaying > latency) {
-	framePlaying = framePlaying - latency;
-    } else {
-	framePlaying = 0;
+    latency += readSpace;
+    size_t bufferedFrame = m_bufferedToFrame;
+
+    size_t framePlaying = bufferedFrame;
+    if (framePlaying > latency) framePlaying -= latency;
+    else framePlaying = 0;
+
+    if (!m_viewManager->getPlaySelectionMode()) {
+	return framePlaying;
     }
 
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-    std::cout << "getCurrentPlayingFrame: readSpace " << readSpace << ", lastRequestedFrame " << lastRequestedFrame << ", framePlaying " << framePlaying << ", latency " << latency << std::endl;
-#endif
+    ViewManager::SelectionList selections = m_viewManager->getSelections();
+    if (selections.empty()) {
+	return framePlaying;
+    }
+
+    ViewManager::SelectionList::const_iterator i;
+
+    for (i = selections.begin(); i != selections.end(); ++i) {
+	if (i->contains(bufferedFrame)) break;
+    }
+
+    size_t f = bufferedFrame;
+
+    std::cerr << "getCurrentPlayingFrame: f=" << f << ", latency=" << latency << std::endl;
+
+    if (i == selections.end()) {
+	--i;
+	if (i->getEndFrame() + latency < f) {
+	    return framePlaying;
+	} else {
+	    std::cerr << "latency <- " << latency << "-(" << f << "-" << i->getEndFrame() << ")" << std::endl;
+	    latency -= (f - i->getEndFrame());
+	    f = i->getEndFrame();
+	}
+    }
+
+    std::cerr << "i=(" << i->getStartFrame() << "," << i->getEndFrame() << ") f=" << f << ", latency=" << latency << std::endl;
+
+    while (latency > 0) {
+	size_t offset = f - i->getStartFrame();
+	if (offset >= latency) {
+	    if (f > latency) {
+		framePlaying = f - latency;
+	    } else {
+		framePlaying = 0;
+	    }
+	    break;
+	} else {
+	    if (i == selections.begin()) {
+		if (m_viewManager->getPlayLoopMode()) {
+		    i = selections.end();
+		}
+	    }
+	    latency -= offset;
+	    --i;
+	    f = i->getEndFrame();
+	}
+    }
 
     return framePlaying;
 }
@@ -610,18 +694,12 @@ AudioCallbackPlaySource::fillBuffers()
 	    }
 	}
 
-	for (std::set<Model *>::iterator mi = m_models.begin();
-	     mi != m_models.end(); ++mi) {
-
-	    for (size_t c = 0; c < channels; ++c) {
-		bufferPtrs[c] = nonintlv + c * orig;
-	    }
-	    
-	    size_t gotHere = m_audioGenerator->mixModel
-		(*mi, f, orig, bufferPtrs);
-
-	    got = std::max(got, gotHere);
+	for (size_t c = 0; c < channels; ++c) {
+	    bufferPtrs[c] = nonintlv + c * orig;
 	}
+
+	bool ended = !mixModels(f, orig, bufferPtrs);
+	got = orig;
 
 	// and interleave into first half
 	for (size_t c = 0; c < channels; ++c) {
@@ -664,6 +742,8 @@ AudioCallbackPlaySource::fillBuffers()
 	    }
 	    getRingBuffer(c).write(tmp, toCopy);
 	}
+
+	m_bufferedToFrame = f;
 	
     } else {
 
@@ -680,22 +760,17 @@ AudioCallbackPlaySource::fillBuffers()
 	for (size_t c = 0; c < channels; ++c) {
 
 	    bufferPtrs[c] = tmp + c * space;
-
+	    
 	    for (size_t i = 0; i < space; ++i) {
 		tmp[c * space + i] = 0.0f;
 	    }
 	}
 
-	for (std::set<Model *>::iterator mi = m_models.begin();
-	     mi != m_models.end(); ++mi) {
-
-	    got = m_audioGenerator->mixModel
-		(*mi, f, space, bufferPtrs);
-	}
+	bool ended = !mixModels(f, space, bufferPtrs);
 
 	for (size_t c = 0; c < channels; ++c) {
 
-	    got = getRingBuffer(c).write(bufferPtrs[c], space);
+	    getRingBuffer(c).write(bufferPtrs[c], space);
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	    std::cerr << "Wrote " << got << " frames for ch " << c << ", now "
@@ -703,10 +778,115 @@ AudioCallbackPlaySource::fillBuffers()
 		      << std::endl;
 #endif
 	}
+
+	m_bufferedToFrame = f;
+	//!!! how do we know when ended? need to mark up a fully-buffered flag and check this if we find the buffers empty in getSourceSamples
     }
-    
-    m_bufferedToFrame = f + got;
 }    
+
+bool
+AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
+{
+    size_t processed = 0;
+    size_t chunkStart = frame;
+    size_t chunkSize = count;
+    size_t nextChunkStart = chunkStart + chunkSize;
+    
+    bool useSelection = (m_viewManager->getPlaySelectionMode() &&
+			 !m_viewManager->getSelections().empty());
+
+    static float **chunkBufferPtrs = 0;
+    static size_t chunkBufferPtrCount = 0;
+    size_t channels = getSourceChannelCount();
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "Selection playback: start " << frame << ", size " << count <<", channels " << channels << std::endl;
+#endif
+
+    if (chunkBufferPtrCount < channels) {
+	if (chunkBufferPtrs) delete[] chunkBufferPtrs;
+	chunkBufferPtrs = new float *[channels];
+	chunkBufferPtrCount = channels;
+    }
+
+    for (size_t c = 0; c < channels; ++c) {
+	chunkBufferPtrs[c] = buffers[c];
+    }
+
+    while (processed < count) {
+	
+	chunkSize = count - processed;
+	nextChunkStart = chunkStart + chunkSize;
+
+	if (useSelection) {
+	    
+	    Selection selection =
+		m_viewManager->getContainingSelection(chunkStart, true);
+	    
+	    if (selection.isEmpty()) {
+		if (m_viewManager->getPlayLoopMode()) {
+		    selection = *m_viewManager->getSelections().begin();
+		    chunkStart = selection.getStartFrame();
+		}
+	    }
+
+	    if (selection.isEmpty()) {
+
+		chunkSize = 0;
+		nextChunkStart = chunkStart;
+
+	    } else {
+
+		if (chunkStart < selection.getStartFrame()) {
+		    chunkStart = selection.getStartFrame();
+		}
+
+		nextChunkStart = std::min(chunkStart + chunkSize,
+					  selection.getEndFrame());
+
+		chunkSize = nextChunkStart - chunkStart;
+	    }
+	}
+	
+	if (!chunkSize) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	    std::cerr << "Ending selection playback at " << nextChunkStart << std::endl;
+#endif
+	    // We need to maintain full buffers so that the other
+	    // thread can tell where it's got to in the playback -- so
+	    // return the full amount here
+	    frame = frame + count;
+	    return false;
+	}
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	std::cerr << "Selection playback: chunk at " << chunkStart << " -> " << nextChunkStart << " (size " << chunkSize << ")" << std::endl;
+#endif
+
+	size_t got = 0;
+
+	for (std::set<Model *>::iterator mi = m_models.begin();
+	     mi != m_models.end(); ++mi) {
+	    
+	    got = m_audioGenerator->mixModel(*mi, chunkStart, 
+					     chunkSize, chunkBufferPtrs);
+	}
+
+	for (size_t c = 0; c < channels; ++c) {
+	    chunkBufferPtrs[c] += chunkSize;
+	}
+
+	processed += chunkSize;
+	chunkStart = nextChunkStart;
+    }
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "Returning selection playback at " << nextChunkStart << std::endl;
+#endif
+
+    frame = nextChunkStart;
+    return true;
+}
 
 void
 AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()

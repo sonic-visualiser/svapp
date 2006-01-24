@@ -167,6 +167,11 @@ signals:
     /// Just a warning
     void sampleRateMismatch(size_t requested, size_t available);
 
+protected slots:
+    void selectionChanged();
+    void playLoopModeChanged();
+    void playSelectionModeChanged();
+
 protected:
     ViewManager                     *m_viewManager;
     AudioGenerator                  *m_audioGenerator;
@@ -218,6 +223,7 @@ protected:
     Scavenger<TimeStretcherData> m_timeStretcherScavenger;
 
     void fillBuffers(); // Called from fill thread, m_playing true, mutex held
+    bool mixModels(size_t &frame, size_t count, float **buffers);
 
     class AudioCallbackPlaySourceFillThread : public QThread
     {
