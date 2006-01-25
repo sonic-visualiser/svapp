@@ -35,6 +35,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager) :
     m_playing(false),
     m_exiting(false),
     m_bufferedToFrame(0),
+    m_lastModelEndFrame(0),
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_slowdownCounter(0),
@@ -75,6 +76,9 @@ AudioCallbackPlaySource::addModel(Model *model)
     m_mutex.lock();
 
     m_models.insert(model);
+    if (model->getEndFrame() > m_lastModelEndFrame) {
+	m_lastModelEndFrame = model->getEndFrame();
+    }
 
     bool buffersChanged = false, srChanged = false;
 
@@ -164,6 +168,13 @@ AudioCallbackPlaySource::removeModel(Model *model)
 	m_sourceSampleRate = 0;
     }
 
+    size_t lastEnd = 0;
+    for (std::set<Model *>::const_iterator i = m_models.begin();
+	 i != m_models.end(); ++i) {
+	if ((*i)->getEndFrame() > lastEnd) lastEnd = (*i)->getEndFrame();
+    }
+    m_lastModelEndFrame = lastEnd;
+
     m_audioGenerator->removeModel(model);
 
     m_mutex.unlock();
@@ -181,6 +192,8 @@ AudioCallbackPlaySource::clearModels()
 	m_converter = 0;
     }
 
+    m_lastModelEndFrame = 0;
+
     m_audioGenerator->clearModels();
 
     m_sourceSampleRate = 0;
@@ -191,6 +204,22 @@ AudioCallbackPlaySource::clearModels()
 void
 AudioCallbackPlaySource::play(size_t startFrame)
 {
+    if (m_viewManager->getPlaySelectionMode()) {
+	ViewManager::SelectionList selections = m_viewManager->getSelections();
+	ViewManager::SelectionList::iterator i = selections.begin();
+	if (i != selections.end()) {
+	    if (startFrame < i->getStartFrame()) {
+		startFrame = i->getStartFrame();
+	    } else {
+		ViewManager::SelectionList::iterator j = selections.end();
+		--j;
+		if (startFrame >= j->getEndFrame()) {
+		    startFrame = i->getStartFrame();
+		}
+	    }
+	}
+    }
+
     // The fill thread will automatically empty its buffers before
     // starting again if we have not so far been playing, but not if
     // we're just re-seeking.
@@ -211,6 +240,7 @@ AudioCallbackPlaySource::play(size_t startFrame)
 
     m_playing = true;
     m_condition.wakeAll();
+    emit playStatusChanged(m_playing);
 }
 
 void
@@ -218,6 +248,7 @@ AudioCallbackPlaySource::stop()
 {
     m_playing = false;
     m_condition.wakeAll();
+    emit playStatusChanged(m_playing);
 }
 
 void
@@ -229,17 +260,13 @@ AudioCallbackPlaySource::selectionChanged()
 	    getRingBuffer(c).reset();
 	}
 	m_mutex.unlock();
+	m_condition.wakeAll();
     }
 }
 
 void
 AudioCallbackPlaySource::playLoopModeChanged()
 {
-    m_mutex.lock();
-    for (size_t c = 0; c < m_bufferCount; ++c) {
-	getRingBuffer(c).reset();
-    }
-    m_mutex.unlock();
 }
 
 void
@@ -251,6 +278,7 @@ AudioCallbackPlaySource::playSelectionModeChanged()
 	    getRingBuffer(c).reset();
 	}
 	m_mutex.unlock();
+	m_condition.wakeAll();
     }
 }
 
@@ -317,7 +345,15 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 
     size_t framePlaying = bufferedFrame;
     if (framePlaying > latency) framePlaying -= latency;
-    else framePlaying = 0;
+    else {
+	//!!! Not right
+	if (m_viewManager->getPlayLoopMode() &&
+	    !m_viewManager->getPlaySelectionMode()) {
+	    framePlaying += m_lastModelEndFrame;
+	    if (framePlaying > latency) framePlaying -= latency;
+	    else framePlaying = 0;
+	}
+    }
 
     if (!m_viewManager->getPlaySelectionMode()) {
 	return framePlaying;
@@ -330,26 +366,41 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 
     ViewManager::SelectionList::const_iterator i;
 
+    i = selections.begin();
+    size_t rangeStart = i->getStartFrame();
+
+    i = selections.end();
+    --i;
+    size_t rangeEnd = i->getEndFrame();
+
     for (i = selections.begin(); i != selections.end(); ++i) {
 	if (i->contains(bufferedFrame)) break;
     }
 
     size_t f = bufferedFrame;
 
-    std::cerr << "getCurrentPlayingFrame: f=" << f << ", latency=" << latency << std::endl;
+//    std::cerr << "getCurrentPlayingFrame: f=" << f << ", latency=" << latency << ", rangeEnd=" << rangeEnd << std::endl;
 
     if (i == selections.end()) {
 	--i;
 	if (i->getEndFrame() + latency < f) {
-	    return framePlaying;
+//    std::cerr << "framePlaying = " << framePlaying << ", rangeEnd = " << rangeEnd << std::endl;
+
+	    if (!m_viewManager->getPlayLoopMode() && (framePlaying > rangeEnd)) {
+//		std::cerr << "STOPPING" << std::endl;
+		stop();
+		return rangeEnd;
+	    } else {
+		return framePlaying;
+	    }
 	} else {
-	    std::cerr << "latency <- " << latency << "-(" << f << "-" << i->getEndFrame() << ")" << std::endl;
+//	    std::cerr << "latency <- " << latency << "-(" << f << "-" << i->getEndFrame() << ")" << std::endl;
 	    latency -= (f - i->getEndFrame());
 	    f = i->getEndFrame();
 	}
     }
 
-    std::cerr << "i=(" << i->getStartFrame() << "," << i->getEndFrame() << ") f=" << f << ", latency=" << latency << std::endl;
+//    std::cerr << "i=(" << i->getStartFrame() << "," << i->getEndFrame() << ") f=" << f << ", latency=" << latency << std::endl;
 
     while (latency > 0) {
 	size_t offset = f - i->getStartFrame();
@@ -615,7 +666,7 @@ AudioCallbackPlaySource::fillBuffers()
     }
     
     if (space == 0) return;
-    
+
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cout << "AudioCallbackPlaySourceFillThread: filling " << space << " frames" << std::endl;
 #endif
@@ -818,6 +869,8 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 	chunkSize = count - processed;
 	nextChunkStart = chunkStart + chunkSize;
 
+	size_t fadeIn = 0, fadeOut = 0;
+
 	if (useSelection) {
 	    
 	    Selection selection =
@@ -827,6 +880,7 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 		if (m_viewManager->getPlayLoopMode()) {
 		    selection = *m_viewManager->getSelections().begin();
 		    chunkStart = selection.getStartFrame();
+		    fadeIn = 50;
 		}
 	    }
 
@@ -839,13 +893,29 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 
 		if (chunkStart < selection.getStartFrame()) {
 		    chunkStart = selection.getStartFrame();
+		    fadeIn = 50;
 		}
 
-		nextChunkStart = std::min(chunkStart + chunkSize,
-					  selection.getEndFrame());
+		nextChunkStart = chunkStart + chunkSize;
+
+		if (nextChunkStart > selection.getEndFrame()) {
+		    nextChunkStart = selection.getEndFrame();
+		    fadeOut = 50;
+		}
 
 		chunkSize = nextChunkStart - chunkStart;
 	    }
+	
+	} else if (m_viewManager->getPlayLoopMode() &&
+		   m_lastModelEndFrame > 0) {
+
+	    if (chunkStart >= m_lastModelEndFrame) {
+		chunkStart = 0;
+	    }
+	    if (chunkSize > m_lastModelEndFrame - chunkStart) {
+		chunkSize = m_lastModelEndFrame - chunkStart;
+	    }
+	    nextChunkStart = chunkStart + chunkSize;
 	}
 	
 	if (!chunkSize) {
@@ -865,11 +935,32 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 
 	size_t got = 0;
 
+	if (chunkSize < 100) {
+	    fadeIn = 0;
+	    fadeOut = 0;
+	} else if (chunkSize < 300) {
+	    if (fadeIn > 0) fadeIn = 10;
+	    if (fadeOut > 0) fadeOut = 10;
+	}
+
+	if (fadeIn > 0) {
+	    if (processed * 2 < fadeIn) {
+		fadeIn = processed * 2;
+	    }
+	}
+
+	if (fadeOut > 0) {
+	    if ((count - processed) * 2 < fadeOut) {
+		fadeOut = (count - processed) * 2;
+	    }
+	}
+
 	for (std::set<Model *>::iterator mi = m_models.begin();
 	     mi != m_models.end(); ++mi) {
 	    
 	    got = m_audioGenerator->mixModel(*mi, chunkStart, 
-					     chunkSize, chunkBufferPtrs);
+					     chunkSize, chunkBufferPtrs,
+					     fadeIn, fadeOut);
 	}
 
 	for (size_t c = 0; c < channels; ++c) {
@@ -911,12 +1002,13 @@ AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()
 	}
 
 	if (!s.m_playing) ms *= 10;
+	ms = ms / 8;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	std::cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms/4 << "ms..." << std::endl;
+	std::cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms << "ms..." << std::endl;
 #endif
 
-	s.m_condition.wait(&s.m_mutex, size_t(ms / 4));
+	s.m_condition.wait(&s.m_mutex, size_t(ms));
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	std::cout << "AudioCallbackPlaySourceFillThread: awoken" << std::endl;

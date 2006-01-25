@@ -150,7 +150,7 @@ AudioGenerator::getBlockSize() const
 
 size_t
 AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
-			 float **buffer)
+			 float **buffer, size_t fadeIn, size_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
 	std::cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << std::endl;
@@ -169,14 +169,14 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
     DenseTimeValueModel *dtvm = dynamic_cast<DenseTimeValueModel *>(model);
     if (dtvm) {
 	return mixDenseTimeValueModel(dtvm, startFrame, frameCount,
-				      buffer, gain, pan);
+				      buffer, gain, pan, fadeIn, fadeOut);
     }
 
     SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
 	(model);
     if (sodm) {
 	return mixSparseOneDimensionalModel(sodm, startFrame, frameCount,
-					    buffer, gain, pan);
+					    buffer, gain, pan, fadeIn, fadeOut);
     }
 
     return frameCount;
@@ -185,23 +185,43 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 size_t
 AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 				       size_t startFrame, size_t frames,
-				       float **buffer, float gain, float pan)
+				       float **buffer, float gain, float pan,
+				       size_t fadeIn, size_t fadeOut)
 {
     static float *channelBuffer = 0;
     static size_t channelBufSiz = 0;
     
-    if (channelBufSiz < frames) {
+    size_t totalFrames = frames + fadeIn/2 + fadeOut/2;
+
+    if (channelBufSiz < totalFrames) {
 	delete[] channelBuffer;
-	channelBuffer = new float[frames];
-	channelBufSiz = frames;
+	channelBuffer = new float[totalFrames];
+	channelBufSiz = totalFrames;
     }
     
     size_t got = 0;
 
     for (size_t c = 0; c < m_targetChannelCount && c < dtvm->getChannelCount(); ++c) {
-	got = dtvm->getValues(c, startFrame, startFrame + frames, channelBuffer);
-	for (size_t i = 0; i < frames; ++i) {
-	    buffer[c][i] += gain * channelBuffer[i];
+
+	got = dtvm->getValues
+	    (c, startFrame - fadeIn/2, startFrame + frames + fadeOut/2,
+	     channelBuffer);
+
+	for (size_t i = 0; i < fadeIn/2; ++i) {
+	    float *back = buffer[c];
+	    back -= fadeIn/2;
+	    back[i] += (gain * channelBuffer[i] * i) / fadeIn;
+	}
+
+	for (size_t i = 0; i < frames + fadeOut/2; ++i) {
+	    float mult = gain;
+	    if (i < fadeIn/2) {
+		mult = (mult * i) / fadeIn;
+	    }
+	    if (i > frames - fadeOut/2) {
+		mult = (mult * ((frames + fadeOut/2) - i)) / fadeOut;
+	    }
+	    buffer[c][i] += mult * channelBuffer[i];
 	}
     }
 
@@ -211,7 +231,9 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 size_t
 AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 					     size_t startFrame, size_t frames,
-					     float **buffer, float gain, float pan)
+					     float **buffer, float gain, float pan,
+					     size_t /* fadeIn */,
+					     size_t /* fadeOut */)
 {
     RealTimePluginInstance *plugin = m_synthMap[sodm];
     if (!plugin) return 0;

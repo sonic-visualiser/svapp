@@ -164,6 +164,8 @@ public:
 signals:
     void modelReplaced();
 
+    void playStatusChanged(bool isPlaying);
+
     /// Just a warning
     void sampleRateMismatch(size_t requested, size_t available);
 
@@ -186,6 +188,7 @@ protected:
     bool                             m_playing;
     bool                             m_exiting;
     size_t                           m_bufferedToFrame;
+    size_t                           m_lastModelEndFrame;
     static const size_t              m_ringBufferSize;
     float                            m_outputLeft;
     float                            m_outputRight;
@@ -222,7 +225,10 @@ protected:
     TimeStretcherData *m_timeStretcher;
     Scavenger<TimeStretcherData> m_timeStretcherScavenger;
 
-    void fillBuffers(); // Called from fill thread, m_playing true, mutex held
+    // Called from fill thread, m_playing true, mutex held
+    void fillBuffers();
+    
+    // Called from fillBuffers
     bool mixModels(size_t &frame, size_t count, float **buffers);
 
     class AudioCallbackPlaySourceFillThread : public QThread

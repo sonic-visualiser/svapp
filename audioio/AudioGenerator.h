@@ -63,7 +63,7 @@ public:
      * Mix a single model into an output buffer.
      */
     virtual size_t mixModel(Model *model, size_t startFrame, size_t frameCount,
-			    float **buffer);
+			    float **buffer, size_t fadeIn = 0, size_t fadeOut = 0);
 
 protected:
     ViewManager *m_viewManager;
@@ -93,11 +93,11 @@ protected:
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan);
+     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
     virtual size_t mixSparseOneDimensionalModel
     (SparseOneDimensionalModel *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan);
+     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
     static const size_t m_pluginBlockSize;
 };
