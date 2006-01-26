@@ -25,7 +25,7 @@
 const size_t
 AudioGenerator::m_pluginBlockSize = 2048;
 
-// #define DEBUG_AUDIO_GENERATOR 1
+//#define DEBUG_AUDIO_GENERATOR 1
 
 AudioGenerator::AudioGenerator(ViewManager *manager) :
     m_viewManager(manager),
@@ -190,7 +190,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 {
     static float *channelBuffer = 0;
     static size_t channelBufSiz = 0;
-    
+
     size_t totalFrames = frames + fadeIn/2 + fadeOut/2;
 
     if (channelBufSiz < totalFrames) {
@@ -203,9 +203,16 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 
     for (size_t c = 0; c < m_targetChannelCount && c < dtvm->getChannelCount(); ++c) {
 
-	got = dtvm->getValues
-	    (c, startFrame - fadeIn/2, startFrame + frames + fadeOut/2,
-	     channelBuffer);
+	if (startFrame >= fadeIn/2) {
+	    got = dtvm->getValues
+		(c, startFrame - fadeIn/2, startFrame + frames + fadeOut/2,
+		 channelBuffer);
+	} else {
+	    size_t missing = fadeIn/2 - startFrame;
+	    got = dtvm->getValues
+		(c, 0, startFrame + frames + fadeOut/2,
+		 channelBuffer + missing);
+	}	    
 
 	for (size_t i = 0; i < fadeIn/2; ++i) {
 	    float *back = buffer[c];
@@ -276,7 +283,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	size_t reqStart = startFrame + i * m_pluginBlockSize;
 
 	SparseOneDimensionalModel::PointList points =
-	    sodm->getPoints(reqStart > 0 ? reqStart + latency : reqStart,
+	    sodm->getPoints(reqStart + latency,
 			    reqStart + latency + m_pluginBlockSize);
 
 	RealTime blockTime = RealTime::frame2RealTime
@@ -286,7 +293,11 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		 points.begin(); pli != points.end(); ++pli) {
 
 	    size_t pliFrame = pli->frame;
+
 	    if (pliFrame >= latency) pliFrame -= latency;
+
+	    if (pliFrame < reqStart ||
+		pliFrame >= reqStart + m_pluginBlockSize) continue;
 
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= pliFrame) {
@@ -295,6 +306,11 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		    (noteOffs.begin()->frame, m_sourceSampleRate);
 
 		offEv.data.note.note = noteOffs.begin()->pitch;
+
+#ifdef DEBUG_AUDIO_GENERATOR
+		std::cerr << "mixModel [sparse]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+#endif
+
 		plugin->sendEvent(eventTime, &offEv);
 		noteOffs.erase(noteOffs.begin());
 	    }
@@ -323,6 +339,11 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		(noteOffs.begin()->frame, m_sourceSampleRate);
 
 	    offEv.data.note.note = noteOffs.begin()->pitch;
+
+#ifdef DEBUG_AUDIO_GENERATOR
+		std::cerr << "mixModel [sparse]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+#endif
+
 	    plugin->sendEvent(eventTime, &offEv);
 	    noteOffs.erase(noteOffs.begin());
 	}

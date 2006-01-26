@@ -204,7 +204,8 @@ AudioCallbackPlaySource::clearModels()
 void
 AudioCallbackPlaySource::play(size_t startFrame)
 {
-    if (m_viewManager->getPlaySelectionMode()) {
+    if (m_viewManager->getPlaySelectionMode() &&
+	!m_viewManager->getSelections().empty()) {
 	ViewManager::SelectionList selections = m_viewManager->getSelections();
 	ViewManager::SelectionList::iterator i = selections.begin();
 	if (i != selections.end()) {
@@ -217,6 +218,10 @@ AudioCallbackPlaySource::play(size_t startFrame)
 		    startFrame = i->getStartFrame();
 		}
 	    }
+	}
+    } else {
+	if (startFrame >= m_lastModelEndFrame) {
+	    startFrame = 0;
 	}
     }
 
@@ -343,27 +348,28 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     latency += readSpace;
     size_t bufferedFrame = m_bufferedToFrame;
 
+    bool looping = m_viewManager->getPlayLoopMode();
+    bool constrained = (m_viewManager->getPlaySelectionMode() &&
+			!m_viewManager->getSelections().empty());
+
     size_t framePlaying = bufferedFrame;
-    if (framePlaying > latency) framePlaying -= latency;
-    else {
-	//!!! Not right
-	if (m_viewManager->getPlayLoopMode() &&
-	    !m_viewManager->getPlaySelectionMode()) {
-	    framePlaying += m_lastModelEndFrame;
-	    if (framePlaying > latency) framePlaying -= latency;
-	    else framePlaying = 0;
-	}
+
+    if (looping && !constrained) {
+	while (framePlaying < latency) framePlaying += m_lastModelEndFrame;
     }
 
-    if (!m_viewManager->getPlaySelectionMode()) {
+    if (framePlaying > latency) framePlaying -= latency;
+    else framePlaying = 0;
+
+    if (!constrained) {
+	if (!looping && framePlaying > m_lastModelEndFrame) {
+	    framePlaying = m_lastModelEndFrame;
+	    stop();
+	}
 	return framePlaying;
     }
 
     ViewManager::SelectionList selections = m_viewManager->getSelections();
-    if (selections.empty()) {
-	return framePlaying;
-    }
-
     ViewManager::SelectionList::const_iterator i;
 
     i = selections.begin();
@@ -386,7 +392,7 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	if (i->getEndFrame() + latency < f) {
 //    std::cerr << "framePlaying = " << framePlaying << ", rangeEnd = " << rangeEnd << std::endl;
 
-	    if (!m_viewManager->getPlayLoopMode() && (framePlaying > rangeEnd)) {
+	    if (!looping && (framePlaying > rangeEnd)) {
 //		std::cerr << "STOPPING" << std::endl;
 		stop();
 		return rangeEnd;
@@ -413,7 +419,7 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	    break;
 	} else {
 	    if (i == selections.begin()) {
-		if (m_viewManager->getPlayLoopMode()) {
+		if (looping) {
 		    i = selections.end();
 		}
 	    }
@@ -843,8 +849,9 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
     size_t chunkSize = count;
     size_t nextChunkStart = chunkStart + chunkSize;
     
-    bool useSelection = (m_viewManager->getPlaySelectionMode() &&
-			 !m_viewManager->getSelections().empty());
+    bool looping = m_viewManager->getPlayLoopMode();
+    bool constrained = (m_viewManager->getPlaySelectionMode() &&
+			!m_viewManager->getSelections().empty());
 
     static float **chunkBufferPtrs = 0;
     static size_t chunkBufferPtrCount = 0;
@@ -871,13 +878,13 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 
 	size_t fadeIn = 0, fadeOut = 0;
 
-	if (useSelection) {
+	if (constrained) {
 	    
 	    Selection selection =
 		m_viewManager->getContainingSelection(chunkStart, true);
 	    
 	    if (selection.isEmpty()) {
-		if (m_viewManager->getPlayLoopMode()) {
+		if (looping) {
 		    selection = *m_viewManager->getSelections().begin();
 		    chunkStart = selection.getStartFrame();
 		    fadeIn = 50;
@@ -906,8 +913,7 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 		chunkSize = nextChunkStart - chunkStart;
 	    }
 	
-	} else if (m_viewManager->getPlayLoopMode() &&
-		   m_lastModelEndFrame > 0) {
+	} else if (looping && m_lastModelEndFrame > 0) {
 
 	    if (chunkStart >= m_lastModelEndFrame) {
 		chunkStart = 0;
