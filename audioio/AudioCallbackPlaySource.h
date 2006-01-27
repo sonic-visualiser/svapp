@@ -178,9 +178,21 @@ protected:
     ViewManager                     *m_viewManager;
     AudioGenerator                  *m_audioGenerator;
 
+    class RingBufferVector : public std::vector<RingBuffer<float> *> {
+    public:
+	virtual ~RingBufferVector() {
+	    while (!empty()) {
+		delete *begin();
+		erase(begin());
+	    }
+	}
+    };
+
     std::set<Model *>                m_models;
-    std::vector<RingBuffer<float> *> m_buffers;
-    size_t                           m_bufferCount;
+    RingBufferVector                *m_readBuffers;
+    RingBufferVector                *m_writeBuffers;
+    Scavenger<RingBufferVector>      m_bufferScavenger;
+    size_t                           m_sourceChannelCount;
     size_t                           m_blockSize;
     size_t                           m_sourceSampleRate;
     size_t                           m_targetSampleRate;
@@ -193,9 +205,24 @@ protected:
     float                            m_outputLeft;
     float                            m_outputRight;
 
-    RingBuffer<float> &getRingBuffer(size_t c) {
-	return *m_buffers[c];
+    RingBuffer<float> *getWriteRingBuffer(size_t c) {
+	if (m_writeBuffers && c < m_writeBuffers->size()) {
+	    return (*m_writeBuffers)[c];
+	} else {
+	    return 0;
+	}
     }
+
+    RingBuffer<float> *getReadRingBuffer(size_t c) {
+	RingBufferVector *rb = m_readBuffers;
+	if (rb && c < rb->size()) {
+	    return (*rb)[c];
+	} else {
+	    return 0;
+	}
+    }
+
+    void clearRingBuffers(bool haveLock = false, size_t count = 0);
 
     class TimeStretcherData
     {
@@ -228,8 +255,11 @@ protected:
     // Called from fill thread, m_playing true, mutex held
     void fillBuffers();
     
-    // Called from fillBuffers
-    bool mixModels(size_t &frame, size_t count, float **buffers);
+    // Called from fillBuffers.  Return the number of frames written,
+    // which will be count or fewer.  Return in the frame argument the
+    // new buffered frame position (which may be earlier than the
+    // frame argument passed in, in the case of looping).
+    size_t mixModels(size_t &frame, size_t count, float **buffers);
 
     class AudioCallbackPlaySourceFillThread : public QThread
     {
