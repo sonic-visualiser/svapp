@@ -253,7 +253,8 @@ protected:
     Scavenger<TimeStretcherData> m_timeStretcherScavenger;
 
     // Called from fill thread, m_playing true, mutex held
-    void fillBuffers();
+    // Return true if work done
+    bool fillBuffers();
     
     // Called from fillBuffers.  Return the number of frames written,
     // which will be count or fewer.  Return in the frame argument the

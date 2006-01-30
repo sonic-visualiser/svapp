@@ -622,7 +622,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 
 		got = rb->read(buffer[ch], request);
 	    
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
 		std::cout << "AudioCallbackPlaySource::getSamples: got " << got << " samples on channel " << ch << ", signalling for more (possibly)" << std::endl;
 #endif
 	    }
@@ -684,13 +684,13 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 	}
     }
 
-    if (m_slowdownCounter == 0) m_condition.wakeAll();
+//!!!    if (m_slowdownCounter == 0) m_condition.wakeAll();
     m_slowdownCounter = (m_slowdownCounter + 1) % timeStretcher->getFactor();
     return count;
 }
 
 // Called from fill thread, m_playing true, mutex held
-void
+bool
 AudioCallbackPlaySource::fillBuffers()
 {
     static float *tmp = 0;
@@ -705,7 +705,7 @@ AudioCallbackPlaySource::fillBuffers()
 	}
     }
     
-    if (space == 0) return;
+    if (space == 0) return false;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cout << "AudioCallbackPlaySourceFillThread: filling " << space << " frames" << std::endl;
@@ -754,7 +754,7 @@ AudioCallbackPlaySource::fillBuffers()
 
 	// orig must be a multiple of generatorBlockSize
 	orig = (orig / generatorBlockSize) * generatorBlockSize;
-	if (orig == 0) return;
+	if (orig == 0) return false;
 
 	size_t work = std::max(orig, space);
 
@@ -838,7 +838,7 @@ AudioCallbackPlaySource::fillBuffers()
 
 	// space must be a multiple of generatorBlockSize
 	space = (space / generatorBlockSize) * generatorBlockSize;
-	if (space == 0) return;
+	if (space == 0) return false;
 
 	if (tmpSize < channels * space) {
 	    delete[] tmp;
@@ -873,6 +873,8 @@ AudioCallbackPlaySource::fillBuffers()
 	m_bufferedToFrame = f;
 	//!!! how do we know when ended? need to mark up a fully-buffered flag and check this if we find the buffers empty in getSourceSamples
     }
+
+    return true;
 }    
 
 size_t
@@ -1020,7 +1022,7 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    std::cerr << "Returning selection playback at " << nextChunkStart << std::endl;
+    std::cerr << "Returning selection playback " << processed << " frames to " << nextChunkStart << std::endl;
 #endif
 
     frame = nextChunkStart;
@@ -1039,6 +1041,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()
     s.m_mutex.lock();
 
     bool previouslyPlaying = s.m_playing;
+    bool work = false;
 
     while (!s.m_exiting) {
 
@@ -1049,26 +1052,34 @@ AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()
 	}
 	
 	s.m_bufferScavenger.scavenge();
-
 	s.m_timeStretcherScavenger.scavenge();
 
-	float ms = 100;
-	if (s.getSourceSampleRate() > 0) {
-	    ms = float(m_ringBufferSize) / float(s.getSourceSampleRate()) * 1000.0;
-	}
+	if (work && s.m_playing && s.getSourceSampleRate()) {
 
-	if (!s.m_playing) ms *= 10;
-	ms = ms / 8;
+	    s.m_mutex.unlock();
+	    s.m_mutex.lock();
 
+	} else {
+	    
+	    float ms = 100;
+	    if (s.getSourceSampleRate() > 0) {
+		ms = float(m_ringBufferSize) / float(s.getSourceSampleRate()) * 1000.0;
+	    }
+	    
+	    if (s.m_playing) ms /= 10;
+	    
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	std::cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms << "ms..." << std::endl;
+	    std::cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms << "ms..." << std::endl;
 #endif
-
-	s.m_condition.wait(&s.m_mutex, size_t(ms));
+	    
+	    s.m_condition.wait(&s.m_mutex, size_t(ms));
+	}
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	std::cout << "AudioCallbackPlaySourceFillThread: awoken" << std::endl;
 #endif
+
+	work = false;
 
 	if (!s.getSourceSampleRate()) continue;
 
@@ -1085,7 +1096,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()
 	}
 	previouslyPlaying = playing;
 
-	s.fillBuffers();
+	work = s.fillBuffers();
     }
 
     s.m_mutex.unlock();
