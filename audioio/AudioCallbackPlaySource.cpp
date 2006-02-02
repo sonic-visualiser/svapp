@@ -80,6 +80,8 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 void
 AudioCallbackPlaySource::addModel(Model *model)
 {
+    m_audioGenerator->addModel(model);
+
     m_mutex.lock();
 
     m_models.insert(model);
@@ -115,8 +117,6 @@ AudioCallbackPlaySource::addModel(Model *model)
     if (!m_writeBuffers || m_writeBuffers->size() < modelChannels) {
 	m_audioGenerator->setTargetChannelCount(modelChannels);
     }
-
-    m_audioGenerator->addModel(model);
 
     if (!m_writeBuffers || (m_writeBuffers->size() < modelChannels)) {
 	clearRingBuffers(true, modelChannels);
@@ -172,9 +172,9 @@ AudioCallbackPlaySource::removeModel(Model *model)
     }
     m_lastModelEndFrame = lastEnd;
 
-    m_audioGenerator->removeModel(model);
-
     m_mutex.unlock();
+
+    m_audioGenerator->removeModel(model);
 
     clearRingBuffers();
 }
@@ -193,11 +193,11 @@ AudioCallbackPlaySource::clearModels()
 
     m_lastModelEndFrame = 0;
 
-    m_audioGenerator->clearModels();
-
     m_sourceSampleRate = 0;
 
     m_mutex.unlock();
+
+    m_audioGenerator->clearModels();
 }    
 
 void
@@ -224,7 +224,7 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, size_t count)
 
     if (!haveLock) {
 	m_mutex.unlock();
-	m_condition.wakeAll();
+//!!!	m_condition.wakeAll();
     }
 }
 

@@ -16,6 +16,8 @@ class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class RealTimePluginInstance;
 
+#include <QMutex>
+
 #include <set>
 #include <map>
 
@@ -88,6 +90,7 @@ protected:
     typedef std::set<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<SparseOneDimensionalModel *, NoteOffSet> NoteOffMap;
 
+    QMutex m_mutex;
     PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
 

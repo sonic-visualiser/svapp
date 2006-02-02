@@ -79,6 +79,7 @@ AudioGenerator::addModel(Model *model)
 	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
 
     if (instance) {
+	QMutexLocker locker(&m_mutex);
 	m_synthMap[sodm] = instance;
 	for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
 	    instance->setParameterValue(i, instance->getParameterDefault(i));
@@ -102,6 +103,8 @@ AudioGenerator::removeModel(Model *model)
 	dynamic_cast<SparseOneDimensionalModel *>(model);
     if (!sodm) return; // nothing to do
 
+    QMutexLocker locker(&m_mutex);
+
     if (m_synthMap.find(sodm) == m_synthMap.end()) return;
 
     RealTimePluginInstance *instance = m_synthMap[sodm];
@@ -112,6 +115,7 @@ AudioGenerator::removeModel(Model *model)
 void
 AudioGenerator::clearModels()
 {
+    QMutexLocker locker(&m_mutex);
     while (!m_synthMap.empty()) {
 	RealTimePluginInstance *instance = m_synthMap.begin()->second;
 	m_synthMap.erase(m_synthMap.begin());
@@ -122,6 +126,7 @@ AudioGenerator::clearModels()
 void
 AudioGenerator::reset()
 {
+    QMutexLocker locker(&m_mutex);
     for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
 	if (i->second) {
 	    i->second->silence();
@@ -135,6 +140,7 @@ AudioGenerator::reset()
 void
 AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
 {
+    QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
 
     for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
@@ -156,6 +162,8 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 	std::cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << std::endl;
 	return frameCount;
     }
+
+    QMutexLocker locker(&m_mutex);
 
     PlayParameters *parameters = m_viewManager->getPlayParameters(model);
     if (!parameters) return frameCount;
