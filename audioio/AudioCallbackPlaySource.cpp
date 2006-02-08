@@ -233,13 +233,13 @@ AudioCallbackPlaySource::play(size_t startFrame)
 {
     if (m_viewManager->getPlaySelectionMode() &&
 	!m_viewManager->getSelections().empty()) {
-	ViewManager::SelectionList selections = m_viewManager->getSelections();
-	ViewManager::SelectionList::iterator i = selections.begin();
+	MultiSelection::SelectionList selections = m_viewManager->getSelections();
+	MultiSelection::SelectionList::iterator i = selections.begin();
 	if (i != selections.end()) {
 	    if (startFrame < i->getStartFrame()) {
 		startFrame = i->getStartFrame();
 	    } else {
-		ViewManager::SelectionList::iterator j = selections.end();
+		MultiSelection::SelectionList::iterator j = selections.end();
 		--j;
 		if (startFrame >= j->getEndFrame()) {
 		    startFrame = i->getStartFrame();
@@ -392,8 +392,8 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	return framePlaying;
     }
 
-    ViewManager::SelectionList selections = m_viewManager->getSelections();
-    ViewManager::SelectionList::const_iterator i;
+    MultiSelection::SelectionList selections = m_viewManager->getSelections();
+    MultiSelection::SelectionList::const_iterator i;
 
     i = selections.begin();
     size_t rangeStart = i->getStartFrame();
