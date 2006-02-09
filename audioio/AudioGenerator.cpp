@@ -38,7 +38,7 @@ AudioGenerator::~AudioGenerator()
 {
 }
 
-void
+bool
 AudioGenerator::addModel(Model *model)
 {
     if (m_sourceSampleRate == 0) {
@@ -52,12 +52,13 @@ AudioGenerator::addModel(Model *model)
 
 	if (dtvm) {
 	    m_sourceSampleRate = model->getSampleRate();
+	    return true;
 	}
     }
 
     SparseOneDimensionalModel *sodm =
 	dynamic_cast<SparseOneDimensionalModel *>(model);
-    if (!sodm) return; // nothing else to initialise
+    if (!sodm) return false; // nothing else to initialise
 
 //	QString pluginId = "dssi:/usr/lib/dssi/dssi-vst.so:FEARkILLERrev1.dll";
 //	QString pluginId = "dssi:/usr/lib/dssi/hexter.so:hexter";
@@ -71,7 +72,7 @@ AudioGenerator::addModel(Model *model)
     
     if (!factory) {
 	std::cerr << "Failed to get plugin factory" << std::endl;
-	return;
+	return false;
     }
 	
     RealTimePluginInstance *instance =
@@ -93,7 +94,10 @@ AudioGenerator::addModel(Model *model)
 	instance->setIdealChannelCount(m_targetChannelCount); // reset!
     } else {
 	std::cerr << "Failed to instantiate plugin" << std::endl;
+	return false;
     }
+
+    return true;
 }
 
 void

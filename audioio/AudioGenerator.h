@@ -30,8 +30,10 @@ public:
     /**
      * Add a data model to be played from and initialise any
      * necessary audio generation code.
+     * Returns true if the model is of a type that we know how to play.
+     * (The model will be added regardless.)
      */
-    virtual void addModel(Model *model);
+    virtual bool addModel(Model *model);
 
     /**
      * Remove a model.

@@ -80,7 +80,7 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 void
 AudioCallbackPlaySource::addModel(Model *model)
 {
-    m_audioGenerator->addModel(model);
+    bool canPlay = m_audioGenerator->addModel(model);
 
     m_mutex.lock();
 
@@ -122,7 +122,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 	clearRingBuffers(true, modelChannels);
 	buffersChanged = true;
     } else {
-	clearRingBuffers(true);
+	if (canPlay) clearRingBuffers(true);
     }
 
     if (buffersChanged || srChanged) {
