@@ -12,6 +12,7 @@
 
 class Model;
 class ViewManager;
+class NoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class RealTimePluginInstance;
@@ -86,15 +87,16 @@ protected:
 	};
     };
 
-    typedef std::map<SparseOneDimensionalModel *,
-		     RealTimePluginInstance *> PluginMap;
+    typedef std::map<Model *, RealTimePluginInstance *> PluginMap;
 
     typedef std::set<NoteOff, NoteOff::Comparator> NoteOffSet;
-    typedef std::map<SparseOneDimensionalModel *, NoteOffSet> NoteOffMap;
+    typedef std::map<Model *, NoteOffSet> NoteOffMap;
 
     QMutex m_mutex;
     PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
+
+    virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
@@ -102,6 +104,10 @@ protected:
 
     virtual size_t mixSparseOneDimensionalModel
     (SparseOneDimensionalModel *model, size_t startFrame, size_t frameCount,
+     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
+
+    virtual size_t mixNoteModel
+    (NoteModel *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
     static const size_t m_pluginBlockSize;
