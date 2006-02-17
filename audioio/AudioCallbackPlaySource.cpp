@@ -13,6 +13,7 @@
 
 #include "base/Model.h"
 #include "base/ViewManager.h"
+#include "base/PlayParameterRepository.h"
 #include "model/DenseTimeValueModel.h"
 #include "model/SparseOneDimensionalModel.h"
 #include "dsp/timestretching/IntegerTimeStretcher.h"
@@ -54,6 +55,10 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager) :
 	    this, SLOT(playLoopModeChanged()));
     connect(m_viewManager, SIGNAL(playSelectionModeChanged()),
 	    this, SLOT(playSelectionModeChanged()));
+
+    connect(PlayParameterRepository::instance(),
+	    SIGNAL(playParametersChanged(PlayParameters *)),
+	    this, SLOT(playParametersChanged(PlayParameters *)));
 }
 
 AudioCallbackPlaySource::~AudioCallbackPlaySource()
@@ -307,6 +312,12 @@ AudioCallbackPlaySource::playSelectionModeChanged()
     if (!m_viewManager->getSelections().empty()) {
 	clearRingBuffers();
     }
+}
+
+void
+AudioCallbackPlaySource::playParametersChanged(PlayParameters *params)
+{
+    clearRingBuffers();
 }
 
 void

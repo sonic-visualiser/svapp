@@ -27,6 +27,7 @@
 class Model;
 class ViewManager;
 class AudioGenerator;
+class PlayParameters;
 class IntegerTimeStretcher;
 
 /**
@@ -173,6 +174,7 @@ protected slots:
     void selectionChanged();
     void playLoopModeChanged();
     void playSelectionModeChanged();
+    void playParametersChanged(PlayParameters *);
 
 protected:
     ViewManager                     *m_viewManager;
