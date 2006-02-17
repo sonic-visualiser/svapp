@@ -29,10 +29,19 @@ public:
     virtual ~AudioGenerator();
 
     /**
-     * Add a data model to be played from and initialise any
-     * necessary audio generation code.
-     * Returns true if the model is of a type that we know how to play.
-     * (The model will be added regardless.)
+     * Return true if the given model is of a type that we generally
+     * know how to play.  This doesn't guarantee that a specific
+     * AudioGenerator will actually produce sounds for it (for
+     * example, it may turn out that a vital plugin is missing).
+     */
+    static bool canPlay(const Model *model);
+
+    /**
+     * Add a data model to be played from and initialise any necessary
+     * audio generation code.  Returns true if the model will be
+     * played.  (The return value test here is stricter than that for
+     * canPlay, above.)  The model will be added regardless of the
+     * return value.
      */
     virtual bool addModel(Model *model);
 

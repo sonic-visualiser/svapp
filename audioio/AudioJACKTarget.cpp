@@ -83,6 +83,9 @@ AudioJACKTarget::sourceModelReplaced()
 
     size_t channels = m_source->getSourceChannelCount();
 
+    // Because we offer pan, we always want at least 2 channels
+    if (channels < 2) channels = 2;
+
     if (channels == m_outputs.size() || !m_client) {
 	m_mutex.unlock();
 	return;

@@ -41,6 +41,18 @@ AudioGenerator::~AudioGenerator()
 }
 
 bool
+AudioGenerator::canPlay(const Model *model)
+{
+    if (dynamic_cast<const DenseTimeValueModel *>(model) ||
+	dynamic_cast<const SparseOneDimensionalModel *>(model) ||
+	dynamic_cast<const NoteModel *>(model)) {
+	return true;
+    } else {
+	return false;
+    }
+}
+
+bool
 AudioGenerator::addModel(Model *model)
 {
     if (m_sourceSampleRate == 0) {
@@ -176,6 +188,10 @@ AudioGenerator::reset()
 void
 AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
 {
+    if (m_targetChannelCount == targetChannelCount) return;
+
+    std::cerr << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << std::endl;
+
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
 
@@ -251,28 +267,47 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
     }
     
     size_t got = 0;
+    size_t prevChannel = 999;
 
-    for (size_t c = 0; c < m_targetChannelCount && c < dtvm->getChannelCount(); ++c) {
+    for (size_t c = 0; c < m_targetChannelCount; ++c) {
 
-	if (startFrame >= fadeIn/2) {
-	    got = dtvm->getValues
-		(c, startFrame - fadeIn/2, startFrame + frames + fadeOut/2,
-		 channelBuffer);
-	} else {
-	    size_t missing = fadeIn/2 - startFrame;
-	    got = dtvm->getValues
-		(c, 0, startFrame + frames + fadeOut/2,
-		 channelBuffer + missing);
-	}	    
+	size_t sourceChannel = (c % dtvm->getChannelCount());
+
+//	std::cerr << "mixing channel " << c << " from source channel " << sourceChannel << std::endl;
+
+	float channelGain = gain;
+	if (pan != 0.0) {
+	    if (c == 0) {
+		if (pan > 0.0) channelGain *= 1.0 - pan;
+	    } else {
+		if (pan < 0.0) channelGain *= pan + 1.0;
+	    }
+	}
+
+	if (prevChannel != sourceChannel) {
+	    if (startFrame >= fadeIn/2) {
+		got = dtvm->getValues
+		    (sourceChannel,
+		     startFrame - fadeIn/2, startFrame + frames + fadeOut/2,
+		     channelBuffer);
+	    } else {
+		size_t missing = fadeIn/2 - startFrame;
+		got = dtvm->getValues
+		    (sourceChannel,
+		     0, startFrame + frames + fadeOut/2,
+		     channelBuffer + missing);
+	    }	    
+	}
+	prevChannel = sourceChannel;
 
 	for (size_t i = 0; i < fadeIn/2; ++i) {
 	    float *back = buffer[c];
 	    back -= fadeIn/2;
-	    back[i] += (gain * channelBuffer[i] * i) / fadeIn;
+	    back[i] += (channelGain * channelBuffer[i] * i) / fadeIn;
 	}
 
 	for (size_t i = 0; i < frames + fadeOut/2; ++i) {
-	    float mult = gain;
+	    float mult = channelGain;
 	    if (i < fadeIn/2) {
 		mult = (mult * i) / fadeIn;
 	    }
@@ -402,13 +437,25 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	plugin->run(blockTime);
 	float **outs = plugin->getAudioOutputBuffers();
 
-	for (size_t c = 0; c < m_targetChannelCount && c < plugin->getAudioOutputCount(); ++c) {
+	for (size_t c = 0; c < m_targetChannelCount; ++c) {
 #ifdef DEBUG_AUDIO_GENERATOR
 	    std::cout << "mixModel [sparse]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
 #endif
 
+	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
+
+	    float channelGain = gain;
+	    if (pan != 0.0) {
+		if (c == 0) {
+		    if (pan > 0.0) channelGain *= 1.0 - pan;
+		} else {
+		    if (pan < 0.0) channelGain *= pan + 1.0;
+		}
+	    }
+
 	    for (size_t j = 0; j < m_pluginBlockSize; ++j) {
-		buffer[c][i * m_pluginBlockSize + j] += gain * outs[c][j];
+		buffer[c][i * m_pluginBlockSize + j] +=
+		    channelGain * outs[sourceChannel][j];
 	    }
 	}
     }
@@ -536,13 +583,25 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	plugin->run(blockTime);
 	float **outs = plugin->getAudioOutputBuffers();
 
-	for (size_t c = 0; c < m_targetChannelCount && c < plugin->getAudioOutputCount(); ++c) {
+	for (size_t c = 0; c < m_targetChannelCount; ++c) {
 #ifdef DEBUG_AUDIO_GENERATOR
 	    std::cout << "mixModel [note]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
 #endif
 
+	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
+
+	    float channelGain = gain;
+	    if (pan != 0.0) {
+		if (c == 0) {
+		    if (pan > 0.0) channelGain *= 1.0 - pan;
+		} else {
+		    if (pan < 0.0) channelGain *= pan + 1.0;
+		}
+	    }
+
 	    for (size_t j = 0; j < m_pluginBlockSize; ++j) {
-		buffer[c][i * m_pluginBlockSize + j] += gain * outs[c][j];
+		buffer[c][i * m_pluginBlockSize + j] += 
+		    channelGain * outs[sourceChannel][j];
 	    }
 	}
     }

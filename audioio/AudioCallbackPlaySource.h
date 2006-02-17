@@ -140,11 +140,21 @@ public:
     virtual bool getOutputLevels(float &left, float &right);
 
     /**
-     * Get the number of channels of audio that will be available.
+     * Get the number of channels of audio that in the source models.
      * This may safely be called from a realtime thread.  Returns 0 if
      * there is no source yet available.
      */
     size_t getSourceChannelCount() const;
+
+    /**
+     * Get the number of channels of audio that will be provided
+     * to the play target.  This may be more than the source channel
+     * count: for example, a mono source will provide 2 channels
+     * after pan.
+     * This may safely be called from a realtime thread.  Returns 0 if
+     * there is no source yet available.
+     */
+    size_t getTargetChannelCount() const;
 
     /**
      * Get the actual sample rate of the source material.  This may
@@ -193,6 +203,8 @@ protected:
     std::set<Model *>                m_models;
     RingBufferVector                *m_readBuffers;
     RingBufferVector                *m_writeBuffers;
+    size_t                           m_readBufferFill;
+    size_t                           m_writeBufferFill;
     Scavenger<RingBufferVector>      m_bufferScavenger;
     size_t                           m_sourceChannelCount;
     size_t                           m_blockSize;
@@ -201,7 +213,6 @@ protected:
     size_t                           m_playLatency;
     bool                             m_playing;
     bool                             m_exiting;
-    size_t                           m_bufferedToFrame;
     size_t                           m_lastModelEndFrame;
     static const size_t              m_ringBufferSize;
     float                            m_outputLeft;
@@ -225,6 +236,7 @@ protected:
     }
 
     void clearRingBuffers(bool haveLock = false, size_t count = 0);
+    void unifyRingBuffers();
 
     class TimeStretcherData
     {
