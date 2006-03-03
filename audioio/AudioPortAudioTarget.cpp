@@ -124,6 +124,9 @@ AudioPortAudioTarget::process(void *inputBuffer, void *outputBuffer,
 
     size_t sourceChannels = m_source->getSourceChannelCount();
 
+    // Because we offer pan, we always want at least 2 channels
+    if (sourceChannels < 2) sourceChannels = 2;
+
     if (!tmpbuf || tmpbufch != sourceChannels || tmpbufsz < m_bufferSize) {
 
 	if (tmpbuf) {
