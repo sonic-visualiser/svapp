@@ -13,6 +13,7 @@
 #include "AudioCallbackPlaySource.h"
 
 #include <iostream>
+#include <cmath>
 
 //#define DEBUG_AUDIO_JACK_TARGET 1
 
