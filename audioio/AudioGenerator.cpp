@@ -23,6 +23,7 @@
 #include "plugin/api/alsa/seq_event.h"
 
 #include <iostream>
+#include <math.h>
 
 const size_t
 AudioGenerator::m_pluginBlockSize = 2048;
