@@ -125,7 +125,7 @@ public:
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    size_t getTargetSampleRate() const;
+    virtual size_t getTargetSampleRate() const;
 
     /**
      * Set the current output levels for metering (for call from the
