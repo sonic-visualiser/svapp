@@ -174,7 +174,9 @@ AudioCallbackPlaySource::removeModel(Model *model)
     size_t lastEnd = 0;
     for (std::set<Model *>::const_iterator i = m_models.begin();
 	 i != m_models.end(); ++i) {
+	std::cerr << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << std::endl;
 	if ((*i)->getEndFrame() > lastEnd) lastEnd = (*i)->getEndFrame();
+	std::cerr << "(done, lastEnd now " << lastEnd << ")" << std::endl;
     }
     m_lastModelEndFrame = lastEnd;
 
