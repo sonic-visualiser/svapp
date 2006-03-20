@@ -128,14 +128,14 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
 	    instance->setParameterValue(i, instance->getParameterDefault(i));
 	}
-	QString defaultProgram = instance->getProgram(0, 0);
+        std::string defaultProgram = instance->getProgram(0, 0);
 	if (defaultProgram != "") {
-	    std::cerr << "first selecting default program " << defaultProgram.toLocal8Bit().data() << std::endl;
+	    std::cerr << "first selecting default program " << defaultProgram << std::endl;
 	    instance->selectProgram(defaultProgram);
 	}
 	if (program != "") {
-	    std::cerr << "now selecting desired program " << program.toLocal8Bit().data() << std::endl;
-	    instance->selectProgram(program);
+	    std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
+	    instance->selectProgram(program.toStdString());
 	}
 	instance->setIdealChannelCount(m_targetChannelCount); // reset!
     } else {
