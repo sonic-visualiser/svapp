@@ -41,6 +41,15 @@ AudioGenerator::AudioGenerator(ViewManager *manager) :
     m_sourceSampleRate(0),
     m_targetChannelCount(1)
 {
+    connect(PlayParameterRepository::instance(),
+            SIGNAL(playPluginIdChanged(const Model *, QString)),
+            this,
+            SLOT(playPluginIdChanged(const Model *, QString)));
+
+    connect(PlayParameterRepository::instance(),
+            SIGNAL(playPluginConfigurationChanged(const Model *, QString)),
+            this,
+            SLOT(playPluginConfigurationChanged(const Model *, QString)));
 }
 
 AudioGenerator::~AudioGenerator()
@@ -77,37 +86,108 @@ AudioGenerator::addModel(Model *model)
 	}
     }
 
-    SparseOneDimensionalModel *sodm =
-	dynamic_cast<SparseOneDimensionalModel *>(model);
-    if (sodm) {
-	QString pluginId = QString("dssi:%1:sample_player").
-	    arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
-	RealTimePluginInstance *plugin = loadPlugin(pluginId, "cowbell");
-	if (plugin) {
-	    QMutexLocker locker(&m_mutex);
-	    m_synthMap[sodm] = plugin;
-	    return true;
-	} else {
-	    return false;
-	}
+    RealTimePluginInstance *plugin = loadPluginFor(model);
+    if (plugin) {
+        QMutexLocker locker(&m_mutex);
+        m_synthMap[model] = plugin;
+        return true;
     }
-
-    NoteModel *nm = dynamic_cast<NoteModel *>(model);
-    if (nm) {
-	QString pluginId = QString("dssi:%1:sample_player").
-	    arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
-	RealTimePluginInstance *plugin = loadPlugin(pluginId, "piano");
-	if (plugin) {
-	    QMutexLocker locker(&m_mutex);
-	    m_synthMap[nm] = plugin;
-	    return true;
-	} else {
-	    return false;
-	}
-    }
-	
 
     return false;
+}
+
+void
+AudioGenerator::playPluginIdChanged(const Model *model, QString)
+{
+    if (m_synthMap.find(model) == m_synthMap.end()) return;
+    
+    RealTimePluginInstance *plugin = loadPluginFor(model);
+    if (plugin) {
+        QMutexLocker locker(&m_mutex);
+        delete m_synthMap[model];
+        m_synthMap[model] = plugin;
+    }
+}
+
+void
+AudioGenerator::playPluginConfigurationChanged(const Model *model,
+                                               QString configurationXml)
+{
+    if (m_synthMap.find(model) == m_synthMap.end()) return;
+
+    RealTimePluginInstance *plugin = m_synthMap[model];
+    if (plugin) {
+        QMutexLocker locker(&m_mutex);
+        plugin->setParametersFromXml(configurationXml);
+    }
+}
+
+QString
+AudioGenerator::getDefaultPlayPluginId(const Model *model)
+{
+    const SparseOneDimensionalModel *sodm =
+        dynamic_cast<const SparseOneDimensionalModel *>(model);
+    if (sodm) {
+        return QString("dssi:%1:sample_player").
+            arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
+    }
+
+    const NoteModel *nm = dynamic_cast<const NoteModel *>(model);
+    if (nm) {
+        return QString("dssi:%1:sample_player").
+            arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
+    }  
+    
+    return "";
+}
+
+QString
+AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
+{
+    const SparseOneDimensionalModel *sodm =
+        dynamic_cast<const SparseOneDimensionalModel *>(model);
+    if (sodm) {
+        return "<plugin program=\"cowbell\"/>";
+    }
+
+    const NoteModel *nm = dynamic_cast<const NoteModel *>(model);
+    if (nm) {
+        return "<plugin program=\"piano\"/>";
+    }  
+    
+    return "";
+}    
+
+RealTimePluginInstance *
+AudioGenerator::loadPluginFor(const Model *model)
+{
+    QString pluginId, configurationXml;
+
+    PlayParameters *parameters =
+	PlayParameterRepository::instance()->getPlayParameters(model);
+    if (parameters) {
+        pluginId = parameters->getPlayPluginId();
+        configurationXml = parameters->getPlayPluginConfiguration();
+    }
+
+    if (pluginId == "") {
+        pluginId = getDefaultPlayPluginId(model);
+        configurationXml = getDefaultPlayPluginConfiguration(model);
+    }
+
+    if (pluginId == "") return 0;
+
+    RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
+    if (configurationXml != "") {
+        plugin->setParametersFromXml(configurationXml);
+    }
+
+    if (parameters) {
+        parameters->setPlayPluginId(pluginId);
+        parameters->setPlayPluginConfiguration(configurationXml);
+    }
+
+    return plugin;
 }
 
 RealTimePluginInstance *

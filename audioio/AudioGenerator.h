@@ -23,13 +23,16 @@ class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class RealTimePluginInstance;
 
+#include <QObject>
 #include <QMutex>
 
 #include <set>
 #include <map>
 
-class AudioGenerator
+class AudioGenerator : public QObject
 {
+    Q_OBJECT
+
 public:
     AudioGenerator(ViewManager *);
     virtual ~AudioGenerator();
@@ -41,6 +44,9 @@ public:
      * example, it may turn out that a vital plugin is missing).
      */
     static bool canPlay(const Model *model);
+
+    static QString getDefaultPlayPluginId(const Model *model);
+    static QString getDefaultPlayPluginConfiguration(const Model *model);
 
     /**
      * Add a data model to be played from and initialise any necessary
@@ -85,6 +91,10 @@ public:
     virtual size_t mixModel(Model *model, size_t startFrame, size_t frameCount,
 			    float **buffer, size_t fadeIn = 0, size_t fadeOut = 0);
 
+protected slots:
+    void playPluginIdChanged(const Model *, QString);
+    void playPluginConfigurationChanged(const Model *, QString);
+
 protected:
     ViewManager *m_viewManager;
     size_t       m_sourceSampleRate;
@@ -102,15 +112,16 @@ protected:
 	};
     };
 
-    typedef std::map<Model *, RealTimePluginInstance *> PluginMap;
+    typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
 
     typedef std::set<NoteOff, NoteOff::Comparator> NoteOffSet;
-    typedef std::map<Model *, NoteOffSet> NoteOffMap;
+    typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
     QMutex m_mutex;
     PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
 
+    virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
 
     virtual size_t mixDenseTimeValueModel
