@@ -117,7 +117,6 @@ AudioGenerator::playPluginConfigurationChanged(const Model *model,
 
     RealTimePluginInstance *plugin = m_synthMap[model];
     if (plugin) {
-        QMutexLocker locker(&m_mutex);
         plugin->setParametersFromXml(configurationXml);
     }
 }
@@ -193,11 +192,6 @@ AudioGenerator::loadPluginFor(const Model *model)
 RealTimePluginInstance *
 AudioGenerator::loadPlugin(QString pluginId, QString program)
 {
-//	QString pluginId = "dssi:/usr/lib/dssi/dssi-vst.so:FEARkILLERrev1.dll";
-//	QString pluginId = "dssi:/usr/lib/dssi/hexter.so:hexter";
-//	QString pluginId = "dssi:/usr/lib/dssi/sineshaper.so:sineshaper";
-//	QString pluginId = "dssi:/usr/local/lib/dssi/xsynth-dssi.so:Xsynth";
-//	QString pluginId = "dssi:/usr/local/lib/dssi/trivial_synth.so:TS";
     RealTimePluginFactory *factory =
 	RealTimePluginFactory::instanceFor(pluginId);
     
