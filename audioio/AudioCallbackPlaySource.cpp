@@ -301,17 +301,19 @@ AudioCallbackPlaySource::play(size_t startFrame)
 
     m_audioGenerator->reset();
 
+    bool changed = !m_playing;
     m_playing = true;
     m_condition.wakeAll();
-    emit playStatusChanged(m_playing);
+    if (changed) emit playStatusChanged(m_playing);
 }
 
 void
 AudioCallbackPlaySource::stop()
 {
+    bool changed = m_playing;
     m_playing = false;
     m_condition.wakeAll();
-    emit playStatusChanged(m_playing);
+    if (changed) emit playStatusChanged(m_playing);
 }
 
 void
@@ -1159,6 +1161,10 @@ AudioCallbackPlaySource::AudioCallbackPlaySourceFillThread::run()
 	s.m_timeStretcherScavenger.scavenge();
 
 	if (work && s.m_playing && s.getSourceSampleRate()) {
+	    
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	    std::cout << "AudioCallbackPlaySourceFillThread: not waiting" << std::endl;
+#endif
 
 	    s.m_mutex.unlock();
 	    s.m_mutex.lock();
