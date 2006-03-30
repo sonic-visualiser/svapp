@@ -47,6 +47,8 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
     m_latency = Pa_GetMinNumBuffers(m_bufferSize, m_sampleRate) * m_bufferSize;
 
+    std::cerr << "\n\n\nLATENCY= " << m_latency << std::endl;
+
     err = Pa_OpenDefaultStream(&m_stream, 0, 2, paFloat32,
 			       m_sampleRate, m_bufferSize, 0,
 			       processStatic, this);

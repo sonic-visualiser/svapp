@@ -117,6 +117,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 		  << " vs " << m_sourceSampleRate
 		  << "), playback will be wrong"
 		  << std::endl;
+        emit sampleRateMismatch(model->getSampleRate(), m_sourceSampleRate,
+                                false);
     }
 
     size_t modelChannels = 1;
@@ -519,9 +521,16 @@ AudioCallbackPlaySource::setTargetSampleRate(size_t sr)
 	    std::cerr
 		<< "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
 		<< src_strerror(err) << std::endl;
-	}
 
-	emit sampleRateMismatch(getSourceSampleRate(), getTargetSampleRate());
+            emit sampleRateMismatch(getSourceSampleRate(),
+                                    getTargetSampleRate(),
+                                    false);
+	} else {
+
+            emit sampleRateMismatch(getSourceSampleRate(),
+                                    getTargetSampleRate(),
+                                    true);
+        }
     }
 }
 

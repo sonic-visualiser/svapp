@@ -183,8 +183,7 @@ signals:
 
     void playStatusChanged(bool isPlaying);
 
-    /// Just a warning
-    void sampleRateMismatch(size_t requested, size_t available);
+    void sampleRateMismatch(size_t requested, size_t available, bool willResample);
 
 protected slots:
     void selectionChanged();
