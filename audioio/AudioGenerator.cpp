@@ -26,6 +26,7 @@
 #include "plugin/RealTimePluginFactory.h"
 #include "plugin/RealTimePluginInstance.h"
 #include "plugin/PluginIdentifier.h"
+#include "plugin/PluginXml.h"
 #include "plugin/api/alsa/seq_event.h"
 
 #include <iostream>
@@ -117,7 +118,7 @@ AudioGenerator::playPluginConfigurationChanged(const Model *model,
 
     RealTimePluginInstance *plugin = m_synthMap[model];
     if (plugin) {
-        plugin->setParametersFromXml(configurationXml);
+        PluginXml(plugin).setParametersFromXml(configurationXml);
     }
 }
 
@@ -178,7 +179,7 @@ AudioGenerator::loadPluginFor(const Model *model)
 
     RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
     if (configurationXml != "") {
-        plugin->setParametersFromXml(configurationXml);
+        PluginXml(plugin).setParametersFromXml(configurationXml);
     }
 
     if (parameters) {
@@ -453,7 +454,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	    sodm->getPoints(reqStart + latency,
 			    reqStart + latency + m_pluginBlockSize);
 
-	RealTime blockTime = RealTime::frame2RealTime
+        Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
 	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
 
 	for (SparseOneDimensionalModel::PointList::iterator pli =
@@ -469,7 +470,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= pliFrame) {
 
-		RealTime eventTime = RealTime::frame2RealTime
+                Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		    (noteOffs.begin()->frame, m_sourceSampleRate);
 
 		offEv.data.note.note = noteOffs.begin()->pitch;
@@ -482,7 +483,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		noteOffs.erase(noteOffs.begin());
 	    }
 
-	    RealTime eventTime = RealTime::frame2RealTime
+            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(pliFrame, m_sourceSampleRate);
 	    
 	    plugin->sendEvent(eventTime, &onEv);
@@ -502,7 +503,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	       noteOffs.begin()->frame <=
 	       startFrame + i * m_pluginBlockSize + m_pluginBlockSize) {
 
-	    RealTime eventTime = RealTime::frame2RealTime
+            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(noteOffs.begin()->frame, m_sourceSampleRate);
 
 	    offEv.data.note.note = noteOffs.begin()->pitch;
@@ -597,7 +598,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	    nm->getPoints(reqStart + latency,
 			    reqStart + latency + m_pluginBlockSize);
 
-	RealTime blockTime = RealTime::frame2RealTime
+        Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
 	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
 
 	for (NoteModel::PointList::iterator pli =
@@ -613,7 +614,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= pliFrame) {
 
-		RealTime eventTime = RealTime::frame2RealTime
+                Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		    (noteOffs.begin()->frame, m_sourceSampleRate);
 
 		offEv.data.note.note = noteOffs.begin()->pitch;
@@ -626,7 +627,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 		noteOffs.erase(noteOffs.begin());
 	    }
 
-	    RealTime eventTime = RealTime::frame2RealTime
+            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(pliFrame, m_sourceSampleRate);
 	    
 	    onEv.data.note.note = lrintf(pli->value);
@@ -648,7 +649,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	       noteOffs.begin()->frame <=
 	       startFrame + i * m_pluginBlockSize + m_pluginBlockSize) {
 
-	    RealTime eventTime = RealTime::frame2RealTime
+            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(noteOffs.begin()->frame, m_sourceSampleRate);
 
 	    offEv.data.note.note = noteOffs.begin()->pitch;
