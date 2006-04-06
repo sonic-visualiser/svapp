@@ -22,7 +22,7 @@
 #include "base/PlayParameterRepository.h"
 #include "model/DenseTimeValueModel.h"
 #include "model/SparseOneDimensionalModel.h"
-#include "dsp/timestretching/IntegerTimeStretcher.h"
+#include "IntegerTimeStretcher.h"
 
 #include <iostream>
 #include <cassert>
