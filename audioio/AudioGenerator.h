@@ -120,9 +120,12 @@ protected:
     QMutex m_mutex;
     PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
+    QString m_sampleDir;
 
     virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
+    QString getSampleDir();
+    void setSamplePath(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,

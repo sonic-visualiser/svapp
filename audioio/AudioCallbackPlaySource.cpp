@@ -88,6 +88,8 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 
     delete m_writeBuffers;
 
+    delete m_audioGenerator;
+
     m_bufferScavenger.scavenge(true);
 }
 
@@ -117,8 +119,10 @@ AudioCallbackPlaySource::addModel(Model *model)
 		  << " vs " << m_sourceSampleRate
 		  << "), playback will be wrong"
 		  << std::endl;
-        emit sampleRateMismatch(model->getSampleRate(), m_sourceSampleRate,
-                                false);
+        if (dynamic_cast<DenseTimeValueModel *>(model)) {
+            emit sampleRateMismatch(model->getSampleRate(), m_sourceSampleRate,
+                                    false);
+        }
     }
 
     size_t modelChannels = 1;

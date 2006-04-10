@@ -32,6 +32,9 @@
 #include <iostream>
 #include <math.h>
 
+#include <QDir>
+#include <QFile>
+
 const size_t
 AudioGenerator::m_pluginBlockSize = 2048;
 
@@ -158,6 +161,53 @@ AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
     return "";
 }    
 
+QString
+AudioGenerator::getSampleDir()
+{
+    if (m_sampleDir != "") return m_sampleDir;
+
+    QString tmppath = m_viewManager->getTemporaryDirectory();
+
+    QDir tmpdir(tmppath);
+    if (!tmpdir.mkdir("samples")) {
+        std::cerr << "WARNING: AudioGenerator::getSampleDir: Failed to create "
+                  << "directory " << tmpdir.filePath("samples").toStdString() << std::endl;
+    }
+
+    m_sampleDir = tmpdir.filePath("samples");
+    
+    QDir sampleResourceDir(":/samples", "*.wav");
+
+    for (unsigned int i = 0; i < sampleResourceDir.count(); ++i) {
+
+        QString fileName(sampleResourceDir[i]);
+        QFile file(sampleResourceDir.filePath(fileName));
+
+        if (!file.copy(QDir(m_sampleDir).filePath(fileName))) {
+            std::cerr << "WARNING: AudioGenerator::getSampleDir: "
+                      << "Unable to copy " << fileName.toStdString()
+                      << " into temporary directory \""
+                      << m_sampleDir.toStdString() << "\"" << std::endl;
+        }
+    }
+
+    return m_sampleDir;
+}
+
+void
+AudioGenerator::setSamplePath(RealTimePluginInstance *plugin)
+{
+    QString samplePath = QString("%1:%2%3%4%5%6")
+        .arg(getSampleDir())
+        .arg(QDir::homePath())
+        .arg(QDir::separator())
+        .arg(".sv")
+        .arg(QDir::separator())
+        .arg("samples");
+
+    plugin->configure("samplepath", samplePath.toStdString());
+} 
+
 RealTimePluginInstance *
 AudioGenerator::loadPluginFor(const Model *model)
 {
@@ -178,6 +228,8 @@ AudioGenerator::loadPluginFor(const Model *model)
     if (pluginId == "") return 0;
 
     RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
+    if (!plugin) return 0;
+
     if (configurationXml != "") {
         PluginXml(plugin).setParametersFromXml(configurationXml);
     }
@@ -205,23 +257,25 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	factory->instantiatePlugin
 	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
 
-    if (instance) {
-	for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
-	    instance->setParameterValue(i, instance->getParameterDefault(i));
-	}
-        std::string defaultProgram = instance->getProgram(0, 0);
-	if (defaultProgram != "") {
-	    std::cerr << "first selecting default program " << defaultProgram << std::endl;
-	    instance->selectProgram(defaultProgram);
-	}
-	if (program != "") {
-	    std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
-	    instance->selectProgram(program.toStdString());
-	}
-	instance->setIdealChannelCount(m_targetChannelCount); // reset!
-    } else {
-	std::cerr << "Failed to instantiate plugin" << std::endl;
+    if (!instance) {
+	std::cerr << "Failed to instantiate plugin " << pluginId.toStdString() << std::endl;
     }
+
+    setSamplePath(instance);
+
+    for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
+        instance->setParameterValue(i, instance->getParameterDefault(i));
+    }
+    std::string defaultProgram = instance->getProgram(0, 0);
+    if (defaultProgram != "") {
+        std::cerr << "first selecting default program " << defaultProgram << std::endl;
+        instance->selectProgram(defaultProgram);
+    }
+    if (program != "") {
+        std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
+        instance->selectProgram(program.toStdString());
+    }
+    instance->setIdealChannelCount(m_targetChannelCount); // reset!
 
     return instance;
 }
