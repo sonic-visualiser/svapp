@@ -15,7 +15,7 @@
 
 #include "AudioGenerator.h"
 
-#include "base/ViewManager.h"
+#include "base/TempDirectory.h"
 #include "base/PlayParameters.h"
 #include "base/PlayParameterRepository.h"
 
@@ -38,10 +38,12 @@
 const size_t
 AudioGenerator::m_pluginBlockSize = 2048;
 
+QString
+AudioGenerator::m_sampleDir = "";
+
 //#define DEBUG_AUDIO_GENERATOR 1
 
-AudioGenerator::AudioGenerator(ViewManager *manager) :
-    m_viewManager(manager),
+AudioGenerator::AudioGenerator() :
     m_sourceSampleRate(0),
     m_targetChannelCount(1)
 {
@@ -147,18 +149,27 @@ AudioGenerator::getDefaultPlayPluginId(const Model *model)
 QString
 AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
 {
+    QString program = "";
+
     const SparseOneDimensionalModel *sodm =
         dynamic_cast<const SparseOneDimensionalModel *>(model);
     if (sodm) {
-        return "<plugin program=\"cowbell\"/>";
+        program = "cowbell";
     }
 
     const NoteModel *nm = dynamic_cast<const NoteModel *>(model);
     if (nm) {
-        return "<plugin program=\"piano\"/>";
-    }  
-    
-    return "";
+        program = "piano";
+    }
+
+    if (program == "") return "";
+
+    return
+        QString("<plugin configuration=\"%1\" program=\"%2\"/>")
+        .arg(XmlExportable::encodeEntities
+             (QString("samplepath=%1")
+              .arg(PluginXml::encodeConfigurationChars(getSamplePath()))))
+        .arg(XmlExportable::encodeEntities(program));
 }    
 
 QString
@@ -166,16 +177,15 @@ AudioGenerator::getSampleDir()
 {
     if (m_sampleDir != "") return m_sampleDir;
 
-    QString tmppath = m_viewManager->getTemporaryDirectory();
-
-    QDir tmpdir(tmppath);
-    if (!tmpdir.mkdir("samples")) {
+    try {
+        m_sampleDir = TempDirectory::instance()->getSubDirectoryPath("samples");
+    } catch (TempDirectory::DirectoryCreationFailed f) {
         std::cerr << "WARNING: AudioGenerator::getSampleDir: Failed to create "
-                  << "directory " << tmpdir.filePath("samples").toStdString() << std::endl;
+                  << "temporary sample directory" << std::endl;
+        m_sampleDir = "";
+        return "";
     }
 
-    m_sampleDir = tmpdir.filePath("samples");
-    
     QDir sampleResourceDir(":/samples", "*.wav");
 
     for (unsigned int i = 0; i < sampleResourceDir.count(); ++i) {
@@ -194,8 +204,8 @@ AudioGenerator::getSampleDir()
     return m_sampleDir;
 }
 
-void
-AudioGenerator::setSamplePath(RealTimePluginInstance *plugin)
+QString
+AudioGenerator::getSamplePath()
 {
     QString samplePath = QString("%1:%2%3%4%5%6")
         .arg(getSampleDir())
@@ -204,8 +214,13 @@ AudioGenerator::setSamplePath(RealTimePluginInstance *plugin)
         .arg(".sv")
         .arg(QDir::separator())
         .arg("samples");
+    return samplePath;
+}
 
-    plugin->configure("samplepath", samplePath.toStdString());
+void
+AudioGenerator::setSamplePath(RealTimePluginInstance *plugin)
+{
+    plugin->configure("samplepath", getSamplePath().toStdString());
 } 
 
 RealTimePluginInstance *

@@ -17,7 +17,6 @@
 #define _AUDIO_GENERATOR_H_
 
 class Model;
-class ViewManager;
 class NoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
@@ -34,7 +33,7 @@ class AudioGenerator : public QObject
     Q_OBJECT
 
 public:
-    AudioGenerator(ViewManager *);
+    AudioGenerator();
     virtual ~AudioGenerator();
 
     /**
@@ -96,7 +95,6 @@ protected slots:
     void playPluginConfigurationChanged(const Model *, QString);
 
 protected:
-    ViewManager *m_viewManager;
     size_t       m_sourceSampleRate;
     size_t       m_targetChannelCount;
 
@@ -120,12 +118,13 @@ protected:
     QMutex m_mutex;
     PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
-    QString m_sampleDir;
+    static QString m_sampleDir;
 
     virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
-    QString getSampleDir();
-    void setSamplePath(RealTimePluginInstance *plugin);
+    static QString getSampleDir();
+    static QString getSamplePath();
+    static void setSamplePath(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
