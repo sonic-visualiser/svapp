@@ -172,8 +172,8 @@ AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
     return
         QString("<plugin configuration=\"%1\" program=\"%2\"/>")
         .arg(XmlExportable::encodeEntities
-             (QString("samplepath=%1")
-              .arg(PluginXml::encodeConfigurationChars(getSamplePath()))))
+             (QString("sampledir=%1")
+              .arg(PluginXml::encodeConfigurationChars(getSampleDir()))))
         .arg(XmlExportable::encodeEntities(program));
 }    
 
@@ -209,23 +209,10 @@ AudioGenerator::getSampleDir()
     return m_sampleDir;
 }
 
-QString
-AudioGenerator::getSamplePath()
-{
-    QString samplePath = QString("%1:%2%3%4%5%6")
-        .arg(getSampleDir())
-        .arg(QDir::homePath())
-        .arg(QDir::separator())
-        .arg(".sv")
-        .arg(QDir::separator())
-        .arg("samples");
-    return samplePath;
-}
-
 void
-AudioGenerator::setSamplePath(RealTimePluginInstance *plugin)
+AudioGenerator::setSampleDir(RealTimePluginInstance *plugin)
 {
-    plugin->configure("samplepath", getSamplePath().toStdString());
+    plugin->configure("sampledir", getSampleDir().toStdString());
 } 
 
 RealTimePluginInstance *
@@ -281,7 +268,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	std::cerr << "Failed to instantiate plugin " << pluginId.toStdString() << std::endl;
     }
 
-    setSamplePath(instance);
+    setSampleDir(instance);
 
     for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
         instance->setParameterValue(i, instance->getParameterDefault(i));

@@ -123,8 +123,7 @@ protected:
     virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
     static QString getSampleDir();
-    static QString getSamplePath();
-    static void setSamplePath(RealTimePluginInstance *plugin);
+    static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
