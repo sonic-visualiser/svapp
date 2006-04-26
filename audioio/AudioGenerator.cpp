@@ -119,7 +119,12 @@ void
 AudioGenerator::playPluginConfigurationChanged(const Model *model,
                                                QString configurationXml)
 {
-    if (m_synthMap.find(model) == m_synthMap.end()) return;
+    std::cerr << "AudioGenerator::playPluginConfigurationChanged" << std::endl;
+
+    if (m_synthMap.find(model) == m_synthMap.end()) {
+        std::cerr << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << std::endl;
+        return;
+    }
 
     RealTimePluginInstance *plugin = m_synthMap[model];
     if (plugin) {
