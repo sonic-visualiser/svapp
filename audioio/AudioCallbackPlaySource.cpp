@@ -107,24 +107,6 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     bool buffersChanged = false, srChanged = false;
 
-    if (m_sourceSampleRate == 0) {
-
-	m_sourceSampleRate = model->getSampleRate();
-	srChanged = true;
-
-    } else if (model->getSampleRate() != m_sourceSampleRate) {
-	std::cerr << "AudioCallbackPlaySource::addModel: ERROR: "
-		  << "New model sample rate does not match" << std::endl
-		  << "existing model(s) (new " << model->getSampleRate()
-		  << " vs " << m_sourceSampleRate
-		  << "), playback will be wrong"
-		  << std::endl;
-        if (dynamic_cast<DenseTimeValueModel *>(model)) {
-            emit sampleRateMismatch(model->getSampleRate(), m_sourceSampleRate,
-                                    false);
-        }
-    }
-
     size_t modelChannels = 1;
     DenseTimeValueModel *dtvm = dynamic_cast<DenseTimeValueModel *>(model);
     if (dtvm) modelChannels = dtvm->getChannelCount();
@@ -133,6 +115,47 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     std::cerr << "Adding model with " << modelChannels << " channels " << std::endl;
+
+    if (m_sourceSampleRate == 0) {
+
+	m_sourceSampleRate = model->getSampleRate();
+	srChanged = true;
+
+    } else if (model->getSampleRate() != m_sourceSampleRate) {
+
+        // If this is a dense time-value model and we have no other, we
+        // can just switch to this model's sample rate
+
+        if (dtvm) {
+
+            bool conflicting = false;
+
+            for (std::set<Model *>::const_iterator i = m_models.begin();
+                 i != m_models.end(); ++i) {
+                if (*i != dtvm && dynamic_cast<DenseTimeValueModel *>(*i)) {
+                    std::cerr << "AudioCallbackPlaySource::addModel: Conflicting dense time-value model " << *i << " found" << std::endl;
+                    conflicting = true;
+                    break;
+                }
+            }
+
+            if (conflicting) {
+
+                std::cerr << "AudioCallbackPlaySource::addModel: ERROR: "
+                          << "New model sample rate does not match" << std::endl
+                          << "existing model(s) (new " << model->getSampleRate()
+                          << " vs " << m_sourceSampleRate
+                          << "), playback will be wrong"
+                          << std::endl;
+                
+                emit sampleRateMismatch(model->getSampleRate(), m_sourceSampleRate,
+                                        false);
+            } else {
+                m_sourceSampleRate = model->getSampleRate();
+                srChanged = true;
+            }
+        }
+    }
 
     if (!m_writeBuffers || (m_writeBuffers->size() < getTargetChannelCount())) {
 	clearRingBuffers(true, getTargetChannelCount());
