@@ -159,7 +159,7 @@ AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
     const SparseOneDimensionalModel *sodm =
         dynamic_cast<const SparseOneDimensionalModel *>(model);
     if (sodm) {
-        program = "cowbell";
+        program = "tap";
     }
 
     const NoteModel *nm = dynamic_cast<const NoteModel *>(model);

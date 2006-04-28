@@ -96,6 +96,8 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 void
 AudioCallbackPlaySource::addModel(Model *model)
 {
+    if (m_models.find(model) != m_models.end()) return;
+
     bool canPlay = m_audioGenerator->addModel(model);
 
     m_mutex.lock();
