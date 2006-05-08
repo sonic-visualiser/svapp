@@ -23,7 +23,8 @@
 #include <QObject>
 #include <QMutex>
 #include <QWaitCondition>
-#include <QThread>
+
+#include "base/Thread.h"
 
 #include <samplerate.h>
 
@@ -281,10 +282,11 @@ protected:
     // frame argument passed in, in the case of looping).
     size_t mixModels(size_t &frame, size_t count, float **buffers);
 
-    class AudioCallbackPlaySourceFillThread : public QThread
+    class AudioCallbackPlaySourceFillThread : public Thread
     {
     public:
 	AudioCallbackPlaySourceFillThread(AudioCallbackPlaySource &source) :
+            Thread(Thread::NonRTThread),
 	    m_source(source) { }
 
 	virtual void run();
