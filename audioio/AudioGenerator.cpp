@@ -700,6 +700,9 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 #endif
 	    
 	    size_t duration = pli->duration;
+            if (duration == 0 || duration == 1) {
+                duration = m_sourceSampleRate / 20;
+            }
 	    NoteOff noff;
 	    noff.pitch = onEv.data.note.note;
 	    noff.frame = pliFrame + duration;
