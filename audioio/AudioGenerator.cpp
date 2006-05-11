@@ -18,6 +18,7 @@
 #include "base/TempDirectory.h"
 #include "base/PlayParameters.h"
 #include "base/PlayParameterRepository.h"
+#include "base/Pitch.h"
 
 #include "model/NoteModel.h"
 #include "model/DenseTimeValueModel.h"
@@ -691,7 +692,11 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
             Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(pliFrame, m_sourceSampleRate);
 	    
-	    onEv.data.note.note = lrintf(pli->value);
+            if (nm->getScaleUnits() == "Hz") {
+                onEv.data.note.note = Pitch::getPitchForFrequency(pli->value);
+            } else {
+                onEv.data.note.note = lrintf(pli->value);
+            }
 
 	    plugin->sendEvent(eventTime, &onEv);
 
