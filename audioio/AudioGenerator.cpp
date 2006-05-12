@@ -120,7 +120,7 @@ void
 AudioGenerator::playPluginConfigurationChanged(const Model *model,
                                                QString configurationXml)
 {
-    std::cerr << "AudioGenerator::playPluginConfigurationChanged" << std::endl;
+//    std::cerr << "AudioGenerator::playPluginConfigurationChanged" << std::endl;
 
     if (m_synthMap.find(model) == m_synthMap.end()) {
         std::cerr << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << std::endl;
@@ -267,6 +267,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 
     if (!instance) {
 	std::cerr << "Failed to instantiate plugin " << pluginId.toStdString() << std::endl;
+        return 0;
     }
 
     setSampleDir(instance);
@@ -276,11 +277,11 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
     }
     std::string defaultProgram = instance->getProgram(0, 0);
     if (defaultProgram != "") {
-        std::cerr << "first selecting default program " << defaultProgram << std::endl;
+//        std::cerr << "first selecting default program " << defaultProgram << std::endl;
         instance->selectProgram(defaultProgram);
     }
     if (program != "") {
-        std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
+//        std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
         instance->selectProgram(program.toStdString());
     }
     instance->setIdealChannelCount(m_targetChannelCount); // reset!
@@ -334,7 +335,7 @@ AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
 {
     if (m_targetChannelCount == targetChannelCount) return;
 
-    std::cerr << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << std::endl;
+//    std::cerr << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << std::endl;
 
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;

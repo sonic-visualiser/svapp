@@ -116,7 +116,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 	m_sourceChannelCount = modelChannels;
     }
 
-    std::cerr << "Adding model with " << modelChannels << " channels " << std::endl;
+//    std::cerr << "Adding model with " << modelChannels << " channels " << std::endl;
 
     if (m_sourceSampleRate == 0) {
 
@@ -211,9 +211,9 @@ AudioCallbackPlaySource::removeModel(Model *model)
     size_t lastEnd = 0;
     for (std::set<Model *>::const_iterator i = m_models.begin();
 	 i != m_models.end(); ++i) {
-	std::cerr << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << std::endl;
+//	std::cerr << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << std::endl;
 	if ((*i)->getEndFrame() > lastEnd) lastEnd = (*i)->getEndFrame();
-	std::cerr << "(done, lastEnd now " << lastEnd << ")" << std::endl;
+//	std::cerr << "(done, lastEnd now " << lastEnd << ")" << std::endl;
     }
     m_lastModelEndFrame = lastEnd;
 
@@ -277,12 +277,11 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, size_t count)
 	m_writeBuffers->push_back(new RingBuffer<float>(m_ringBufferSize));
     }
 
-    std::cerr << "AudioCallbackPlaySource::clearRingBuffers: Created "
-	      << count << " write buffers" << std::endl;
+//    std::cerr << "AudioCallbackPlaySource::clearRingBuffers: Created "
+//	      << count << " write buffers" << std::endl;
 
     if (!haveLock) {
 	m_mutex.unlock();
-//!!!	m_condition.wakeAll();
     }
 }
 
@@ -378,7 +377,7 @@ AudioCallbackPlaySource::playParametersChanged(PlayParameters *params)
 void
 AudioCallbackPlaySource::setTargetBlockSize(size_t size)
 {
-    std::cerr << "AudioCallbackPlaySource::setTargetBlockSize() -> " << size << std::endl;
+//    std::cerr << "AudioCallbackPlaySource::setTargetBlockSize() -> " << size << std::endl;
     assert(size < m_ringBufferSize);
     m_blockSize = size;
 }
@@ -386,7 +385,7 @@ AudioCallbackPlaySource::setTargetBlockSize(size_t size)
 size_t
 AudioCallbackPlaySource::getTargetBlockSize() const
 {
-    std::cerr << "AudioCallbackPlaySource::getTargetBlockSize() -> " << m_blockSize << std::endl;
+//    std::cerr << "AudioCallbackPlaySource::getTargetBlockSize() -> " << m_blockSize << std::endl;
     return m_blockSize;
 }
 
@@ -595,7 +594,7 @@ AudioCallbackPlaySource::TimeStretcherData::TimeStretcherData(size_t channels,
     m_factor(factor),
     m_blockSize(blockSize)
 {
-    std::cerr << "TimeStretcherData::TimeStretcherData(" << channels << ", " << factor << ", " << blockSize << ")" << std::endl;
+//    std::cerr << "TimeStretcherData::TimeStretcherData(" << channels << ", " << factor << ", " << blockSize << ")" << std::endl;
 
     for (size_t ch = 0; ch < channels; ++ch) {
 	m_stretcher[ch] = StretcherBuffer
@@ -610,7 +609,7 @@ AudioCallbackPlaySource::TimeStretcherData::TimeStretcherData(size_t channels,
 
 AudioCallbackPlaySource::TimeStretcherData::~TimeStretcherData()
 {
-    std::cerr << "IntegerTimeStretcher::~IntegerTimeStretcher" << std::endl;
+//    std::cerr << "TimeStretcherData::~TimeStretcherData" << std::endl;
 
     while (!m_stretcher.empty()) {
 	delete m_stretcher.begin()->second.first;
@@ -1175,7 +1174,7 @@ AudioCallbackPlaySource::unifyRingBuffers()
     m_bufferScavenger.claim(m_readBuffers);
     m_readBuffers = m_writeBuffers;
     m_readBufferFill = m_writeBufferFill;
-    std::cerr << "unified" << std::endl;
+//    std::cerr << "unified" << std::endl;
 }
 
 void
