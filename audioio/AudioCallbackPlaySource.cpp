@@ -602,9 +602,9 @@ AudioCallbackPlaySource::TimeStretcherData::TimeStretcherData(size_t channels,
 	    //what sort of quality level to use -- or at least to
 	    //allow the user to configure it
 	    (new IntegerTimeStretcher(factor, blockSize, 128),
-	     new double[blockSize * factor]);
+	     new float[blockSize * factor]);
     }
-    m_stretchInputBuffer = new double[blockSize];
+    m_stretchInputBuffer = new float[blockSize];
 }
 
 AudioCallbackPlaySource::TimeStretcherData::~TimeStretcherData()
@@ -625,13 +625,13 @@ AudioCallbackPlaySource::TimeStretcherData::getStretcher(size_t channel)
     return m_stretcher[channel].first;
 }
 
-double *
+float *
 AudioCallbackPlaySource::TimeStretcherData::getOutputBuffer(size_t channel)
 {
     return m_stretcher[channel].second;
 }
 
-double *
+float *
 AudioCallbackPlaySource::TimeStretcherData::getInputBuffer()
 {
     return m_stretchInputBuffer;
@@ -721,7 +721,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
     if (m_slowdownCounter == 0) {
 
 	size_t got = 0;
-	double *ib = timeStretcher->getInputBuffer();
+	float *ib = timeStretcher->getInputBuffer();
 
 	for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
 
@@ -753,7 +753,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 
     for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
 
-	double *ob = timeStretcher->getOutputBuffer(ch);
+	float *ob = timeStretcher->getOutputBuffer(ch);
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	std::cerr << "AudioCallbackPlaySource::getSamples: Copying from (" << (m_slowdownCounter * count) << "," << count << ") to buffer" << std::endl;

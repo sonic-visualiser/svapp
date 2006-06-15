@@ -32,16 +32,16 @@ IntegerTimeStretcher::IntegerTimeStretcher(size_t ratio,
     m_inbuf(m_wlen),
     m_outbuf(maxProcessInputBlockSize * ratio)
 {
-    m_window = new Window<double>(windowType, m_wlen),
+    m_window = new Window<float>(windowType, m_wlen),
 
-    m_time = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * m_wlen);
-    m_freq = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * m_wlen);
-    m_dbuf = (double *)fftw_malloc(sizeof(double) * m_wlen);
+    m_time = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * m_wlen);
+    m_freq = (fftwf_complex *)fftwf_malloc(sizeof(fftwf_complex) * m_wlen);
+    m_dbuf = (float *)fftwf_malloc(sizeof(float) * m_wlen);
 
-    m_plan = fftw_plan_dft_1d(m_wlen, m_time, m_freq, FFTW_FORWARD, FFTW_ESTIMATE);
-    m_iplan = fftw_plan_dft_c2r_1d(m_wlen, m_freq, m_dbuf, FFTW_ESTIMATE);
+    m_plan = fftwf_plan_dft_1d(m_wlen, m_time, m_freq, FFTW_FORWARD, FFTW_ESTIMATE);
+    m_iplan = fftwf_plan_dft_c2r_1d(m_wlen, m_freq, m_dbuf, FFTW_ESTIMATE);
 
-    m_mashbuf = new double[m_wlen];
+    m_mashbuf = new float[m_wlen];
     for (int i = 0; i < m_wlen; ++i) {
 	m_mashbuf[i] = 0.0;
     }
@@ -51,12 +51,12 @@ IntegerTimeStretcher::~IntegerTimeStretcher()
 {
     std::cerr << "IntegerTimeStretcher::~IntegerTimeStretcher" << std::endl;
 
-    fftw_destroy_plan(m_plan);
-    fftw_destroy_plan(m_iplan);
+    fftwf_destroy_plan(m_plan);
+    fftwf_destroy_plan(m_iplan);
 
-    fftw_free(m_time);
-    fftw_free(m_freq);
-    fftw_free(m_dbuf);
+    fftwf_free(m_time);
+    fftwf_free(m_freq);
+    fftwf_free(m_dbuf);
 
     delete m_window;
     delete m_mashbuf;
@@ -69,7 +69,7 @@ IntegerTimeStretcher::getProcessingLatency() const
 }
 
 void
-IntegerTimeStretcher::process(double *input, double *output, size_t samples)
+IntegerTimeStretcher::process(float *input, float *output, size_t samples)
 {
     // We need to add samples from input to our internal buffer.  When
     // we have m_windowSize samples in the buffer, we can process it,
@@ -163,7 +163,7 @@ IntegerTimeStretcher::process(double *input, double *output, size_t samples)
 }
 
 void
-IntegerTimeStretcher::processBlock(double *buf, double *out)
+IntegerTimeStretcher::processBlock(float *buf, float *out)
 {
     size_t i;
 
@@ -177,7 +177,7 @@ IntegerTimeStretcher::processBlock(double *buf, double *out)
     m_window->cut(buf);
 
     for (i = 0; i < m_wlen/2; ++i) {
-	double temp = buf[i];
+	float temp = buf[i];
 	buf[i] = buf[i + m_wlen/2];
 	buf[i + m_wlen/2] = temp;
     }
@@ -187,27 +187,27 @@ IntegerTimeStretcher::processBlock(double *buf, double *out)
 	m_time[i][1] = 0.0;
     }
 
-    fftw_execute(m_plan); // m_time -> m_freq
+    fftwf_execute(m_plan); // m_time -> m_freq
 
     for (i = 0; i < m_wlen; ++i) {
 	
-	double mag = sqrt(m_freq[i][0] * m_freq[i][0] +
+	float mag = sqrtf(m_freq[i][0] * m_freq[i][0] +
 			  m_freq[i][1] * m_freq[i][1]);
 		
-	double phase = atan2(m_freq[i][1], m_freq[i][0]);
+	float phase = atan2f(m_freq[i][1], m_freq[i][0]);
 	
 	phase = phase * m_ratio;
 	
-	double real = mag * cos(phase);
-	double imag = mag * sin(phase);
+	float real = mag * cosf(phase);
+	float imag = mag * sinf(phase);
 	m_freq[i][0] = real;
 	m_freq[i][1] = imag;
     }
     
-    fftw_execute(m_iplan); // m_freq -> in, inverse fft
+    fftwf_execute(m_iplan); // m_freq -> in, inverse fft
     
     for (i = 0; i < m_wlen/2; ++i) {
-	double temp = buf[i] / m_wlen;
+	float temp = buf[i] / m_wlen;
 	buf[i] = buf[i + m_wlen/2] / m_wlen;
 	buf[i + m_wlen/2] = temp;
     }

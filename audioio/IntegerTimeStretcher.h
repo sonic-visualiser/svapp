@@ -41,7 +41,7 @@ public:
 			 WindowType windowType = HanningWindow);
     virtual ~IntegerTimeStretcher();
 
-    void process(double *input, double *output, size_t samples);
+    void process(float *input, float *output, size_t samples);
 
     /**
      * Get the hop size for input.  Smaller values may produce better
@@ -68,24 +68,24 @@ public:
     size_t getProcessingLatency() const;
 
 protected:
-    void processBlock(double *in, double *out);
+    void processBlock(float *in, float *out);
 
     size_t m_ratio;
     size_t m_n1;
     size_t m_n2;
     size_t m_wlen;
-    Window<double> *m_window;
+    Window<float> *m_window;
 
-    fftw_complex *m_time;
-    fftw_complex *m_freq;
-    double *m_dbuf;
+    fftwf_complex *m_time;
+    fftwf_complex *m_freq;
+    float *m_dbuf;
 
-    fftw_plan m_plan;
-    fftw_plan m_iplan;
+    fftwf_plan m_plan;
+    fftwf_plan m_iplan;
     
-    RingBuffer<double> m_inbuf;
-    RingBuffer<double> m_outbuf;
-    double *m_mashbuf;
+    RingBuffer<float> m_inbuf;
+    RingBuffer<float> m_outbuf;
+    float *m_mashbuf;
 };
 
 #endif

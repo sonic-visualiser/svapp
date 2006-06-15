@@ -252,8 +252,8 @@ protected:
 
 	size_t getFactor() const { return m_factor; }
 	IntegerTimeStretcher *getStretcher(size_t channel);
-	double *getOutputBuffer(size_t channel);
-	double *getInputBuffer();
+	float *getOutputBuffer(size_t channel);
+	float *getInputBuffer();
 	
 	void run(size_t channel);
 
@@ -261,9 +261,9 @@ protected:
 	TimeStretcherData(const TimeStretcherData &); // not provided
 	TimeStretcherData &operator=(const TimeStretcherData &); // not provided
 
-	typedef std::pair<IntegerTimeStretcher *, double *> StretcherBuffer;
+	typedef std::pair<IntegerTimeStretcher *, float *> StretcherBuffer;
 	std::map<size_t, StretcherBuffer> m_stretcher;
-	double *m_stretchInputBuffer;
+	float *m_stretchInputBuffer;
 	size_t m_factor;
 	size_t m_blockSize;
     };
