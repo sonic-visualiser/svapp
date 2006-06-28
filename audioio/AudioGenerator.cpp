@@ -19,6 +19,7 @@
 #include "base/PlayParameters.h"
 #include "base/PlayParameterRepository.h"
 #include "base/Pitch.h"
+#include "base/Exceptions.h"
 
 #include "model/NoteModel.h"
 #include "model/DenseTimeValueModel.h"
@@ -185,7 +186,7 @@ AudioGenerator::getSampleDir()
 
     try {
         m_sampleDir = TempDirectory::instance()->getSubDirectoryPath("samples");
-    } catch (TempDirectory::DirectoryCreationFailed f) {
+    } catch (DirectoryCreationFailed f) {
         std::cerr << "WARNING: AudioGenerator::getSampleDir: Failed to create "
                   << "temporary sample directory" << std::endl;
         m_sampleDir = "";
