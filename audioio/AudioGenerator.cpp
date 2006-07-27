@@ -49,12 +49,12 @@ AudioGenerator::AudioGenerator() :
     m_sourceSampleRate(0),
     m_targetChannelCount(1)
 {
-    connect(PlayParameterRepository::instance(),
+    connect(PlayParameterRepository::getInstance(),
             SIGNAL(playPluginIdChanged(const Model *, QString)),
             this,
             SLOT(playPluginIdChanged(const Model *, QString)));
 
-    connect(PlayParameterRepository::instance(),
+    connect(PlayParameterRepository::getInstance(),
             SIGNAL(playPluginConfigurationChanged(const Model *, QString)),
             this,
             SLOT(playPluginConfigurationChanged(const Model *, QString)));
@@ -185,7 +185,7 @@ AudioGenerator::getSampleDir()
     if (m_sampleDir != "") return m_sampleDir;
 
     try {
-        m_sampleDir = TempDirectory::instance()->getSubDirectoryPath("samples");
+        m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
     } catch (DirectoryCreationFailed f) {
         std::cerr << "WARNING: AudioGenerator::getSampleDir: Failed to create "
                   << "temporary sample directory" << std::endl;
@@ -223,7 +223,7 @@ AudioGenerator::loadPluginFor(const Model *model)
     QString pluginId, configurationXml;
 
     PlayParameters *parameters =
-	PlayParameterRepository::instance()->getPlayParameters(model);
+	PlayParameterRepository::getInstance()->getPlayParameters(model);
     if (parameters) {
         pluginId = parameters->getPlayPluginId();
         configurationXml = parameters->getPlayPluginConfiguration();
@@ -364,7 +364,7 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
     QMutexLocker locker(&m_mutex);
 
     PlayParameters *parameters =
-	PlayParameterRepository::instance()->getPlayParameters(model);
+	PlayParameterRepository::getInstance()->getPlayParameters(model);
     if (!parameters) return frameCount;
 
     bool playing = !parameters->isPlayMuted();

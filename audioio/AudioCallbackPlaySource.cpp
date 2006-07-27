@@ -65,7 +65,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager) :
     connect(m_viewManager, SIGNAL(playSelectionModeChanged()),
 	    this, SLOT(playSelectionModeChanged()));
 
-    connect(PlayParameterRepository::instance(),
+    connect(PlayParameterRepository::getInstance(),
 	    SIGNAL(playParametersChanged(PlayParameters *)),
 	    this, SLOT(playParametersChanged(PlayParameters *)));
 }
