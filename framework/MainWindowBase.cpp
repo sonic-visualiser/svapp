@@ -14,7 +14,7 @@
 */
 
 #include "MainWindowBase.h"
-#include "document/Document.h"
+#include "Document.h"
 
 
 #include "view/Pane.h"
