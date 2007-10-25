@@ -319,6 +319,12 @@ Document::setMainModel(WaveFileModel *model)
 	deleteLayer(obsoleteLayers[k], true);
     }
 
+    for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        if (i->first->getAlignmentReference() == oldMainModel) {
+            alignModel(i->first);
+        }
+    }
+
     emit mainModelChanged(m_mainModel);
 
     // we already emitted modelAboutToBeDeleted for this
@@ -672,6 +678,8 @@ Document::alignModel(Model *model)
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
     if (!rm) return;
+
+    if (rm->getAlignmentReference() == m_mainModel) return;
     
     // This involves creating three new models:
 

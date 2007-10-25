@@ -189,9 +189,20 @@ public:
      */
     void removeLayerFromView(View *, Layer *);
 
-    void toXml(QTextStream &, QString indent, QString extraAttributes) const;
-
+    /**
+     * Specify whether models added via addImportedModel should be
+     * automatically aligned against the main model if appropriate.
+     */
     void setAutoAlignment(bool on) { m_autoAlignment = on; }
+
+    /**
+     * Generate alignments for all appropriate models against the main
+     * model.  Existing alignments will not be re-calculated unless
+     * the main model has changed since they were calculated.
+     */
+    void alignModels();
+
+    void toXml(QTextStream &, QString indent, QString extraAttributes) const;
 
 signals:
     void layerAdded(Layer *);
@@ -222,14 +233,11 @@ protected:
 
     /**
      * If model is suitable for alignment, align it against the main
-     * model and store the alignment in the model.
+     * model and store the alignment in the model.  (If the model has
+     * an alignment already for the current main model, leave it
+     * unchanged.)
      */
     void alignModel(Model *);
-
-    /**
-     * Realign all models if the main model has changed.  Is this wise?
-     */
-    void alignModels();
 
     /*
      * Every model that is in use by a layer in the document must be
