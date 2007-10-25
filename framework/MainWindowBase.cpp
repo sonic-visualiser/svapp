@@ -897,12 +897,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 
 	Pane *pane = command->getPane();
 
-	if (!m_timeRulerLayer) {
-	    m_timeRulerLayer = m_document->createMainModelLayer
-		(LayerFactory::TimeRuler);
-	}
-
-	m_document->addLayerToView(pane, m_timeRulerLayer);
+        if (m_timeRulerLayer) {
+            m_document->addLayerToView(pane, m_timeRulerLayer);
+        }
 
 	Layer *newLayer = m_document->createImportedLayer(newModel);
 
@@ -1865,7 +1862,7 @@ void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
 //    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
-    if (layer == m_timeRulerLayer) {
+    if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
 //	std::cerr << "(this is the time ruler layer)" << std::endl;
 	m_timeRulerLayer = 0;
     }

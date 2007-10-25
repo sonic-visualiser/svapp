@@ -190,6 +190,9 @@ public:
     void removeLayerFromView(View *, Layer *);
 
     void toXml(QTextStream &, QString indent, QString extraAttributes) const;
+
+    void setAutoAlignment(bool on) { m_autoAlignment = on; }
+
 signals:
     void layerAdded(Layer *);
     void layerRemoved(Layer *);
@@ -311,6 +314,8 @@ protected:
      */
     typedef std::set<Layer *> LayerSet;
     LayerSet m_layers;
+
+    bool m_autoAlignment;
 };
 
 #endif

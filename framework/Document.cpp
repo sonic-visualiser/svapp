@@ -38,7 +38,8 @@
 //!!! still need to handle command history, documentRestored/documentModified
 
 Document::Document() :
-    m_mainModel(0)
+    m_mainModel(0),
+    m_autoAlignment(false)
 {
     connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
             TransformFactory::getInstance(),
@@ -369,6 +370,8 @@ Document::addImportedModel(Model *model)
     rec.refcount = 0;
 
     m_models[model] = rec;
+
+    if (m_autoAlignment) alignModel(model);
 
     emit modelAdded(model);
 }
