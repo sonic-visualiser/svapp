@@ -741,7 +741,7 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    return open(FileSource(fileOrUrl), mode);
+    return open(FileSource(fileOrUrl, true), mode);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1143,7 +1143,7 @@ MainWindowBase::openImage(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFile(QString fileOrUrl)
 {
-    return openSession(FileSource(fileOrUrl));
+    return openSession(FileSource(fileOrUrl, true));
 }
 
 MainWindowBase::FileOpenStatus

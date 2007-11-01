@@ -413,7 +413,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         QString path = ff->find(FileFinder::AudioFile,
                                 originalPath, m_location);
 
-        FileSource file(path);
+        FileSource file(path, true);
         file.waitForStatus();
 
         if (!file.isOK()) {
