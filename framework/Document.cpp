@@ -670,6 +670,14 @@ Document::getTransformInputModels()
     return models;
 }
 
+bool
+Document::canAlign() const
+{
+    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformFactory *factory = TransformFactory::getInstance();
+    return factory->haveTransform(id);
+}
+
 void
 Document::alignModel(Model *model)
 {

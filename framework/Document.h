@@ -190,6 +190,12 @@ public:
     void removeLayerFromView(View *, Layer *);
 
     /**
+     * Return true if alignment is supported (i.e. if the necessary
+     * plugin is found).
+     */
+    bool canAlign() const;
+
+    /**
      * Specify whether models added via addImportedModel should be
      * automatically aligned against the main model if appropriate.
      */
