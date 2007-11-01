@@ -193,7 +193,7 @@ public:
      * Return true if alignment is supported (i.e. if the necessary
      * plugin is found).
      */
-    bool canAlign() const;
+    static bool canAlign();
 
     /**
      * Specify whether models added via addImportedModel should be
