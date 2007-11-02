@@ -55,7 +55,7 @@ Document::~Document()
 //    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
     CommandHistory::getInstance()->clear();
     
-//    std::cerr << "Document::~Document: about to delete layers" << std::endl;
+    std::cerr << "Document::~Document: about to delete layers" << std::endl;
     while (!m_layers.empty()) {
 	deleteLayer(*m_layers.begin(), true);
     }
@@ -101,6 +101,10 @@ Document::createLayer(LayerFactory::LayerType type)
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
     m_layers.insert(newLayer);
+
+    std::cerr << "Document::createLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << std::endl;
+
     emit layerAdded(newLayer);
 
     return newLayer;
@@ -141,6 +145,10 @@ Document::createImportedLayer(Model *model)
     setChannel(newLayer, -1);
 
     m_layers.insert(newLayer);
+
+    std::cerr << "Document::createImportedLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << std::endl;
+
     emit layerAdded(newLayer);
     return newLayer;
 }
@@ -247,6 +255,9 @@ Document::setMainModel(WaveFileModel *model)
     // model, or delete the layer for each layer that is currently
     // using one of these.  Carry out this replacement before we
     // delete any of the models.
+
+    std::cerr << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << std::endl;
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
 
@@ -502,6 +513,9 @@ Document::deleteLayer(Layer *layer, bool force)
     }
 
     m_layers.erase(layer);
+
+    std::cerr << "Document::deleteLayer: Removing, now have "
+              << m_layers.size() << " layers" << std::endl;
 
     releaseModel(layer->getModel());
     emit layerRemoved(layer);

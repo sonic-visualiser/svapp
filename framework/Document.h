@@ -119,6 +119,14 @@ public:
                               QString configurationXml);
 
     /**
+     * Delete the given layer, and also its associated model if no
+     * longer used by any other layer.  In general, this should be the
+     * only method used to delete layers -- doing so directly is a bit
+     * of a social gaffe.
+     */
+    void deleteLayer(Layer *, bool force = false);
+
+    /**
      * Set the main model (the source for playback sample rate, etc)
      * to the given wave file model.  This will regenerate any derived
      * models that were based on the previous main model.
@@ -228,14 +236,6 @@ signals:
 
 protected:
     void releaseModel(Model *model);
-
-    /**
-     * Delete the given layer, and also its associated model if no
-     * longer used by any other layer.  In general, this should be the
-     * only method used to delete layers -- doing so directly is a bit
-     * of a social gaffe.
-     */
-    void deleteLayer(Layer *, bool force = false);
 
     /**
      * If model is suitable for alignment, align it against the main

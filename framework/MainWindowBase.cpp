@@ -1126,8 +1126,7 @@ MainWindowBase::openImage(FileSource source)
 
     if (!il->addImage(m_viewManager->getGlobalCentreFrame(), source.getLocation())) {
         if (newLayer) {
-            m_document->setModel(il, 0); // releasing its model
-            delete il;
+            m_document->deleteLayer(il); // also releases its model
         }
         return FileOpenFailed;
     } else {
