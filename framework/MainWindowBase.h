@@ -27,7 +27,7 @@
 #include "base/PropertyContainer.h"
 #include "base/RecentFiles.h"
 #include "layer/LayerFactory.h"
-#include "plugin/transform/Transform.h"
+#include "plugin/transform/Transformer.h"
 #include "SVFileReader.h"
 #include "data/fileio/FileFinder.h"
 #include "data/fileio/FileSource.h"
@@ -249,7 +249,7 @@ protected:
     OSCQueue                *m_oscQueue;
 
     RecentFiles              m_recentFiles;
-    RecentFiles              m_recentTransforms;
+    RecentFiles              m_recentTransformers;
 
     bool                     m_documentModified;
     bool                     m_openingAudioFile;

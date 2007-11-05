@@ -286,24 +286,24 @@ SVFileReader::endElement(const QString &, const QString &,
                           << " as target, not regenerating" << std::endl;
             } else {
                 m_currentDerivedModel = m_models[m_currentDerivedModelId] =
-                    m_document->addDerivedModel(m_currentTransform,
-                                                m_currentTransformSource,
-                                                m_currentTransformContext,
-                                                m_currentTransformConfiguration);
+                    m_document->addDerivedModel(m_currentTransformer,
+                                                m_currentTransformerSource,
+                                                m_currentTransformerContext,
+                                                m_currentTransformerConfiguration);
             }
         } else {
-            m_document->addDerivedModel(m_currentTransform,
-                                        m_currentTransformSource,
-                                        m_currentTransformContext,
+            m_document->addDerivedModel(m_currentTransformer,
+                                        m_currentTransformerSource,
+                                        m_currentTransformerContext,
                                         m_currentDerivedModel,
-                                        m_currentTransformConfiguration);
+                                        m_currentTransformerConfiguration);
         }
 
         m_addedModels.insert(m_currentDerivedModel);
         m_currentDerivedModel = 0;
         m_currentDerivedModelId = -1;
-        m_currentTransform = "";
-        m_currentTransformConfiguration = "";
+        m_currentTransformer = "";
+        m_currentTransformerConfiguration = "";
 
     } else if (name == "row") {
 	m_inRow = false;
@@ -1004,31 +1004,31 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     sourceId = attributes.value("source").trimmed().toInt(&sourceOk);
 
     if (sourceOk && haveModel(sourceId)) {
-        m_currentTransformSource = m_models[sourceId];
+        m_currentTransformerSource = m_models[sourceId];
     } else {
-        m_currentTransformSource = m_document->getMainModel();
+        m_currentTransformerSource = m_document->getMainModel();
     }
 
-    m_currentTransform = transform;
-    m_currentTransformConfiguration = "";
+    m_currentTransformer = transform;
+    m_currentTransformerConfiguration = "";
 
-    m_currentTransformContext = PluginTransform::ExecutionContext();
+    m_currentTransformerContext = PluginTransformer::ExecutionContext();
 
     bool ok = false;
     int channel = attributes.value("channel").trimmed().toInt(&ok);
-    if (ok) m_currentTransformContext.channel = channel;
+    if (ok) m_currentTransformerContext.channel = channel;
 
     int domain = attributes.value("domain").trimmed().toInt(&ok);
-    if (ok) m_currentTransformContext.domain = Vamp::Plugin::InputDomain(domain);
+    if (ok) m_currentTransformerContext.domain = Vamp::Plugin::InputDomain(domain);
 
     int stepSize = attributes.value("stepSize").trimmed().toInt(&ok);
-    if (ok) m_currentTransformContext.stepSize = stepSize;
+    if (ok) m_currentTransformerContext.stepSize = stepSize;
 
     int blockSize = attributes.value("blockSize").trimmed().toInt(&ok);
-    if (ok) m_currentTransformContext.blockSize = blockSize;
+    if (ok) m_currentTransformerContext.blockSize = blockSize;
 
     int windowType = attributes.value("windowType").trimmed().toInt(&ok);
-    if (ok) m_currentTransformContext.windowType = WindowType(windowType);
+    if (ok) m_currentTransformerContext.windowType = WindowType(windowType);
 
     QString startFrameStr = attributes.value("startFrame");
     QString durationStr = attributes.value("duration");
@@ -1045,8 +1045,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
         if (!ok) duration = 0;
     }
 
-    m_currentTransformContext.startFrame = startFrame;
-    m_currentTransformContext.duration = duration;
+    m_currentTransformerContext.startFrame = startFrame;
+    m_currentTransformerContext.duration = duration;
 
     return true;
 }
@@ -1127,7 +1127,7 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
     if (m_currentPlayParameters) {
         m_currentPlayParameters->setPlayPluginConfiguration(configurationXml);
     } else {
-        m_currentTransformConfiguration += configurationXml;
+        m_currentTransformerConfiguration += configurationXml;
     }
 
     return true;

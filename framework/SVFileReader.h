@@ -17,8 +17,8 @@
 #define _SV_FILE_READER_H_
 
 #include "layer/LayerFactory.h"
-#include "plugin/transform/Transform.h"
-#include "plugin/transform/PluginTransform.h"
+#include "plugin/transform/Transformer.h"
+#include "plugin/transform/PluginTransformer.h"
 
 #include <QXmlDefaultHandler>
 
@@ -216,10 +216,10 @@ protected:
     Model *m_currentDerivedModel;
     int m_currentDerivedModelId;
     PlayParameters *m_currentPlayParameters;
-    QString m_currentTransform;
-    Model *m_currentTransformSource;
-    PluginTransform::ExecutionContext m_currentTransformContext;
-    QString m_currentTransformConfiguration;
+    QString m_currentTransformer;
+    Model *m_currentTransformerSource;
+    PluginTransformer::ExecutionContext m_currentTransformerContext;
+    QString m_currentTransformerConfiguration;
     QString m_datasetSeparator;
     bool m_inRow;
     bool m_inLayer;

@@ -25,7 +25,7 @@
 #include "view/View.h"
 #include "base/PlayParameterRepository.h"
 #include "base/PlayParameters.h"
-#include "plugin/transform/TransformFactory.h"
+#include "plugin/transform/TransformerFactory.h"
 #include <QApplication>
 #include <QTextStream>
 #include <iostream>
@@ -42,7 +42,7 @@ Document::Document() :
     m_autoAlignment(false)
 {
     connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
-            TransformFactory::getInstance(),
+            TransformerFactory::getInstance(),
             SLOT(modelAboutToBeDeleted(Model *)));
 }
 
@@ -174,22 +174,22 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
 
 Layer *
 Document::createDerivedLayer(LayerFactory::LayerType type,
-			     TransformId transform)
+			     TransformerId transform)
 {
     Layer *newLayer = createLayer(type);
     if (!newLayer) return 0;
 
     newLayer->setObjectName(getUniqueLayerName
-                            (TransformFactory::getInstance()->
-                             getTransformFriendlyName(transform)));
+                            (TransformerFactory::getInstance()->
+                             getTransformerFriendlyName(transform)));
 
     return newLayer;
 }
 
 Layer *
-Document::createDerivedLayer(TransformId transform,
+Document::createDerivedLayer(TransformerId transform,
                              Model *inputModel, 
-                             const PluginTransform::ExecutionContext &context,
+                             const PluginTransformer::ExecutionContext &context,
                              QString configurationXml)
 {
     Model *newModel = addDerivedModel(transform, inputModel,
@@ -204,7 +204,7 @@ Document::createDerivedLayer(TransformId transform,
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransform: no valid display layer for output of transform " << transform.toStdString() << std::endl;
+	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.toStdString() << std::endl;
 	delete newModel;
 	return 0;
     }
@@ -231,8 +231,8 @@ Document::createDerivedLayer(TransformId transform,
     
     if (newLayer) {
 	newLayer->setObjectName(getUniqueLayerName
-                                (TransformFactory::getInstance()->
-                                 getTransformFriendlyName(transform)));
+                                (TransformerFactory::getInstance()->
+                                 getTransformerFriendlyName(transform)));
     }
 
     emit layerAdded(newLayer);
@@ -248,7 +248,7 @@ Document::setMainModel(WaveFileModel *model)
     emit modelAdded(m_mainModel);
 
     std::vector<Layer *> obsoleteLayers;
-    std::set<QString> failedTransforms;
+    std::set<QString> failedTransformers;
 
     // We need to ensure that no layer is left using oldMainModel or
     // any of the old derived models as its model.  Either replace the
@@ -289,8 +289,8 @@ Document::setMainModel(WaveFileModel *model)
 	    // This model was derived from the previous main
 	    // model: regenerate it.
 	    
-	    TransformId transform = m_models[model].transform;
-            PluginTransform::ExecutionContext context = m_models[model].context;
+	    TransformerId transform = m_models[model].transform;
+            PluginTransformer::ExecutionContext context = m_models[model].context;
 	    
 	    Model *replacementModel =
                 addDerivedModel(transform,
@@ -301,10 +301,10 @@ Document::setMainModel(WaveFileModel *model)
 	    if (!replacementModel) {
 		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
 			  << transform.toStdString() << "\"" << " in layer " << layer << std::endl;
-                if (failedTransforms.find(transform) == failedTransforms.end()) {
+                if (failedTransformers.find(transform) == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
                                                  transform);
-                    failedTransforms.insert(transform);
+                    failedTransformers.insert(transform);
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
@@ -343,9 +343,9 @@ Document::setMainModel(WaveFileModel *model)
 }
 
 void
-Document::addDerivedModel(TransformId transform,
+Document::addDerivedModel(TransformerId transform,
                           Model *inputModel,
-                          const PluginTransform::ExecutionContext &context,
+                          const PluginTransformer::ExecutionContext &context,
                           Model *outputModelToAdd,
                           QString configurationXml)
 {
@@ -394,9 +394,9 @@ Document::addImportedModel(Model *model)
 }
 
 Model *
-Document::addDerivedModel(TransformId transform,
+Document::addDerivedModel(TransformerId transform,
                           Model *inputModel,
-                          const PluginTransform::ExecutionContext &context,
+                          const PluginTransformer::ExecutionContext &context,
                           QString configurationXml)
 {
     Model *model = 0;
@@ -410,7 +410,7 @@ Document::addDerivedModel(TransformId transform,
 	}
     }
 
-    model = TransformFactory::getInstance()->transform
+    model = TransformerFactory::getInstance()->transform
 	(transform, inputModel, context, configurationXml);
 
     if (!model) {
@@ -660,7 +660,7 @@ Document::getUniqueLayerName(QString candidate)
 }
 
 std::vector<Model *>
-Document::getTransformInputModels()
+Document::getTransformerInputModels()
 {
     std::vector<Model *> models;
 
@@ -687,9 +687,9 @@ Document::getTransformInputModels()
 bool
 Document::canAlign() 
 {
-    TransformId id = "vamp:match-vamp-plugin:match:path";
-    TransformFactory *factory = TransformFactory::getInstance();
-    return factory->haveTransform(id);
+    TransformerId id = "vamp:match-vamp-plugin:match:path";
+    TransformerFactory *factory = TransformerFactory::getInstance();
+    return factory->haveTransformer(id);
 }
 
 void
@@ -710,7 +710,7 @@ Document::alignModel(Model *model)
     // MATCH plugin
 
     // 2. a SparseTimeValueModel, which is the model automatically
-    // created by FeatureExtractionPluginTransform when running the
+    // created by FeatureExtractionPluginTransformer when running the
     // MATCH plugin (thus containing the alignment path)
 
     // 3. an AlignmentModel, which stores the path model and carries
@@ -732,13 +732,13 @@ Document::alignModel(Model *model)
 
     Model *aggregate = new AggregateWaveModel(components);
 
-    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformerId id = "vamp:match-vamp-plugin:match:path";
     
-    TransformFactory *factory = TransformFactory::getInstance();
+    TransformerFactory *factory = TransformerFactory::getInstance();
 
     Model *transformOutput = factory->transform
         (id, aggregate,
-         factory->getDefaultContextForTransform(id, aggregate),
+         factory->getDefaultContextForTransformer(id, aggregate),
          "<plugin param-serialise=\"1\"/>");
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>

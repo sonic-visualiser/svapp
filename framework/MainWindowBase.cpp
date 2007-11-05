@@ -105,7 +105,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_playTarget(0),
     m_oscQueue(withOSCSupport ? new OSCQueue() : 0),
     m_recentFiles("RecentFiles", 20),
-    m_recentTransforms("RecentTransforms", 20),
+    m_recentTransformers("RecentTransforms", 20),
     m_documentModified(false),
     m_openingAudioFile(false),
     m_abandoning(false),
