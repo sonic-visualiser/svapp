@@ -149,6 +149,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
             this, SLOT(paneDropAccepted(Pane *, QStringList)));
     connect(m_paneStack, SIGNAL(dropAccepted(Pane *, QString)),
             this, SLOT(paneDropAccepted(Pane *, QString)));
+    connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
+            this, SLOT(paneDeleteButtonClicked(Pane *)));
 
     m_playSource = new AudioCallbackPlaySource(m_viewManager);
 
@@ -1923,6 +1925,42 @@ MainWindowBase::modelAboutToBeDeleted(Model *model)
     }
     m_playSource->removeModel(model);
     FFTDataServer::modelAboutToBeDeleted(model);
+}
+
+void
+MainWindowBase::paneDeleteButtonClicked(Pane *pane)
+{
+    bool found = false;
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        if (m_paneStack->getPane(i) == pane) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        std::cerr << "MainWindowBase::paneDeleteButtonClicked: Unknown pane "
+                  << pane << std::endl;
+        return;
+    }
+
+    CommandHistory::getInstance()->startCompoundOperation
+	(tr("Delete Pane"), true);
+
+    while (pane->getLayerCount() > 0) {
+        Layer *layer = pane->getLayer(0);
+        if (layer) {
+            m_document->removeLayerFromView(pane, layer);
+        } else {
+            break;
+        }
+    }
+
+    RemovePaneCommand *command = new RemovePaneCommand(this, pane);
+    CommandHistory::getInstance()->addCommand(command);
+
+    CommandHistory::getInstance()->endCompoundOperation();
+
+    updateMenuStates();
 }
 
 void

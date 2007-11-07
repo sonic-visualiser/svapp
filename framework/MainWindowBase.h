@@ -223,6 +223,7 @@ protected slots:
     virtual void paneAboutToBeDeleted(Pane *) = 0;
     virtual void paneDropAccepted(Pane *, QStringList) = 0;
     virtual void paneDropAccepted(Pane *, QString) = 0;
+    virtual void paneDeleteButtonClicked(Pane *);
 
     virtual void pollOSC();
     virtual void handleOSCMessage(const OSCMessage &) = 0;
