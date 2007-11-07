@@ -25,7 +25,8 @@
 #include "view/View.h"
 #include "base/PlayParameterRepository.h"
 #include "base/PlayParameters.h"
-#include "plugin/transform/TransformerFactory.h"
+#include "plugin/transform/TransformFactory.h"
+#include "plugin/transform/ModelTransformerFactory.h"
 #include <QApplication>
 #include <QTextStream>
 #include <iostream>
@@ -42,7 +43,7 @@ Document::Document() :
     m_autoAlignment(false)
 {
     connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
-            TransformerFactory::getInstance(),
+            ModelTransformerFactory::getInstance(),
             SLOT(modelAboutToBeDeleted(Model *)));
 }
 
@@ -174,20 +175,20 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
 
 Layer *
 Document::createDerivedLayer(LayerFactory::LayerType type,
-			     TransformerId transform)
+			     TransformId transform)
 {
     Layer *newLayer = createLayer(type);
     if (!newLayer) return 0;
 
     newLayer->setObjectName(getUniqueLayerName
-                            (TransformerFactory::getInstance()->
-                             getTransformerFriendlyName(transform)));
+                            (TransformFactory::getInstance()->
+                             getTransformFriendlyName(transform)));
 
     return newLayer;
 }
 
 Layer *
-Document::createDerivedLayer(TransformerId transform,
+Document::createDerivedLayer(TransformId transform,
                              Model *inputModel, 
                              const PluginTransformer::ExecutionContext &context,
                              QString configurationXml)
@@ -231,8 +232,8 @@ Document::createDerivedLayer(TransformerId transform,
     
     if (newLayer) {
 	newLayer->setObjectName(getUniqueLayerName
-                                (TransformerFactory::getInstance()->
-                                 getTransformerFriendlyName(transform)));
+                                (TransformFactory::getInstance()->
+                                 getTransformFriendlyName(transform)));
     }
 
     emit layerAdded(newLayer);
@@ -289,7 +290,7 @@ Document::setMainModel(WaveFileModel *model)
 	    // This model was derived from the previous main
 	    // model: regenerate it.
 	    
-	    TransformerId transform = m_models[model].transform;
+	    TransformId transform = m_models[model].transform;
             PluginTransformer::ExecutionContext context = m_models[model].context;
 	    
 	    Model *replacementModel =
@@ -343,7 +344,7 @@ Document::setMainModel(WaveFileModel *model)
 }
 
 void
-Document::addDerivedModel(TransformerId transform,
+Document::addDerivedModel(TransformId transform,
                           Model *inputModel,
                           const PluginTransformer::ExecutionContext &context,
                           Model *outputModelToAdd,
@@ -394,7 +395,7 @@ Document::addImportedModel(Model *model)
 }
 
 Model *
-Document::addDerivedModel(TransformerId transform,
+Document::addDerivedModel(TransformId transform,
                           Model *inputModel,
                           const PluginTransformer::ExecutionContext &context,
                           QString configurationXml)
@@ -410,7 +411,7 @@ Document::addDerivedModel(TransformerId transform,
 	}
     }
 
-    model = TransformerFactory::getInstance()->transform
+    model = ModelTransformerFactory::getInstance()->transform
 	(transform, inputModel, context, configurationXml);
 
     if (!model) {
@@ -687,9 +688,9 @@ Document::getTransformerInputModels()
 bool
 Document::canAlign() 
 {
-    TransformerId id = "vamp:match-vamp-plugin:match:path";
-    TransformerFactory *factory = TransformerFactory::getInstance();
-    return factory->haveTransformer(id);
+    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformFactory *factory = TransformFactory::getInstance();
+    return factory->haveTransform(id);
 }
 
 void
@@ -732,9 +733,9 @@ Document::alignModel(Model *model)
 
     Model *aggregate = new AggregateWaveModel(components);
 
-    TransformerId id = "vamp:match-vamp-plugin:match:path";
+    TransformId id = "vamp:match-vamp-plugin:match:path";
     
-    TransformerFactory *factory = TransformerFactory::getInstance();
+    ModelTransformerFactory *factory = ModelTransformerFactory::getInstance();
 
     Model *transformOutput = factory->transform
         (id, aggregate,
