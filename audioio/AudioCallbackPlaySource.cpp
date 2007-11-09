@@ -35,9 +35,11 @@
 
 const size_t AudioCallbackPlaySource::m_ringBufferSize = 131071;
 
-AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager) :
+AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager,
+                                                 QString clientName) :
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),
+    m_clientName(clientName),
     m_readBuffers(0),
     m_writeBuffers(0),
     m_readBufferFill(0),

@@ -152,7 +152,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
 
-    m_playSource = new AudioCallbackPlaySource(m_viewManager);
+    m_playSource = new AudioCallbackPlaySource(m_viewManager,
+                                               QApplication::applicationName());
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(size_t, size_t, bool)),
 	    this,           SLOT(sampleRateMismatch(size_t, size_t, bool)));
@@ -424,6 +425,18 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     View::ModelSet soloModels = p->getModels();
     
+    View::ModelSet sources;
+    for (View::ModelSet::iterator mi = soloModels.begin();
+         mi != soloModels.end(); ++mi) {
+        if (*mi && (*mi)->getSourceModel()) {
+            sources.insert((*mi)->getSourceModel());
+        }
+    }
+    for (View::ModelSet::iterator mi = sources.begin();
+         mi != sources.end(); ++mi) {
+        soloModels.insert(*mi);
+    }
+
     for (View::ModelSet::iterator mi = soloModels.begin();
          mi != soloModels.end(); ++mi) {
         if (dynamic_cast<RangeSummarisableTimeValueModel *>(*mi)) {
@@ -870,13 +883,15 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 
 	if (m_sessionFile == "") {
             //!!! shouldn't be dealing directly with title from here -- call a method
-	    setWindowTitle(tr("Sonic Visualiser: %1")
+	    setWindowTitle(tr("%1: %2")
+                           .arg(QApplication::applicationName())
                            .arg(source.getLocation()));
 	    CommandHistory::getInstance()->clear();
 	    CommandHistory::getInstance()->documentSaved();
 	    m_documentModified = false;
 	} else {
-	    setWindowTitle(tr("Sonic Visualiser: %1 [%2]")
+	    setWindowTitle(tr("%1: %2 [%3]")
+                           .arg(QApplication::applicationName())
 			   .arg(QFileInfo(m_sessionFile).fileName())
 			   .arg(source.getLocation()));
 	    if (m_documentModified) {
@@ -1180,7 +1195,8 @@ MainWindowBase::openSession(FileSource source)
 
     if (ok) {
 
-	setWindowTitle(tr("Sonic Visualiser: %1")
+	setWindowTitle(tr("%1: %2")
+                       .arg(QApplication::applicationName())
 		       .arg(source.getLocation()));
 
 	if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
@@ -1201,7 +1217,7 @@ MainWindowBase::openSession(FileSource source)
         }
 
     } else {
-	setWindowTitle(tr("Sonic Visualiser"));
+	setWindowTitle(QApplication::applicationName());
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
@@ -1330,7 +1346,8 @@ MainWindowBase::addPaneToStack()
 {
     AddPaneCommand *command = new AddPaneCommand(this);
     CommandHistory::getInstance()->addCommand(command);
-    return command->getPane();
+    Pane *pane = command->getPane();
+    return pane;
 }
 
 void

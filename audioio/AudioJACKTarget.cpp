@@ -219,8 +219,9 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
 #endif
 
     JackStatus status = JackStatus(0);
-    m_client = jack_client_open("Sonic Visualiser", options, &status);
-
+    m_client = jack_client_open(source->getClientName().toLocal8Bit().data(),
+                                options, &status);
+    
     if (!m_client) {
         std::cerr << "AudioJACKTarget: Failed to connect to JACK server: status code "
                   << status << std::endl;

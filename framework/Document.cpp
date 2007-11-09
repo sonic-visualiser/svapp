@@ -737,10 +737,12 @@ Document::alignModel(Model *model)
     
     ModelTransformerFactory *factory = ModelTransformerFactory::getInstance();
 
+    PluginTransformer::ExecutionContext context =
+        factory->getDefaultContextForTransformer(id, aggregate);
+//    context.stepSize = context.blockSize/2;
+
     Model *transformOutput = factory->transform
-        (id, aggregate,
-         factory->getDefaultContextForTransformer(id, aggregate),
-         "<plugin param-serialise=\"1\"/>");
+        (id, aggregate, context, "<plugin param-serialise=\"1\"/>");
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
         (transformOutput);

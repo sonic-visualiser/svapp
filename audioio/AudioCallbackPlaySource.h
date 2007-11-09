@@ -52,7 +52,7 @@ class AudioCallbackPlaySource : public virtual QObject,
     Q_OBJECT
 
 public:
-    AudioCallbackPlaySource(ViewManager *);
+    AudioCallbackPlaySource(ViewManager *, QString clientName);
     virtual ~AudioCallbackPlaySource();
     
     /**
@@ -226,6 +226,8 @@ public:
      */
     void clearSoloModelSet();
 
+    QString getClientName() const { return m_clientName; }
+
 signals:
     void modelReplaced();
 
@@ -247,8 +249,9 @@ protected slots:
     void modelChanged(size_t startFrame, size_t endFrame);
 
 protected:
-    ViewManager                     *m_viewManager;
-    AudioGenerator                  *m_audioGenerator;
+    ViewManager                      *m_viewManager;
+    AudioGenerator                   *m_audioGenerator;
+    QString                           m_clientName;
 
     class RingBufferVector : public std::vector<RingBuffer<float> *> {
     public:
