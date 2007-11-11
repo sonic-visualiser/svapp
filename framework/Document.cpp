@@ -739,7 +739,7 @@ Document::alignModel(Model *model)
 
     PluginTransformer::ExecutionContext context =
         factory->getDefaultContextForTransformer(id, aggregate);
-//    context.stepSize = context.blockSize/2;
+    context.stepSize = context.blockSize/2;
 
     Model *transformOutput = factory->transform
         (id, aggregate, context, "<plugin param-serialise=\"1\"/>");
