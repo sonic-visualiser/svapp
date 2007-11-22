@@ -422,6 +422,9 @@ MainWindowBase::currentPaneChanged(Pane *p)
     }
 
     Model *prevPlaybackModel = m_viewManager->getPlaybackModel();
+    int frame = m_playSource->getCurrentPlayingFrame();
+
+    std::cerr << "playing frame (in ref model) = " << frame << std::endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -436,6 +439,11 @@ MainWindowBase::currentPaneChanged(Pane *p)
          mi != sources.end(); ++mi) {
         soloModels.insert(*mi);
     }
+
+    //!!! Need an "atomic" way of telling the play source that the
+    //playback model has changed, and changing it on ViewManager --
+    //the play source should be making the setPlaybackModel call to
+    //ViewManager
 
     for (View::ModelSet::iterator mi = soloModels.begin();
          mi != soloModels.end(); ++mi) {
@@ -453,11 +461,12 @@ MainWindowBase::currentPaneChanged(Pane *p)
     m_playSource->setSoloModelSet(soloModels);
 
     if (a && b && (a != b)) {
-        int frame = m_playSource->getCurrentPlayingFrame();
-        //!!! I don't really believe that these functions are the right way around
-        int rframe = a->alignFromReference(frame);
-        int bframe = b->alignToReference(rframe);
+/*!!!
+        int rframe = a->alignToReference(frame);
+        int bframe = b->alignFromReference(rframe);
         if (m_playSource->isPlaying()) m_playSource->play(bframe);
+*/
+        if (m_playSource->isPlaying()) m_playSource->play(frame);
     }
 }
 
@@ -1375,6 +1384,7 @@ MainWindowBase::zoomToFit()
     
     size_t start = model->getStartFrame();
     size_t end = model->getEndFrame();
+    if (m_playSource) end = std::max(end, m_playSource->getPlayEndFrame());
     size_t pixels = currentPane->width();
 
     size_t sw = currentPane->getVerticalScaleWidth();

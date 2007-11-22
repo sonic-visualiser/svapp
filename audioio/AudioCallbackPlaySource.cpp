@@ -343,24 +343,20 @@ AudioCallbackPlaySource::play(size_t startFrame)
 {
     if (m_viewManager->getPlaySelectionMode() &&
 	!m_viewManager->getSelections().empty()) {
-	MultiSelection::SelectionList selections = m_viewManager->getSelections();
-	MultiSelection::SelectionList::iterator i = selections.begin();
-	if (i != selections.end()) {
-	    if (startFrame < i->getStartFrame()) {
-		startFrame = i->getStartFrame();
-	    } else {
-		MultiSelection::SelectionList::iterator j = selections.end();
-		--j;
-		if (startFrame >= j->getEndFrame()) {
-		    startFrame = i->getStartFrame();
-		}
-	    }
-	}
+
+        startFrame = m_viewManager->constrainFrameToSelection(startFrame);
+
     } else {
 	if (startFrame >= m_lastModelEndFrame) {
 	    startFrame = 0;
 	}
     }
+
+    std::cerr << "play(" << startFrame << ") -> playback model ";
+
+    startFrame = m_viewManager->alignReferenceToPlaybackFrame(startFrame);
+
+    std::cerr << startFrame << std::endl;
 
     // The fill thread will automatically empty its buffers before
     // starting again if we have not so far been playing, but not if
@@ -522,6 +518,12 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     if (framePlaying > latency) framePlaying -= latency;
     else framePlaying = 0;
 
+//    std::cerr << "framePlaying = " << framePlaying << " -> reference ";
+
+    framePlaying = m_viewManager->alignPlaybackFrameToReference(framePlaying);
+
+//    std::cerr << framePlaying << std::endl;
+
     if (!constrained) {
 	if (!looping && framePlaying > m_lastModelEndFrame) {
 	    framePlaying = m_lastModelEndFrame;
@@ -529,6 +531,8 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 	}
 	return framePlaying;
     }
+
+    bufferedFrame = m_viewManager->alignPlaybackFrameToReference(bufferedFrame);
 
     MultiSelection::SelectionList selections = m_viewManager->getSelections();
     MultiSelection::SelectionList::const_iterator i;
@@ -1245,14 +1249,18 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 	size_t fadeIn = 0, fadeOut = 0;
 
 	if (constrained) {
+
+            size_t rChunkStart =
+                m_viewManager->alignPlaybackFrameToReference(chunkStart);
 	    
 	    Selection selection =
-		m_viewManager->getContainingSelection(chunkStart, true);
+		m_viewManager->getContainingSelection(rChunkStart, true);
 	    
 	    if (selection.isEmpty()) {
 		if (looping) {
 		    selection = *m_viewManager->getSelections().begin();
-		    chunkStart = selection.getStartFrame();
+		    chunkStart = m_viewManager->alignReferenceToPlaybackFrame
+                        (selection.getStartFrame());
 		    fadeIn = 50;
 		}
 	    }
@@ -1264,19 +1272,22 @@ AudioCallbackPlaySource::mixModels(size_t &frame, size_t count, float **buffers)
 
 	    } else {
 
-		selectionSize =
-		    selection.getEndFrame() -
-		    selection.getStartFrame();
+                size_t sf = m_viewManager->alignReferenceToPlaybackFrame
+                    (selection.getStartFrame());
+                size_t ef = m_viewManager->alignReferenceToPlaybackFrame
+                    (selection.getEndFrame());
 
-		if (chunkStart < selection.getStartFrame()) {
-		    chunkStart = selection.getStartFrame();
+		selectionSize = ef - sf;
+
+		if (chunkStart < sf) {
+		    chunkStart = sf;
 		    fadeIn = 50;
 		}
 
 		nextChunkStart = chunkStart + chunkSize;
 
-		if (nextChunkStart >= selection.getEndFrame()) {
-		    nextChunkStart = selection.getEndFrame();
+		if (nextChunkStart >= ef) {
+		    nextChunkStart = ef;
 		    fadeOut = 50;
 		}
 
