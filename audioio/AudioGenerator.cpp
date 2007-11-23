@@ -735,6 +735,12 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
                 onEv.data.note.note = lrintf(pli->value);
             }
 
+            if (pli->level > 0.f && pli->level <= 1.f) {
+                onEv.data.note.velocity = lrintf(pli->level * 127);
+            } else {
+                onEv.data.note.velocity = 100;
+            }
+
 	    plugin->sendEvent(eventTime, &onEv);
 
 #ifdef DEBUG_AUDIO_GENERATOR

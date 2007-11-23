@@ -851,7 +851,12 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	size_t duration = 0;
 	duration = attributes.value("duration").trimmed().toUInt(&ok);
 	QString label = attributes.value("label");
-	nm->addPoint(NoteModel::Point(frame, value, duration, label));
+        float level = attributes.value("level").trimmed().toFloat(&ok);
+        if (!ok) { // level is optional
+            level = 1.f;
+            ok = true;
+        }
+	nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
 	return ok;
     }
 

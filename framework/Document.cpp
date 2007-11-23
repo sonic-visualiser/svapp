@@ -157,6 +157,8 @@ Document::createImportedLayer(Model *model)
 Layer *
 Document::createEmptyLayer(LayerFactory::LayerType type)
 {
+    if (!m_mainModel) return 0;
+
     Model *newModel =
 	LayerFactory::getInstance()->createEmptyModel(type, m_mainModel);
     if (!newModel) return 0;
