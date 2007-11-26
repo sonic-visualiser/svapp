@@ -25,7 +25,13 @@
 #include "data/model/WaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "plugin/RealTimePluginInstance.h"
+
+#ifdef HAVE_RUBBERBAND
+#include <rubberband/RubberBandStretcher.h>
+using namespace RubberBand;
+#else
 #include "PhaseVocoderTimeStretcher.h"
+#endif
 
 #include <iostream>
 #include <cassert>
@@ -103,7 +109,9 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
+#ifndef HAVE_RUBBERBAND
     m_timeStretcherScavenger.scavenge(true);
+#endif
 }
 
 void
@@ -497,10 +505,16 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     size_t latency = m_playLatency;
     if (resample) latency = size_t(m_playLatency * ratio + 0.1);
 
+#ifdef HAVE_RUBBERBAND
+    if (m_timeStretcher) {
+        latency += m_timeStretcher->getLatency();
+    }
+#else
     PhaseVocoderTimeStretcher *timeStretcher = m_timeStretcher;
     if (timeStretcher) {
 	latency += timeStretcher->getProcessingLatency();
     }
+#endif
 
     latency += readSpace;
     size_t bufferedFrame = m_readBufferFill;
@@ -746,6 +760,22 @@ AudioCallbackPlaySource::getSourceSampleRate() const
 void
 AudioCallbackPlaySource::setTimeStretch(float factor, bool sharpen, bool mono)
 {
+#ifdef HAVE_RUBBERBAND
+    if (m_timeStretcher) {
+        m_timeStretchRatioMutex.lock();
+        m_timeStretcher->setTimeRatio(factor);
+        m_timeStretchRatioMutex.unlock();
+        return;
+    } else {
+        RubberBandStretcher *stretcher = new RubberBandStretcher
+            (getTargetSampleRate(),
+             getTargetChannelCount(),
+             RubberBandStretcher::OptionProcessRealTime,
+             factor);
+        m_timeStretcher = stretcher;
+        return;
+    }
+#else
     // Avoid locks -- create, assign, mark old one for scavenging
     // later (as a call to getSourceSamples may still be using it)
 
@@ -786,6 +816,7 @@ AudioCallbackPlaySource::setTimeStretch(float factor, bool sharpen, bool mono)
     if (existingStretcher) {
 	m_timeStretcherScavenger.claim(existingStretcher);
     }
+#endif
 }
 
 size_t
@@ -829,9 +860,15 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 
     if (count == 0) return 0;
 
+#ifdef HAVE_RUBBERBAND
+    RubberBandStretcher *ts = m_timeStretcher;
+    float ratio = ts ? ts->getTimeRatio() : 1.f;
+#else
     PhaseVocoderTimeStretcher *ts = m_timeStretcher;
+    float ratio = ts ? ts->getRatio() : 1.f;
+#endif
 
-    if (!ts || ts->getRatio() == 1) {
+    if (!ts || ratio == 1.f) {
 
 	size_t got = 0;
 
@@ -866,12 +903,13 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 	return got;
     }
 
-    float ratio = ts->getRatio();
-
-//            std::cout << "ratio = " << ratio << std::endl;
-
     size_t channels = getTargetChannelCount();
+
+#ifdef HAVE_RUBBERBAND
+    bool mix = false;
+#else
     bool mix = (channels > 1 && ts->getChannelCount() == 1);
+#endif
 
     size_t available;
 
@@ -885,10 +923,19 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
     // need some additional buffer space.  See the time stretcher code
     // and comments.
 
+#ifdef HAVE_RUBBERBAND
+    m_timeStretchRatioMutex.lock();
+    while ((available = ts->available()) < count) {
+#else
     while ((available = ts->getAvailableOutputSamples()) < count) {
+#endif
 
         size_t reqd = lrintf((count - available) / ratio);
+#ifdef HAVE_RUBBERBAND
+        reqd = std::max(reqd, ts->getSamplesRequired());
+#else
         reqd = std::max(reqd, ts->getRequiredInputSamples());
+#endif
         if (reqd == 0) reqd = 1;
                 
         float *ib[channels];
@@ -923,7 +970,11 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
                       << got << " < " << reqd << ")" << std::endl;
         }
                 
+#ifdef HAVE_RUBBERBAND
+        ts->process(ib, got, false);
+#else
         ts->putInput(ib, got);
+#endif
 
         for (size_t c = 0; c < channels; ++c) {
             delete[] ib[c];
@@ -931,13 +982,22 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 
         if (got == 0) break;
 
+#ifdef HAVE_RUBBERBAND
+        if (ts->available() == available) {
+#else
         if (ts->getAvailableOutputSamples() == available) {
+#endif
             std::cerr << "WARNING: AudioCallbackPlaySource::getSamples: Added " << got << " samples to time stretcher, created no new available output samples (warned = " << warned << ")" << std::endl;
             if (++warned == 5) break;
         }
     }
 
+#ifdef HAVE_RUBBERBAND
+    ts->retrieve(buffer, count);
+    m_timeStretchRatioMutex.unlock();
+#else
     ts->getOutput(buffer, count);
+#endif
 
     if (mix) {
         for (size_t c = 1; c < channels; ++c) {
@@ -1124,7 +1184,11 @@ AudioCallbackPlaySource::fillBuffers()
 	
 	int err = 0;
 
+#ifdef HAVE_RUBBERBAND
+        if (m_timeStretcher && m_timeStretcher->getTimeRatio() < 0.4) {
+#else
         if (m_timeStretcher && m_timeStretcher->getRatio() < 0.4) {
+#endif
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
             std::cout << "Using crappy converter" << std::endl;
 #endif
@@ -1449,7 +1513,9 @@ AudioCallbackPlaySource::FillThread::run()
 	s.unifyRingBuffers();
 	s.m_bufferScavenger.scavenge();
         s.m_pluginScavenger.scavenge();
+#ifndef HAVE_RUBBERBAND
 	s.m_timeStretcherScavenger.scavenge();
+#endif
 
 	if (work && s.m_playing && s.getSourceSampleRate()) {
 	    

@@ -32,11 +32,16 @@
 #include <set>
 #include <map>
 
+#ifdef HAVE_RUBBERBAND
+#include <rubberband/RubberBandStretcher.h>
+#else
+class PhaseVocoderTimeStretcher;
+#endif
+
 class Model;
 class ViewManager;
 class AudioGenerator;
 class PlayParameters;
-class PhaseVocoderTimeStretcher;
 class RealTimePluginInstance;
 
 /**
@@ -304,8 +309,13 @@ protected:
     void clearRingBuffers(bool haveLock = false, size_t count = 0);
     void unifyRingBuffers();
 
+#ifdef HAVE_RUBBERBAND
+    RubberBand::RubberBandStretcher *m_timeStretcher;
+    QMutex m_timeStretchRatioMutex;
+#else
     PhaseVocoderTimeStretcher *m_timeStretcher;
     Scavenger<PhaseVocoderTimeStretcher> m_timeStretcherScavenger;
+#endif
 
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done
