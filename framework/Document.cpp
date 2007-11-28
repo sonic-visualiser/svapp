@@ -743,8 +743,14 @@ Document::alignModel(Model *model)
         factory->getDefaultContextForTransformer(id, aggregate);
     context.stepSize = context.blockSize/2;
 
-    Model *transformOutput = factory->transform
-        (id, aggregate, context, "<plugin param-serialise=\"1\"/>");
+    QString args = "<plugin param-serialise=\"1\"/>";
+
+    Model *transformOutput = factory->transform(id, aggregate, context, args);
+
+    if (!transformOutput) {
+        context.stepSize = 0;
+        transformOutput = factory->transform(id, aggregate, context, args);
+    }
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
         (transformOutput);
