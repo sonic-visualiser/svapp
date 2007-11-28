@@ -103,8 +103,8 @@ Document::createLayer(LayerFactory::LayerType type)
 
     m_layers.insert(newLayer);
 
-    std::cerr << "Document::createLayer: Added layer of type " << type
-              << ", now have " << m_layers.size() << " layers" << std::endl;
+//    std::cerr << "Document::createLayer: Added layer of type " << type
+//              << ", now have " << m_layers.size() << " layers" << std::endl;
 
     emit layerAdded(newLayer);
 
