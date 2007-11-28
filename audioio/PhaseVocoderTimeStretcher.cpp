@@ -13,6 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
+#ifndef HAVE_RUBBERBAND
+
 #include "PhaseVocoderTimeStretcher.h"
 
 #include <iostream>
@@ -624,3 +626,4 @@ PhaseVocoderTimeStretcher::synthesiseBlock(size_t c,
 }
 
 
+#endif

@@ -16,6 +16,8 @@
 #ifndef _PHASE_VOCODER_TIME_STRETCHER_H_
 #define _PHASE_VOCODER_TIME_STRETCHER_H_
 
+#ifndef HAVE_RUBBERBAND
+
 #include "base/Window.h"
 #include "base/RingBuffer.h"
 
@@ -183,5 +185,7 @@ protected:
 
     QMutex *m_mutex;
 };
+
+#endif
 
 #endif
