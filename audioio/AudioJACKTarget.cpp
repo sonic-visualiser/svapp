@@ -69,9 +69,9 @@ static jack_client_t *dynamic_jack_client_open(const char *client_name,
                                                jack_options_t options,
                                                jack_status_t *status, ...)
 {
-    typedef jack_client_t (*func)(const char *client_name,
-                                  jack_options_t options,
-                                  jack_status_t *status, ...);
+    typedef jack_client_t *(*func)(const char *client_name,
+                                   jack_options_t options,
+                                   jack_status_t *status, ...);
     void *s = symbol("jack_client_open");
     if (!s) return 0;
     func f = (func)s;
