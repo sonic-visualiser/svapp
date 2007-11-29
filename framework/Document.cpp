@@ -271,7 +271,7 @@ Document::setMainModel(WaveFileModel *model)
 //                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
 //                  << layer->objectName().toStdString() << std::endl;
 
-	if (model == oldMainModel) {
+	if (model && (model == oldMainModel)) {
 //            std::cerr << "... it uses the old main model, replacing" << std::endl;
 	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
 	    continue;
@@ -285,7 +285,7 @@ Document::setMainModel(WaveFileModel *model)
 	    continue;
 	}
 	    
-	if (m_models[model].source == oldMainModel) {
+	if (m_models[model].source && (m_models[model].source == oldMainModel)) {
 
 //            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
 
@@ -334,7 +334,8 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        if (i->first->getAlignmentReference() == oldMainModel) {
+        if (oldMainModel &&
+            (i->first->getAlignmentReference() == oldMainModel)) {
             alignModel(i->first);
         }
     }
