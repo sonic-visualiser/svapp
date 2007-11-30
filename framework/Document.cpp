@@ -259,8 +259,8 @@ Document::setMainModel(WaveFileModel *model)
     // using one of these.  Carry out this replacement before we
     // delete any of the models.
 
-    std::cerr << "Document::setMainModel: Have "
-              << m_layers.size() << " layers" << std::endl;
+//    std::cerr << "Document::setMainModel: Have "
+//              << m_layers.size() << " layers" << std::endl;
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
 
@@ -271,13 +271,13 @@ Document::setMainModel(WaveFileModel *model)
 //                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
 //                  << layer->objectName().toStdString() << std::endl;
 
-	if (model && (model == oldMainModel)) {
+	if (model == oldMainModel) {
 //            std::cerr << "... it uses the old main model, replacing" << std::endl;
 	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
 	    continue;
 	}
 
-	if (m_models.find(model) == m_models.end()) {
+	if (model && (m_models.find(model) == m_models.end())) {
 	    std::cerr << "WARNING: Document::setMainModel: Unknown model "
 		      << model << " in layer " << layer << std::endl;
 	    // get rid of this hideous degenerate
@@ -285,7 +285,8 @@ Document::setMainModel(WaveFileModel *model)
 	    continue;
 	}
 	    
-	if (m_models[model].source && (m_models[model].source == oldMainModel)) {
+	if (m_models[model].source &&
+            (m_models[model].source == oldMainModel)) {
 
 //            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
 
@@ -311,12 +312,12 @@ Document::setMainModel(WaveFileModel *model)
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
-                std::cerr << "Replacing model " << model << " (type "
-                          << typeid(*model).name() << ") with model "
-                          << replacementModel << " (type "
-                          << typeid(*replacementModel).name() << ") in layer "
-                          << layer << " (name " << layer->objectName().toStdString() << ")"
-                          << std::endl;
+//                std::cerr << "Replacing model " << model << " (type "
+//                          << typeid(*model).name() << ") with model "
+//                          << replacementModel << " (type "
+//                          << typeid(*replacementModel).name() << ") in layer "
+//                          << layer << " (name " << layer->objectName().toStdString() << ")"
+//                          << std::endl;
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
                 if (rm) {

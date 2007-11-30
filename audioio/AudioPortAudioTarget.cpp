@@ -29,7 +29,8 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     m_stream(0),
     m_bufferSize(0),
     m_sampleRate(0),
-    m_latency(0)
+    m_latency(0),
+    m_done(false)
 {
     PaError err;
 
@@ -105,17 +106,37 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
 AudioPortAudioTarget::~AudioPortAudioTarget()
 {
+    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget()" << std::endl;
+
+    shutdown();
+
     if (m_stream) {
+
+        std::cerr << "closing stream" << std::endl;
+
 	PaError err;
 	err = Pa_CloseStream(m_stream);
 	if (err != paNoError) {
 	    std::cerr << "ERROR: AudioPortAudioTarget: Failed to close PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
 	}
+
+        std::cerr << "terminating" << std::endl;
+
 	err = Pa_Terminate();
         if (err != paNoError) {
             std::cerr << "ERROR: AudioPortAudioTarget: Failed to terminate PortAudio: " << Pa_GetErrorText(err) << std::endl;
 	}   
     }
+
+    m_stream = 0;
+
+    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << std::endl;
+}
+
+void 
+AudioPortAudioTarget::shutdown()
+{
+    m_done = true;
 }
 
 bool
@@ -169,7 +190,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
     std::cout << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;
 #endif
 
-    if (!m_source) return 0;
+    if (!m_source || m_done) return 0;
 
     float *output = (float *)outputBuffer;
 
