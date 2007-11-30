@@ -201,7 +201,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
 
 MainWindowBase::~MainWindowBase()
 {
-    delete m_playTarget;
+    if (m_playTarget) m_playTarget->shutdown();
+//    delete m_playTarget;
     delete m_playSource;
     delete m_viewManager;
     delete m_oscQueue;
@@ -1007,7 +1008,7 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
     for (PlaylistFileReader::Playlist::const_iterator i = playlist.begin();
          i != playlist.end(); ++i) {
 
-        FileOpenStatus status = openAudio(*i, mode);
+        FileOpenStatus status = openAudio(FileSource(*i, true), mode);
 
         if (status == FileOpenCancelled) {
             return FileOpenCancelled;

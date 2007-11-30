@@ -37,6 +37,8 @@ public:
     AudioPortAudioTarget(AudioCallbackPlaySource *source);
     virtual ~AudioPortAudioTarget();
 
+    virtual void shutdown();
+
     virtual bool isOK() const;
 
 public slots:
@@ -70,6 +72,7 @@ protected:
     int m_bufferSize;
     int m_sampleRate;
     int m_latency;
+    bool m_done;
 };
 
 #endif /* HAVE_PORTAUDIO */

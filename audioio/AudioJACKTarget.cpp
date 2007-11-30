@@ -211,7 +211,8 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     AudioCallbackPlayTarget(source),
     m_client(0),
     m_bufferSize(0),
-    m_sampleRate(0)
+    m_sampleRate(0),
+    m_done(false)
 {
     JackOptions options = JackNullOption;
 #ifdef HAVE_PORTAUDIO
@@ -247,11 +248,35 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
 AudioJACKTarget::~AudioJACKTarget()
 {
     std::cerr << "AudioJACKTarget::~AudioJACKTarget()" << std::endl;
+
+    shutdown();
+
     if (m_client) {
+
+        while (m_outputs.size() > 0) {
+            std::vector<jack_port_t *>::iterator itr = m_outputs.end();
+            --itr;
+            jack_port_t *port = *itr;
+            std::cerr << "unregister " << m_outputs.size() << std::endl;
+            if (port) jack_port_unregister(m_client, port);
+            m_outputs.erase(itr);
+        }
+        std::cerr << "Deactivating... ";
 	jack_deactivate(m_client);
+        std::cerr << "done\nClosing... ";
 	jack_client_close(m_client);
+        std::cerr << "done" << std::endl;
     }
+
+    m_client = 0;
+
     std::cerr << "AudioJACKTarget::~AudioJACKTarget() done" << std::endl;
+}
+
+void
+AudioJACKTarget::shutdown()
+{
+    m_done = true;
 }
 
 bool
@@ -342,6 +367,8 @@ AudioJACKTarget::sourceModelReplaced()
 int
 AudioJACKTarget::process(jack_nframes_t nframes)
 {
+    if (m_done) return 0;
+
     if (!m_mutex.tryLock()) {
 	return 0;
     }
