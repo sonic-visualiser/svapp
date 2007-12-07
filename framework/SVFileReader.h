@@ -18,7 +18,6 @@
 
 #include "layer/LayerFactory.h"
 #include "plugin/transform/Transform.h"
-#include "plugin/transform/PluginTransformer.h"
 
 #include <QXmlDefaultHandler>
 
@@ -89,8 +88,19 @@ public:
            a derivation element, and no model element should appear
            for it at all. -->
 
-      <derivation source="0" model="2" transform="..." ...>
-        <plugin id="..." ... />
+      <derivation type="transform" source="0" model="2" channel="-1">
+        <transform id="vamp:soname:pluginid:output" ... />
+      </derivation>
+
+      <!-- Note that the derivation element just described replaces
+           this earlier formulation, which had more attributes in the
+           derivation element and a plugin element describing plugin
+           parameters and properties.  What we actually read and
+           write these days is a horrid composite of the two formats,
+           for backward compatibility reasons. -->
+
+      <derivation source="0" model="2" transform="vamp:soname:pluginid:output" ...>
+        <plugin id="pluginid" ... />
       </derivation>
 
       <!-- The playparameters element lists playback settings for
@@ -195,6 +205,8 @@ protected:
     bool readDerivation(const QXmlAttributes &);
     bool readPlayParameters(const QXmlAttributes &);
     bool readPlugin(const QXmlAttributes &);
+    bool readTransform(const QXmlAttributes &);
+    bool readParameter(const QXmlAttributes &);
     bool readSelection(const QXmlAttributes &);
     bool readMeasurement(const QXmlAttributes &);
     void addUnaddedModels();
@@ -216,10 +228,10 @@ protected:
     Model *m_currentDerivedModel;
     int m_currentDerivedModelId;
     PlayParameters *m_currentPlayParameters;
-    QString m_currentTransformer;
-    Model *m_currentTransformerSource;
-    PluginTransformer::ExecutionContext m_currentTransformerContext;
-    QString m_currentTransformerConfiguration;
+    Transform m_currentTransform;
+    Model *m_currentTransformSource;
+    int m_currentTransformChannel;
+    bool m_currentTransformIsNewStyle;
     QString m_datasetSeparator;
     bool m_inRow;
     bool m_inLayer;

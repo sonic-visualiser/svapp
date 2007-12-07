@@ -190,16 +190,13 @@ Document::createDerivedLayer(LayerFactory::LayerType type,
 }
 
 Layer *
-Document::createDerivedLayer(TransformId transform,
-                             Model *inputModel, 
-                             const PluginTransformer::ExecutionContext &context,
-                             QString configurationXml)
+Document::createDerivedLayer(const Transform &transform,
+                             const ModelTransformer::Input &input)
 {
-    Model *newModel = addDerivedModel(transform, inputModel,
-                                      context, configurationXml);
+    Model *newModel = addDerivedModel(transform, input);
     if (!newModel) {
         // error already printed to stderr by addDerivedModel
-        emit modelGenerationFailed(transform);
+        emit modelGenerationFailed(transform.getIdentifier());
         return 0;
     }
 
@@ -207,7 +204,7 @@ Document::createDerivedLayer(TransformId transform,
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.toStdString() << std::endl;
+	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier().toStdString() << std::endl;
 	delete newModel;
 	return 0;
     }
@@ -235,7 +232,8 @@ Document::createDerivedLayer(TransformId transform,
     if (newLayer) {
 	newLayer->setObjectName(getUniqueLayerName
                                 (TransformFactory::getInstance()->
-                                 getTransformFriendlyName(transform)));
+                                 getTransformFriendlyName
+                                 (transform.getIdentifier())));
     }
 
     emit layerAdded(newLayer);
@@ -293,22 +291,26 @@ Document::setMainModel(WaveFileModel *model)
 	    // This model was derived from the previous main
 	    // model: regenerate it.
 	    
-	    TransformId transform = m_models[model].transform;
-            PluginTransformer::ExecutionContext context = m_models[model].context;
+	    const Transform &transform = m_models[model].transform;
+            QString transformId = transform.getIdentifier();
 	    
+            //!!! We have a problem here if the number of channels in
+            //the main model has changed.
+
 	    Model *replacementModel =
                 addDerivedModel(transform,
-                                m_mainModel,
-                                context,
-                                m_models[model].configurationXml);
+                                ModelTransformer::Input
+                                (m_mainModel,
+                                 m_models[model].channel));
 	    
 	    if (!replacementModel) {
 		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
-			  << transform.toStdString() << "\"" << " in layer " << layer << std::endl;
-                if (failedTransformers.find(transform) == failedTransformers.end()) {
+			  << transformId.toStdString() << "\"" << " in layer " << layer << std::endl;
+                if (failedTransformers.find(transformId)
+                    == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
-                                                 transform);
-                    failedTransformers.insert(transform);
+                                                 transformId);
+                    failedTransformers.insert(transformId);
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
@@ -348,11 +350,9 @@ Document::setMainModel(WaveFileModel *model)
 }
 
 void
-Document::addDerivedModel(TransformId transform,
-                          Model *inputModel,
-                          const PluginTransformer::ExecutionContext &context,
-                          Model *outputModelToAdd,
-                          QString configurationXml)
+Document::addDerivedModel(const Transform &transform,
+                          const ModelTransformer::Input &input,
+                          Model *outputModelToAdd)
 {
     if (m_models.find(outputModelToAdd) != m_models.end()) {
 	std::cerr << "WARNING: Document::addDerivedModel: Model already added"
@@ -363,13 +363,12 @@ Document::addDerivedModel(TransformId transform,
 //    std::cerr << "Document::addDerivedModel: source is " << inputModel << " \"" << inputModel->objectName().toStdString() << "\"" << std::endl;
 
     ModelRecord rec;
-    rec.source = inputModel;
+    rec.source = input.getModel();
+    rec.channel = input.getChannel();
     rec.transform = transform;
-    rec.context = context;
-    rec.configurationXml = configurationXml;
     rec.refcount = 0;
 
-    outputModelToAdd->setSourceModel(inputModel);
+    outputModelToAdd->setSourceModel(input.getModel());
 
     m_models[outputModelToAdd] = rec;
 
@@ -388,7 +387,6 @@ Document::addImportedModel(Model *model)
 
     ModelRecord rec;
     rec.source = 0;
-    rec.transform = "";
     rec.refcount = 0;
 
     m_models[model] = rec;
@@ -399,29 +397,25 @@ Document::addImportedModel(Model *model)
 }
 
 Model *
-Document::addDerivedModel(TransformId transform,
-                          Model *inputModel,
-                          const PluginTransformer::ExecutionContext &context,
-                          QString configurationXml)
+Document::addDerivedModel(const Transform &transform,
+                          const ModelTransformer::Input &input)
 {
     Model *model = 0;
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
 	if (i->second.transform == transform &&
-	    i->second.source == inputModel && 
-            i->second.context == context &&
-            i->second.configurationXml == configurationXml) {
+	    i->second.source == input.getModel() && 
+            i->second.channel == input.getChannel()) {
 	    return i->first;
 	}
     }
 
-    model = ModelTransformerFactory::getInstance()->transform
-	(transform, inputModel, context, configurationXml);
+    model = ModelTransformerFactory::getInstance()->transform(transform, input);
 
     if (!model) {
-	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.toStdString() << std::endl;
+	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier().toStdString() << std::endl;
     } else {
-	addDerivedModel(transform, inputModel, context, model, configurationXml);
+	addDerivedModel(transform, input, model);
     }
 
     return model;
@@ -665,7 +659,7 @@ Document::getUniqueLayerName(QString candidate)
 }
 
 std::vector<Model *>
-Document::getTransformerInputModels()
+Document::getTransformInputModels()
 {
     std::vector<Model *> models;
 
@@ -737,21 +731,26 @@ Document::alignModel(Model *model)
 
     Model *aggregate = new AggregateWaveModel(components);
 
-    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
     
-    ModelTransformerFactory *factory = ModelTransformerFactory::getInstance();
+    TransformFactory *tf = TransformFactory::getInstance();
 
-    PluginTransformer::ExecutionContext context =
-        factory->getDefaultContextForTransformer(id, aggregate);
-    context.stepSize = context.blockSize/2;
+    Transform transform = tf->getDefaultTransformFor
+        (id, aggregate->getSampleRate());
 
-    QString args = "<plugin param-serialise=\"1\"/>";
+    transform.setStepSize(transform.getBlockSize()/2);
+    transform.setParameter("serialise", 1);
 
-    Model *transformOutput = factory->transform(id, aggregate, context, args);
+//!!!    QString args = "<plugin param-serialise=\"1\"/>";
+//    Model *transformOutput = factory->transform(id, aggregate, context, args);
+
+    ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
+
+    Model *transformOutput = mtf->transform(transform, aggregate);
 
     if (!transformOutput) {
-        context.stepSize = 0;
-        transformOutput = factory->transform(id, aggregate, context, args);
+        transform.setStepSize(0);
+        transformOutput = mtf->transform(transform, aggregate);
     }
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
@@ -926,7 +925,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         bool writeModel = true;
         bool haveDerivation = false;
 
-        if (rec.source && rec.transform != "") {
+        if (rec.source && rec.transform.getIdentifier() != "") {
             haveDerivation = true;
         } 
 
@@ -943,33 +942,8 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         }
 
 	if (haveDerivation) {
-
-            QString extentsAttributes;
-            if (rec.context.startFrame != 0 ||
-                rec.context.duration != 0) {
-                extentsAttributes = QString("startFrame=\"%1\" duration=\"%2\" ")
-                    .arg(rec.context.startFrame)
-                    .arg(rec.context.duration);
-            }
-	    
-	    out << indent;
-	    out << QString("  <derivation source=\"%1\" model=\"%2\" channel=\"%3\" domain=\"%4\" stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" transform=\"%9\"")
-		.arg(XmlExportable::getObjectExportId(rec.source))
-		.arg(XmlExportable::getObjectExportId(i->first))
-                .arg(rec.context.channel)
-                .arg(rec.context.domain)
-                .arg(rec.context.stepSize)
-                .arg(rec.context.blockSize)
-                .arg(extentsAttributes)
-                .arg(int(rec.context.windowType))
-		.arg(XmlExportable::encodeEntities(rec.transform));
-
-            if (rec.configurationXml != "") {
-                out << ">\n    " + indent + rec.configurationXml
-                    + "\n" + indent + "  </derivation>\n";
-            } else {
-                out << "/>\n";
-            }
+            writeBackwardCompatibleDerivation(out, indent + "  ",
+                                              i->first, rec);
 	}
 
         //!!! We should probably own the PlayParameterRepository
@@ -992,4 +966,82 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
     out << indent + "</data>\n";
 }
 
+void
+Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
+                                            Model *targetModel,
+                                            const ModelRecord &rec) const
+{
+    // There is a lot of redundancy in the XML we output here, because
+    // we want it to work with older SV session file reading code as
+    // well.
+    //
+    // Formerly, a transform was described using a derivation element
+    // which set out the source and target models, execution context
+    // (step size, input channel etc) and transform id, containing a
+    // plugin element which set out the transform parameters and so
+    // on.  (The plugin element came from a "configurationXml" string
+    // obtained from PluginXml.)
+    // 
+    // This has been replaced by a derivation element setting out the
+    // source and target models and input channel, containing a
+    // transform element which sets out everything in the Transform.
+    //
+    // In order to retain compatibility with older SV code, however,
+    // we have to write out the same stuff into the derivation as
+    // before, and manufacture an appropriate plugin element as well
+    // as the transform element.  In order that newer code knows it's
+    // dealing with a newer format, we will also write an attribute
+    // 'type="transform"' in the derivation element.
+
+    const Transform &transform = rec.transform;
+
+    // Just for reference, this is what we would write if we didn't
+    // have to be backward compatible:
+    //
+    //    out << indent
+    //        << QString("<derivation type=\"transform\" source=\"%1\" "
+    //                   "model=\"%2\" channel=\"%3\">\n")
+    //        .arg(XmlExportable::getObjectExportId(rec.source))
+    //        .arg(XmlExportable::getObjectExportId(targetModel))
+    //        .arg(rec.channel);
+    //
+    //    transform.toXml(out, indent + "  ");
+    //
+    //    out << indent << "</derivation>\n";
+    // 
+    // Unfortunately, we can't just do that.  So we do this...
+
+    QString extentsAttributes;
+    if (transform.getStartTime() != RealTime::zeroTime ||
+        transform.getDuration() != RealTime::zeroTime) {
+        extentsAttributes = QString("startFrame=\"%1\" duration=\"%2\" ")
+            .arg(RealTime::realTime2Frame(transform.getStartTime(),
+                                          targetModel->getSampleRate()))
+            .arg(RealTime::realTime2Frame(transform.getDuration(),
+                                          targetModel->getSampleRate()));
+    }
+	    
+    out << indent;
+    out << QString("<derivation type=\"transform\" source=\"%1\" "
+                   "model=\"%2\" channel=\"%3\" domain=\"%4\" "
+                   "stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" "
+                   "transform=\"%9\">\n")
+        .arg(XmlExportable::getObjectExportId(rec.source))
+        .arg(XmlExportable::getObjectExportId(targetModel))
+        .arg(rec.channel)
+        .arg(TransformFactory::getInstance()->getTransformInputDomain
+             (transform.getIdentifier()))
+        .arg(transform.getStepSize())
+        .arg(transform.getBlockSize())
+        .arg(extentsAttributes)
+        .arg(int(transform.getWindowType()))
+        .arg(XmlExportable::encodeEntities(transform.getIdentifier()));
+
+    transform.toXml(out, indent + "  ");
+    
+    out << indent << "  "
+        << TransformFactory::getInstance()->getPluginConfigurationXml(transform);
+
+    out << indent << "</derivation>\n";
+}
 
