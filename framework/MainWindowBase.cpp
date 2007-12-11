@@ -278,6 +278,28 @@ MainWindowBase::updateMenuStates()
     if (m_paneStack) currentPane = m_paneStack->getCurrentPane();
     if (currentPane) currentLayer = currentPane->getSelectedLayer();
 
+    bool havePrevPane = false, haveNextPane = false;
+    bool havePrevLayer = false, haveNextLayer = false;
+
+    if (currentPane) {
+        for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+            if (m_paneStack->getPane(i) == currentPane) {
+                if (i > 0) havePrevPane = true;
+                if (i < m_paneStack->getPaneCount()-1) haveNextPane = true;
+                break;
+            }
+        }
+        if (currentLayer) {
+            for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+                if (currentPane->getLayer(i) == currentLayer) {
+                    if (i > 0) havePrevLayer = true;
+                    if (i < currentPane->getLayerCount()-1) haveNextLayer = true;
+                    break;
+                }
+            }
+        }
+    }        
+
     bool haveCurrentPane =
         (currentPane != 0);
     bool haveCurrentLayer =
@@ -330,6 +352,10 @@ MainWindowBase::updateMenuStates()
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
     emit canSave(m_sessionFile != "" && m_documentModified);
+    emit canSelectPreviousPane(havePrevPane);
+    emit canSelectNextPane(haveNextPane);
+    emit canSelectPreviousLayer(havePrevLayer);
+    emit canSelectNextLayer(haveNextLayer);
 }
 
 void
@@ -1809,6 +1835,90 @@ MainWindowBase::deleteCurrentLayer()
 	}
     }
     updateMenuStates();
+}
+
+void
+MainWindowBase::previousPane()
+{
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        if (m_paneStack->getPane(i) == currentPane) {
+            if (i == 0) return;
+            m_paneStack->setCurrentPane(m_paneStack->getPane(i-1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::nextPane()
+{
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        if (m_paneStack->getPane(i) == currentPane) {
+            if (i == m_paneStack->getPaneCount()-1) return;
+            m_paneStack->setCurrentPane(m_paneStack->getPane(i+1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::previousLayer()
+{
+    //!!! Not right -- pane lists layers in stacking order
+
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    Layer *currentLayer = currentPane->getSelectedLayer();
+    if (!currentLayer) return;
+
+    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+        if (currentPane->getLayer(i) == currentLayer) {
+            if (i == 0) return;
+            m_paneStack->setCurrentLayer(currentPane,
+                                         currentPane->getLayer(i-1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::nextLayer()
+{
+    //!!! Not right -- pane lists layers in stacking order
+
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    Layer *currentLayer = currentPane->getSelectedLayer();
+    if (!currentLayer) return;
+
+    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+        if (currentPane->getLayer(i) == currentLayer) {
+            if (i == currentPane->getLayerCount()-1) return;
+            m_paneStack->setCurrentLayer(currentPane,
+                                         currentPane->getLayer(i+1));
+            updateMenuStates();
+            return;
+        }
+    }
 }
 
 void

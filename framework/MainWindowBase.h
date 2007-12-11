@@ -132,6 +132,10 @@ signals:
     void canSpeedUpPlayback(bool);
     void canSlowDownPlayback(bool);
     void canChangePlaybackSpeed(bool);
+    void canSelectPreviousPane(bool);
+    void canSelectNextPane(bool);
+    void canSelectPreviousLayer(bool);
+    void canSelectNextLayer(bool);
     void canSave(bool);
 
 public slots:
@@ -165,6 +169,11 @@ protected slots:
 
     virtual void deleteCurrentPane();
     virtual void deleteCurrentLayer();
+
+    virtual void previousPane();
+    virtual void nextPane();
+    virtual void previousLayer();
+    virtual void nextLayer();
 
     virtual void playLoopToggled();
     virtual void playSelectionToggled();
