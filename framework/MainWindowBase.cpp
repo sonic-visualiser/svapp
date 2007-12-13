@@ -687,6 +687,8 @@ MainWindowBase::insertInstantAt(size_t frame)
         return;
     }
 
+    frame = pane->alignFromReference(frame);
+
     Layer *layer = dynamic_cast<TimeInstantLayer *>
         (pane->getSelectedLayer());
 
@@ -723,7 +725,7 @@ MainWindowBase::insertInstantAt(size_t frame)
             SparseOneDimensionalModel::EditCommand *command =
                 new SparseOneDimensionalModel::EditCommand(sodm, tr("Add Point"));
 
-            if (m_labeller->actingOnPrevPoint()) {
+            if (m_labeller->requiresPrevPoint()) {
 
                 SparseOneDimensionalModel::PointList prevPoints =
                     sodm->getPreviousPoints(frame);
@@ -738,14 +740,14 @@ MainWindowBase::insertInstantAt(size_t frame)
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (havePrevPoint) {
+                if (m_labeller->actingOnPrevPoint()) {
                     command->deletePoint(prevPoint);
                 }
 
                 m_labeller->label<SparseOneDimensionalModel::Point>
                     (point, havePrevPoint ? &prevPoint : 0);
 
-                if (havePrevPoint) {
+                if (m_labeller->actingOnPrevPoint()) {
                     command->addPoint(prevPoint);
                 }
             }
