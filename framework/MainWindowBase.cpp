@@ -1106,6 +1106,8 @@ MainWindowBase::openLayer(FileSource source)
             registerLastOpenedFilePath(FileFinder::LayerFile, path); // for file dialog
         }
 
+        return FileOpenSucceeded;
+
     } else {
         
         try {
@@ -1140,7 +1142,6 @@ MainWindowBase::openLayer(FileSource source)
         }
     }
     
-    source.setLeaveLocalFile(true);
     return FileOpenFailed;
 }
 
