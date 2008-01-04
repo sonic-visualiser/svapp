@@ -794,7 +794,7 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    return open(FileSource(fileOrUrl, true), mode);
+    return open(FileSource(fileOrUrl, FileSource::ProgressDialog), mode);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1036,7 +1036,8 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
     for (PlaylistFileReader::Playlist::const_iterator i = playlist.begin();
          i != playlist.end(); ++i) {
 
-        FileOpenStatus status = openAudio(FileSource(*i, true), mode);
+        FileOpenStatus status = openAudio
+            (FileSource(*i, FileSource::ProgressDialog), mode);
 
         if (status == FileOpenCancelled) {
             return FileOpenCancelled;
@@ -1198,7 +1199,7 @@ MainWindowBase::openImage(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFile(QString fileOrUrl)
 {
-    return openSession(FileSource(fileOrUrl, true));
+    return openSession(FileSource(fileOrUrl, FileSource::ProgressDialog));
 }
 
 MainWindowBase::FileOpenStatus
