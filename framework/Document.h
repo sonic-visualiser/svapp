@@ -143,6 +143,8 @@ public:
 
     std::vector<Model *> getTransformInputModels();
 
+    bool isKnownModel(const Model *) const;
+
     /**
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.

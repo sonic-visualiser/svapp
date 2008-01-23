@@ -36,6 +36,8 @@
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
 
+#define DEBUG_DOCUMENT 1
+
 //!!! still need to handle command history, documentRestored/documentModified
 
 Document::Document() :
@@ -53,10 +55,14 @@ Document::~Document()
     //still refer to it in various places that don't have access to
     //the document, be nice to fix that
 
-//    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
+#endif
     CommandHistory::getInstance()->clear();
     
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::~Document: about to delete layers" << std::endl;
+#endif
     while (!m_layers.empty()) {
 	deleteLayer(*m_layers.begin(), true);
     }
@@ -81,8 +87,10 @@ Document::~Document()
 	}
     }
 
-//    std::cerr << "Document::~Document: About to get rid of main model"
-//	      << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::~Document: About to get rid of main model"
+	      << std::endl;
+#endif
     if (m_mainModel) {
         emit modelAboutToBeDeleted(m_mainModel);
         m_mainModel->aboutToDelete();
@@ -103,8 +111,10 @@ Document::createLayer(LayerFactory::LayerType type)
 
     m_layers.insert(newLayer);
 
-//    std::cerr << "Document::createLayer: Added layer of type " << type
-//              << ", now have " << m_layers.size() << " layers" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::createLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << std::endl;
+#endif
 
     emit layerAdded(newLayer);
 
@@ -147,8 +157,10 @@ Document::createImportedLayer(Model *model)
 
     m_layers.insert(newLayer);
 
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::createImportedLayer: Added layer of type " << type
               << ", now have " << m_layers.size() << " layers" << std::endl;
+#endif
 
     emit layerAdded(newLayer);
     return newLayer;
@@ -257,20 +269,26 @@ Document::setMainModel(WaveFileModel *model)
     // using one of these.  Carry out this replacement before we
     // delete any of the models.
 
-//    std::cerr << "Document::setMainModel: Have "
-//              << m_layers.size() << " layers" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << std::endl;
+#endif
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
 
 	Layer *layer = *i;
 	Model *model = layer->getModel();
 
-//        std::cerr << "Document::setMainModel: inspecting model "
-//                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
-//                  << layer->objectName().toStdString() << std::endl;
+#ifdef DEBUG_DOCUMENT
+        std::cerr << "Document::setMainModel: inspecting model "
+                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
+                  << layer->objectName().toStdString() << std::endl;
+#endif
 
 	if (model == oldMainModel) {
-//            std::cerr << "... it uses the old main model, replacing" << std::endl;
+#ifdef DEBUG_DOCUMENT
+            std::cerr << "... it uses the old main model, replacing" << std::endl;
+#endif
 	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
 	    continue;
 	}
@@ -286,7 +304,9 @@ Document::setMainModel(WaveFileModel *model)
 	if (m_models[model].source &&
             (m_models[model].source == oldMainModel)) {
 
-//            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
+#ifdef DEBUG_DOCUMENT
+            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
+#endif
 
 	    // This model was derived from the previous main
 	    // model: regenerate it.
@@ -314,19 +334,23 @@ Document::setMainModel(WaveFileModel *model)
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
-//                std::cerr << "Replacing model " << model << " (type "
-//                          << typeid(*model).name() << ") with model "
-//                          << replacementModel << " (type "
-//                          << typeid(*replacementModel).name() << ") in layer "
-//                          << layer << " (name " << layer->objectName().toStdString() << ")"
-//                          << std::endl;
+#ifdef DEBUG_DOCUMENT
+                std::cerr << "Replacing model " << model << " (type "
+                          << typeid(*model).name() << ") with model "
+                          << replacementModel << " (type "
+                          << typeid(*replacementModel).name() << ") in layer "
+                          << layer << " (name " << layer->objectName().toStdString() << ")"
+                          << std::endl;
+#endif
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
+#ifdef DEBUG_DOCUMENT
                 if (rm) {
                     std::cerr << "new model has " << rm->getChannelCount() << " channels " << std::endl;
                 } else {
                     std::cerr << "new model is not a RangeSummarisableTimeValueModel!" << std::endl;
                 }
+#endif
 		setModel(layer, replacementModel);
 	    }
 	}	    
@@ -343,9 +367,13 @@ Document::setMainModel(WaveFileModel *model)
         }
     }
 
+    if (oldMainModel) {
+        emit modelAboutToBeDeleted(oldMainModel);
+        oldMainModel->aboutToDelete();
+    }
+
     emit mainModelChanged(m_mainModel);
 
-    // we already emitted modelAboutToBeDeleted for this
     delete oldMainModel;
 }
 
@@ -360,7 +388,9 @@ Document::addDerivedModel(const Transform &transform,
 	return;
     }
 
-//    std::cerr << "Document::addDerivedModel: source is " << inputModel << " \"" << inputModel->objectName().toStdString() << "\"" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName().toStdString() << "\"" << std::endl;
+#endif
 
     ModelRecord rec;
     rec.source = input.getModel();
@@ -488,7 +518,9 @@ Document::deleteLayer(Layer *layer, bool force)
 
 	if (force) {
 
+#ifdef DEBUG_DOCUMENT
 	    std::cerr << "(force flag set -- deleting from all views)" << std::endl;
+#endif
 
 	    for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
 		 j != m_layerViewMap[layer].end(); ++j) {
@@ -575,10 +607,12 @@ Document::addLayerToView(View *view, Layer *layer)
 {
     Model *model = layer->getModel();
     if (!model) {
-//	std::cerr << "Document::addLayerToView: Layer (\""
-//                  << layer->objectName().toStdString()
-//                  << "\") with no model being added to view: "
-//                  << "normally you want to set the model first" << std::endl;
+#ifdef DEBUG_DOCUMENT
+	std::cerr << "Document::addLayerToView: Layer (\""
+                  << layer->objectName().toStdString()
+                  << "\") with no model being added to view: "
+                  << "normally you want to set the model first" << std::endl;
+#endif
     } else {
 	if (model != m_mainModel &&
 	    m_models.find(model) == m_models.end()) {
@@ -681,6 +715,13 @@ Document::getTransformInputModels()
     }
 
     return models;
+}
+
+bool
+Document::isKnownModel(const Model *model) const
+{
+    if (model == m_mainModel) return true;
+    return (m_models.find(const_cast<Model *>(model)) != m_models.end());
 }
 
 bool
@@ -790,7 +831,9 @@ Document::AddLayerCommand::AddLayerCommand(Document *d,
 
 Document::AddLayerCommand::~AddLayerCommand()
 {
-//    std::cerr << "Document::AddLayerCommand::~AddLayerCommand" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::AddLayerCommand::~AddLayerCommand" << std::endl;
+#endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
     }
@@ -838,7 +881,9 @@ Document::RemoveLayerCommand::RemoveLayerCommand(Document *d,
 
 Document::RemoveLayerCommand::~RemoveLayerCommand()
 {
-//    std::cerr << "Document::RemoveLayerCommand::~RemoveLayerCommand" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::RemoveLayerCommand::~RemoveLayerCommand" << std::endl;
+#endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
     }
