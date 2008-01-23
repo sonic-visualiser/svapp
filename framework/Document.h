@@ -150,7 +150,8 @@ public:
      * running the transform and returning the resulting model.
      */
     Model *addDerivedModel(const Transform &transform,
-                           const ModelTransformer::Input &input);
+                           const ModelTransformer::Input &input,
+                           QString &returnedMessage);
 
     /**
      * Add a derived model associated with the given transform.  This
@@ -227,8 +228,13 @@ signals:
     void mainModelChanged(WaveFileModel *); // emitted after modelAdded
     void modelAboutToBeDeleted(Model *);
 
-    void modelGenerationFailed(QString transformName);
-    void modelRegenerationFailed(QString layerName, QString transformName);
+    void modelGenerationFailed(QString transformName, QString message);
+    void modelGenerationWarning(QString transformName, QString message);
+    void modelRegenerationFailed(QString layerName, QString transformName,
+                                 QString message);
+    void modelRegenerationWarning(QString layerName, QString transformName,
+                                  QString message);
+    void alignmentFailed(QString transformName, QString message);
 
 protected:
     void releaseModel(Model *model);

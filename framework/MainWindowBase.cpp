@@ -1312,10 +1312,16 @@ MainWindowBase::createDocument()
     connect(m_document, SIGNAL(modelAboutToBeDeleted(Model *)),
 	    this, SLOT(modelAboutToBeDeleted(Model *)));
 
-    connect(m_document, SIGNAL(modelGenerationFailed(QString)),
-            this, SLOT(modelGenerationFailed(QString)));
-    connect(m_document, SIGNAL(modelRegenerationFailed(QString, QString)),
-            this, SLOT(modelRegenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
+            this, SLOT(modelGenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+    connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
+            this, SLOT(modelGenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+    connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
+            this, SLOT(alignmentFailed(QString, QString)));
 }
 
 bool

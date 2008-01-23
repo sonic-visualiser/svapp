@@ -222,8 +222,11 @@ protected slots:
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
 
-    virtual void modelGenerationFailed(QString) = 0;
-    virtual void modelRegenerationFailed(QString, QString) = 0;
+    virtual void modelGenerationFailed(QString, QString) = 0;
+    virtual void modelGenerationWarning(QString, QString) = 0;
+    virtual void modelRegenerationFailed(QString, QString, QString) = 0;
+    virtual void modelRegenerationWarning(QString, QString, QString) = 0;
+    virtual void alignmentFailed(QString, QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
 

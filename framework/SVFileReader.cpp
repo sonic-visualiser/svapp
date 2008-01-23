@@ -301,11 +301,14 @@ SVFileReader::endElement(const QString &, const QString &,
                           << m_currentDerivedModelId
                           << " as target, not regenerating" << std::endl;
             } else {
+                QString message;
                 m_currentDerivedModel = m_models[m_currentDerivedModelId] =
                     m_document->addDerivedModel
                     (m_currentTransform,
                      ModelTransformer::Input(m_currentTransformSource,
-                                             m_currentTransformChannel));
+                                             m_currentTransformChannel),
+                     message);
+                //!!! do something with message
             }
         } else {
             m_document->addDerivedModel

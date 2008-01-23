@@ -205,11 +205,13 @@ Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input)
 {
-    Model *newModel = addDerivedModel(transform, input);
+    QString message;
+    Model *newModel = addDerivedModel(transform, input, message);
     if (!newModel) {
-        // error already printed to stderr by addDerivedModel
-        emit modelGenerationFailed(transform.getIdentifier());
+        emit modelGenerationFailed(transform.getIdentifier(), message);
         return 0;
+    } else if (message != "") {
+        emit modelGenerationWarning(transform.getIdentifier(), message);
     }
 
     LayerFactory::LayerTypeSet types =
@@ -317,11 +319,12 @@ Document::setMainModel(WaveFileModel *model)
             //!!! We have a problem here if the number of channels in
             //the main model has changed.
 
+            QString message;
 	    Model *replacementModel =
                 addDerivedModel(transform,
                                 ModelTransformer::Input
-                                (m_mainModel,
-                                 m_models[model].channel));
+                                (m_mainModel, m_models[model].channel),
+                                message);
 	    
 	    if (!replacementModel) {
 		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
@@ -329,11 +332,17 @@ Document::setMainModel(WaveFileModel *model)
                 if (failedTransformers.find(transformId)
                     == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
-                                                 transformId);
+                                                 transformId,
+                                                 message);
                     failedTransformers.insert(transformId);
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
+                if (message != "") {
+                    emit modelRegenerationWarning(layer->objectName(),
+                                                  transformId,
+                                                  message);
+                }
 #ifdef DEBUG_DOCUMENT
                 std::cerr << "Replacing model " << model << " (type "
                           << typeid(*model).name() << ") with model "
@@ -428,7 +437,8 @@ Document::addImportedModel(Model *model)
 
 Model *
 Document::addDerivedModel(const Transform &transform,
-                          const ModelTransformer::Input &input)
+                          const ModelTransformer::Input &input,
+                          QString &message)
 {
     Model *model = 0;
 
@@ -440,7 +450,8 @@ Document::addDerivedModel(const Transform &transform,
 	}
     }
 
-    model = ModelTransformerFactory::getInstance()->transform(transform, input);
+    model = ModelTransformerFactory::getInstance()->transform
+        (transform, input, message);
 
     if (!model) {
 	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier().toStdString() << std::endl;
@@ -787,11 +798,12 @@ Document::alignModel(Model *model)
 
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
-    Model *transformOutput = mtf->transform(transform, aggregate);
+    QString message;
+    Model *transformOutput = mtf->transform(transform, aggregate, message);
 
     if (!transformOutput) {
         transform.setStepSize(0);
-        transformOutput = mtf->transform(transform, aggregate);
+        transformOutput = mtf->transform(transform, aggregate, message);
     }
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
@@ -799,6 +811,7 @@ Document::alignModel(Model *model)
 
     if (!path) {
         std::cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << std::endl;
+        emit alignmentFailed(id, message);
         delete transformOutput;
         delete aggregate;
         return;
