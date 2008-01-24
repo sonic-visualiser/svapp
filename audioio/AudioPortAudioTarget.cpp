@@ -63,9 +63,14 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 			       m_sampleRate, m_bufferSize, 0,
 			       processStatic, this);
 #else
-    err = Pa_OpenDefaultStream(&m_stream, 0, 2, paFloat32,
-			       m_sampleRate, m_bufferSize,
-			       processStatic, this);
+    PaStreamParameters op;
+    op.device = 0;
+    op.channelCount = 2;
+    op.sampleFormat = paFloat32;
+    op.suggestedLatency = 0.2;
+    op.hostApiSpecificStreamInfo = 0;
+    err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate, m_bufferSize,
+                        paNoFlag, processStatic, this);
 #endif    
 
     if (err != paNoError) {
