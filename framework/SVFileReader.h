@@ -161,8 +161,10 @@ public:
  */
 
 
-class SVFileReader : public QXmlDefaultHandler
+class SVFileReader : public QObject, QXmlDefaultHandler
 {
+    Q_OBJECT
+
 public:
     SVFileReader(Document *document,
 		 SVFileReaderPaneCallback &callback,
@@ -191,6 +193,12 @@ public:
 
     bool error(const QXmlParseException &exception);
     bool fatalError(const QXmlParseException &exception);
+
+signals:
+    void modelRegenerationFailed(QString layerName, QString transformName,
+                                 QString message);
+    void modelRegenerationWarning(QString layerName, QString transformName,
+                                  QString message);
 
 protected:
     bool readWindow(const QXmlAttributes &);

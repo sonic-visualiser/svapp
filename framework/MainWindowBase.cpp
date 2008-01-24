@@ -1088,6 +1088,12 @@ MainWindowBase::openLayer(FileSource source)
         }
         
         SVFileReader reader(m_document, callback, source.getLocation());
+        connect
+            (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+             this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+        connect
+            (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
         reader.setCurrentPane(pane);
         
         QXmlInputSource inputSource(&file);
@@ -1222,6 +1228,12 @@ MainWindowBase::openSession(FileSource source)
     m_viewManager->clearSelections();
 
     SVFileReader reader(m_document, callback, source.getLocation());
+    connect
+        (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+    connect
+        (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
     QXmlInputSource inputSource(&bzFile);
     reader.parse(inputSource);
     

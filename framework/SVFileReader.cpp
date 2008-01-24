@@ -308,7 +308,15 @@ SVFileReader::endElement(const QString &, const QString &,
                      ModelTransformer::Input(m_currentTransformSource,
                                              m_currentTransformChannel),
                      message);
-                //!!! do something with message
+                if (!m_currentDerivedModel) {
+                    emit modelRegenerationFailed(tr("(derived model in SV-XML)"),
+                                                 m_currentTransform.getIdentifier(),
+                                                 message);
+                } else if (message != "") {
+                    emit modelRegenerationWarning(tr("(derived model in SV-XML)"),
+                                                  m_currentTransform.getIdentifier(),
+                                                  message);
+                }                    
             }
         } else {
             m_document->addDerivedModel

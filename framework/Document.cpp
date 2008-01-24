@@ -79,8 +79,8 @@ Document::~Document()
 		std::cerr << "Document::~Document: WARNING: Main model is also"
 			  << " in models list!" << std::endl;
 	    } else if (model) {
-		emit modelAboutToBeDeleted(model);
                 model->aboutToDelete();
+		emit modelAboutToBeDeleted(model);
 		delete model;
 	    }
 	    m_models.erase(m_models.begin());
@@ -92,8 +92,8 @@ Document::~Document()
 	      << std::endl;
 #endif
     if (m_mainModel) {
-        emit modelAboutToBeDeleted(m_mainModel);
         m_mainModel->aboutToDelete();
+        emit modelAboutToBeDeleted(m_mainModel);
     }
 
     emit mainModelChanged(0);
@@ -377,8 +377,8 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     if (oldMainModel) {
-        emit modelAboutToBeDeleted(oldMainModel);
         oldMainModel->aboutToDelete();
+        emit modelAboutToBeDeleted(oldMainModel);
     }
 
     emit mainModelChanged(m_mainModel);
@@ -509,8 +509,8 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 		      << "their source fields appropriately" << std::endl;
 	}
 
-	emit modelAboutToBeDeleted(model);
         model->aboutToDelete();
+	emit modelAboutToBeDeleted(model);
 	m_models.erase(model);
 	delete model;
     }
