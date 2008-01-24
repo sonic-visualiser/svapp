@@ -48,7 +48,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 	return;
     }
 
-    m_bufferSize = 1024;
+    m_bufferSize = 2048;
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
 	m_sampleRate = m_source->getSourceSampleRate();
