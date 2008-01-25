@@ -1195,6 +1195,7 @@ SVFileReader::readTransform(const QXmlAttributes &attributes)
         return false;
     }
 
+    m_currentTransform = Transform();
     m_currentTransform.setFromXmlAttributes(attributes);
     return true;
 }
