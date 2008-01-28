@@ -453,10 +453,24 @@ Document::addDerivedModel(const Transform &transform,
     model = ModelTransformerFactory::getInstance()->transform
         (transform, input, message);
 
+    // The transform we actually used was presumably identical to the
+    // one asked for, except that the version of the plugin may
+    // differ.  It's possible that the returned message contains a
+    // warning about this; that doesn't concern us here, but we do
+    // need to ensure that the transform we remember is correct for
+    // what was actually applied, with the current plugin version.
+
+    Transform applied = transform;
+    applied.setPluginVersion
+        (TransformFactory::getInstance()->
+         getDefaultTransformFor(transform.getIdentifier(),
+                                lrintf(transform.getSampleRate()))
+         .getPluginVersion());
+
     if (!model) {
 	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier().toStdString() << std::endl;
     } else {
-	addDerivedModel(transform, input, model);
+	addDerivedModel(applied, input, model);
     }
 
     return model;
