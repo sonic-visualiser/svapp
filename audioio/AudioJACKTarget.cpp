@@ -243,6 +243,14 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     if (m_source) {
 	sourceModelReplaced();
     }
+    
+    // Mainstream JACK (though not jackdmp) calls mlockall() to lock
+    // down all memory for real-time operation.  That isn't a terribly
+    // good idea in an application like this that may have very high
+    // dynamic memory usage in other threads, as mlockall() applies
+    // across all threads.  We're far better off undoing it here and
+    // accepting the possible loss of true RT capability.
+    MUNLOCKALL();
 }
 
 AudioJACKTarget::~AudioJACKTarget()
