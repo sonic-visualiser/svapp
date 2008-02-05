@@ -1593,6 +1593,7 @@ MainWindowBase::ffwd()
     int frame = m_viewManager->getPlaybackFrame();
     ++frame;
 
+    Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
     size_t sr = getMainModel()->getSampleRate();
 
@@ -1607,8 +1608,10 @@ MainWindowBase::ffwd()
     } else {
 
         size_t resolution = 0;
-        if (!layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                       frame, resolution, Layer::SnapRight)) {
+        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
+                                      frame, resolution, Layer::SnapRight)) {
+            if (pane) frame = pane->alignToReference(frame);
+        } else {
             frame = getMainModel()->getEndFrame();
         }
     }
@@ -1644,6 +1647,7 @@ MainWindowBase::rewind()
     int frame = m_viewManager->getPlaybackFrame();
     if (frame > 0) --frame;
 
+    Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
     size_t sr = getMainModel()->getSampleRate();
     
@@ -1670,8 +1674,11 @@ MainWindowBase::rewind()
     } else {
 
         size_t resolution = 0;
-        if (!layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                       frame, resolution, Layer::SnapLeft)) {
+        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
+                                      frame, resolution, Layer::SnapLeft)) {
+            
+            if (pane) frame = pane->alignToReference(frame);
+        } else {
             frame = getMainModel()->getStartFrame();
         }
     }
