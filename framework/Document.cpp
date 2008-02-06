@@ -370,8 +370,14 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        if (oldMainModel &&
-            (i->first->getAlignmentReference() == oldMainModel)) {
+
+        if (m_autoAlignment) {
+
+            alignModel(i->first);
+
+        } else if (oldMainModel &&
+                   (i->first->getAlignmentReference() == oldMainModel)) {
+
             alignModel(i->first);
         }
     }
@@ -379,6 +385,10 @@ Document::setMainModel(WaveFileModel *model)
     if (oldMainModel) {
         oldMainModel->aboutToDelete();
         emit modelAboutToBeDeleted(oldMainModel);
+    }
+
+    if (m_autoAlignment) {
+        alignModel(m_mainModel);
     }
 
     emit mainModelChanged(m_mainModel);
@@ -760,14 +770,27 @@ Document::canAlign()
 void
 Document::alignModel(Model *model)
 {
-    if (!m_mainModel || model == m_mainModel) return;
+    if (!m_mainModel) return;
 
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
     if (!rm) return;
 
-    if (rm->getAlignmentReference() == m_mainModel) return;
+    if (rm->getAlignmentReference() == m_mainModel) {
+        std::cerr << "Document::alignModel: model " << rm << " is already aligned to main model " << m_mainModel << std::endl;
+        return;
+    }
     
+    if (model == m_mainModel) {
+        // The reference has an empty alignment to itself.  This makes
+        // it possible to distinguish between the reference and any
+        // unaligned model just by looking at the model itself,
+        // without also knowing what the main model is
+        std::cerr << "Document::alignModel(" << model << "): is main model, setting appropriately" << std::endl;
+        rm->setAlignment(new AlignmentModel(model, model, 0, 0));
+        return;
+    }
+
     // This involves creating three new models:
 
     // 1. an AggregateWaveModel to provide the mixdowns of the main
@@ -845,6 +868,7 @@ Document::alignModels()
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
         alignModel(i->first);
     }
+    alignModel(m_mainModel);
 }
 
 Document::AddLayerCommand::AddLayerCommand(Document *d,

@@ -572,7 +572,7 @@ MainWindowBase::cut()
 
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        layer->copy(*i, clipboard);
+        layer->copy(currentPane, *i, clipboard);
         layer->deleteSelection(*i);
     }
 
@@ -595,7 +595,7 @@ MainWindowBase::copy()
 
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        layer->copy(*i, clipboard);
+        layer->copy(currentPane, *i, clipboard);
     }
 }
 
@@ -628,7 +628,7 @@ MainWindowBase::paste()
 
     layer->paste(clipboard, frameOffset);
 */
-    layer->paste(clipboard, 0, true);
+    layer->paste(currentPane, clipboard, 0, true);
 }
 
 void
