@@ -1139,6 +1139,8 @@ MainWindowBase::openLayer(FileSource source)
                 if (newLayer) {
 
                     m_document->addLayerToView(pane, newLayer);
+                    m_paneStack->setCurrentLayer(pane, newLayer);
+
                     m_recentFiles.addFile(source.getLocation());
                     
                     if (!source.isRemote()) {
@@ -1146,7 +1148,7 @@ MainWindowBase::openLayer(FileSource source)
                             (FileFinder::LayerFile,
                              path); // for file dialog
                     }
-                    
+
                     return FileOpenSucceeded;
                 }
             }
