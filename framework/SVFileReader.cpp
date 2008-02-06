@@ -741,6 +741,9 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	QString name = attributes.value("name");
 	layer->setObjectName(name);
 
+        QString presentationName = attributes.value("presentationName");
+        layer->setPresentationName(presentationName);
+
 	int modelId;
 	bool modelOk = false;
 	modelId = attributes.value("model").trimmed().toInt(&modelOk);
