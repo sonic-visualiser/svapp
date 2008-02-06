@@ -344,7 +344,7 @@ MainWindowBase::updateMenuStates()
     emit canPlay(havePlayTarget);
     emit canFfwd(true);
     emit canRewind(true);
-    emit canPaste(haveCurrentEditableLayer && haveClipboardContents);
+    emit canPaste(haveClipboardContents);
     emit canInsertInstant(haveCurrentPane);
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
     emit canRenumberInstants(haveCurrentTimeInstantsLayer && haveSelection);
@@ -605,30 +605,38 @@ MainWindowBase::paste()
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    //!!! if we have no current layer, we should create one of the most
-    // appropriate type
-
     Layer *layer = currentPane->getSelectedLayer();
-    if (!layer) return;
 
     Clipboard &clipboard = m_viewManager->getClipboard();
-    Clipboard::PointList contents = clipboard.getPoints();
-/*
-    long minFrame = 0;
-    bool have = false;
-    for (int i = 0; i < contents.size(); ++i) {
-        if (!contents[i].haveFrame()) continue;
-        if (!have || contents[i].getFrame() < minFrame) {
-            minFrame = contents[i].getFrame();
-            have = true;
+//    Clipboard::PointList contents = clipboard.getPoints();
+
+    bool inCompound = true;
+
+    if (!layer || !layer->isLayerEditable()) {
+        
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Paste"), true);
+
+        // no suitable current layer: create one of the most
+        // appropriate sort
+        LayerFactory::LayerType type =
+            LayerFactory::getInstance()->getLayerTypeForClipboardContents(clipboard);
+        layer = m_document->createEmptyLayer(type);
+
+        if (!layer) {
+            CommandHistory::getInstance()->endCompoundOperation();
+            return;
         }
+
+        m_document->addLayerToView(currentPane, layer);
+        m_paneStack->setCurrentLayer(currentPane, layer);
+
+        inCompound = true;
     }
 
-    long frameOffset = long(m_viewManager->getGlobalCentreFrame()) - minFrame;
-
-    layer->paste(clipboard, frameOffset);
-*/
     layer->paste(currentPane, clipboard, 0, true);
+
+    if (inCompound) CommandHistory::getInstance()->endCompoundOperation();
 }
 
 void
