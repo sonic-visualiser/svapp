@@ -329,6 +329,8 @@ protected:
     QString getUniqueLayerName(QString candidate);
     void writeBackwardCompatibleDerivation(QTextStream &, QString, Model *,
                                            const ModelRecord &) const;
+
+    static TransformId getAlignmentTransformName();
     
     /**
      * And these are the layers.  We also control the lifespans of

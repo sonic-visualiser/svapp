@@ -29,6 +29,7 @@
 #include "plugin/transform/ModelTransformerFactory.h"
 #include <QApplication>
 #include <QTextStream>
+#include <QSettings>
 #include <iostream>
 
 // For alignment:
@@ -759,10 +760,22 @@ Document::isKnownModel(const Model *model) const
     return (m_models.find(const_cast<Model *>(model)) != m_models.end());
 }
 
+TransformId
+Document::getAlignmentTransformName()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    TransformId id =
+        settings.value("transform-id",
+                       "vamp:match-vamp-plugin:match:path").toString();
+    settings.endGroup();
+    return id;
+}
+
 bool
 Document::canAlign() 
 {
-    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformId id = getAlignmentTransformName();
     TransformFactory *factory = TransformFactory::getInstance();
     return factory->haveTransform(id);
 }
@@ -831,9 +844,6 @@ Document::alignModel(Model *model)
     transform.setParameter("serialise", 1);
 
     std::cerr << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << std::endl;
-
-//!!!    QString args = "<plugin param-serialise=\"1\"/>";
-//    Model *transformOutput = factory->transform(id, aggregate, context, args);
 
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
