@@ -257,6 +257,10 @@ AudioJACKTarget::~AudioJACKTarget()
 {
     std::cerr << "AudioJACKTarget::~AudioJACKTarget()" << std::endl;
 
+    if (m_source) {
+        m_source->setTarget(0, m_bufferSize);
+    }
+
     shutdown();
 
     if (m_client) {
@@ -293,6 +297,16 @@ AudioJACKTarget::isOK() const
     return (m_client != 0);
 }
 
+double
+AudioJACKTarget::getCurrentTime() const
+{
+    if (m_client && m_sampleRate) {
+        return double(jack_frame_time(m_client)) / double(m_sampleRate);
+    } else {
+        return 0.0;
+    }
+}
+
 int
 AudioJACKTarget::processStatic(jack_nframes_t nframes, void *arg)
 {
@@ -310,7 +324,7 @@ AudioJACKTarget::sourceModelReplaced()
 {
     m_mutex.lock();
 
-    m_source->setTargetBlockSize(m_bufferSize);
+    m_source->setTarget(this, m_bufferSize);
     m_source->setTargetSampleRate(m_sampleRate);
 
     size_t channels = m_source->getSourceChannelCount();

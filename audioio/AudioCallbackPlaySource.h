@@ -32,17 +32,16 @@
 #include <set>
 #include <map>
 
-#ifdef HAVE_RUBBERBAND
-#include <rubberband/RubberBandStretcher.h>
-#else
-class PhaseVocoderTimeStretcher;
-#endif
+namespace RubberBand {
+    class RubberBandStretcher;
+}
 
 class Model;
 class ViewManager;
 class AudioGenerator;
 class PlayParameters;
 class RealTimePluginInstance;
+class AudioCallbackPlayTarget;
 
 /**
  * AudioCallbackPlaySource manages audio data supply to callback-based
@@ -107,13 +106,16 @@ public:
     virtual size_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
-     * Set the block size of the target audio device.  This should
-     * be called by the target class.
+     * Set the target and the block size of the target audio device.
+     * This should be called by the target class.
      */
-    void setTargetBlockSize(size_t);
+    void setTarget(AudioCallbackPlayTarget *, size_t blockSize);
 
     /**
-     * Get the block size of the target audio device.
+     * Get the block size of the target audio device.  This may be an
+     * estimate or upper bound, if the target has a variable block
+     * size; the source should behave itself even if this value turns
+     * out to be inaccurate.
      */
     size_t getTargetBlockSize() const;
 
@@ -190,12 +192,9 @@ public:
     size_t getSourceSamples(size_t count, float **buffer);
 
     /**
-     * Set the time stretcher factor (i.e. playback speed).  Also
-     * specify whether the time stretcher will be variable rate
-     * (sharpening transients), and whether time stretching will be
-     * carried out on data mixed down to mono for speed.
+     * Set the time stretcher factor (i.e. playback speed).
      */
-    void setTimeStretch(float factor, bool sharpen, bool mono);
+    void setTimeStretch(float factor);
 
     /**
      * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
@@ -279,6 +278,9 @@ protected:
     size_t                            m_sourceSampleRate;
     size_t                            m_targetSampleRate;
     size_t                            m_playLatency;
+    AudioCallbackPlayTarget          *m_target;
+    double                            m_lastRetrievalTimestamp;
+    size_t                            m_lastRetrievedBlockSize;
     bool                              m_playing;
     bool                              m_exiting;
     size_t                            m_lastModelEndFrame;
@@ -309,13 +311,12 @@ protected:
     void clearRingBuffers(bool haveLock = false, size_t count = 0);
     void unifyRingBuffers();
 
-#ifdef HAVE_RUBBERBAND
     RubberBand::RubberBandStretcher *m_timeStretcher;
-    QMutex m_timeStretchRatioMutex;
-#else
-    PhaseVocoderTimeStretcher *m_timeStretcher;
-    Scavenger<PhaseVocoderTimeStretcher> m_timeStretcherScavenger;
-#endif
+    float m_stretchRatio;
+    
+    size_t  m_stretcherInputCount;
+    float **m_stretcherInputs;
+    size_t *m_stretcherInputSizes;
 
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done

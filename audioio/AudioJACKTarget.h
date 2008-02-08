@@ -39,6 +39,8 @@ public:
 
     virtual bool isOK() const;
 
+    virtual double getCurrentTime() const;
+
 public slots:
     virtual void sourceModelReplaced();
 

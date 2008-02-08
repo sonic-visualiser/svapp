@@ -19,7 +19,6 @@ HEADERS += AudioCallbackPlaySource.h \
            AudioJACKTarget.h \
            AudioPortAudioTarget.h \
            AudioTargetFactory.h \
-           PhaseVocoderTimeStretcher.h \
            PlaySpeedRangeMapper.h
 SOURCES += AudioCallbackPlaySource.cpp \
            AudioCallbackPlayTarget.cpp \
@@ -28,5 +27,4 @@ SOURCES += AudioCallbackPlaySource.cpp \
            AudioJACKTarget.cpp \
            AudioPortAudioTarget.cpp \
            AudioTargetFactory.cpp \
-           PhaseVocoderTimeStretcher.cpp \
            PlaySpeedRangeMapper.cpp

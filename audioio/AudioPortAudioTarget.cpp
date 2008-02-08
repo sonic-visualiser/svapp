@@ -69,7 +69,8 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     op.sampleFormat = paFloat32;
     op.suggestedLatency = 0.2;
     op.hostApiSpecificStreamInfo = 0;
-    err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate, m_bufferSize,
+    err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
+                        paFramesPerBufferUnspecified,
                         paNoFlag, processStatic, this);
 #endif    
 
@@ -83,6 +84,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 #ifndef HAVE_PORTAUDIO_V18
     const PaStreamInfo *info = Pa_GetStreamInfo(m_stream);
     m_latency = int(info->outputLatency * m_sampleRate + 0.001);
+    m_bufferSize = m_latency;
 #endif
 
     std::cerr << "PortAudio latency = " << m_latency << " frames" << std::endl;
@@ -99,7 +101,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
     if (m_source) {
 	std::cerr << "AudioPortAudioTarget: block size " << m_bufferSize << std::endl;
-	m_source->setTargetBlockSize(m_bufferSize);
+	m_source->setTarget(this, m_bufferSize);
 	m_source->setTargetSampleRate(m_sampleRate);
 	m_source->setTargetPlayLatency(m_latency);
     }
@@ -112,6 +114,10 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 AudioPortAudioTarget::~AudioPortAudioTarget()
 {
     std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget()" << std::endl;
+
+    if (m_source) {
+        m_source->setTarget(0, m_bufferSize);
+    }
 
     shutdown();
 
@@ -148,6 +154,13 @@ bool
 AudioPortAudioTarget::isOK() const
 {
     return (m_stream != 0);
+}
+
+double
+AudioPortAudioTarget::getCurrentTime() const
+{
+    if (!m_stream) return 0.0;
+    else return Pa_GetStreamTime(m_stream);
 }
 
 #ifdef HAVE_PORTAUDIO_V18
