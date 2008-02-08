@@ -595,9 +595,13 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     MultiSelection::SelectionList selections = m_viewManager->getSelections();
     MultiSelection::SelectionList::const_iterator i;
 
-    // these could be cached from one call to the next, if the
+    // These could be cached from one call to the next, if the
     // selection has not changed... but some of the work would still
-    // need to be done because the playback model may have changed
+    // need to be done because the playback model may have changed.
+
+    // Currently, we know that this method is only ever called from a
+    // single thread (the GUI thread), so we could be nasty and
+    // maintain these as statics to avoid re-creating them...
 
     std::vector<RealTime> rangeStarts;
     std::vector<RealTime> rangeDurations;
