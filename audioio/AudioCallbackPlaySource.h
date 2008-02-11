@@ -297,6 +297,9 @@ protected:
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
+    size_t                            m_playStartFrame;
+    bool                              m_playStartFramePassed;
+    RealTime                          m_playStartedAt;
 
     RingBuffer<float> *getWriteRingBuffer(size_t c) {
 	if (m_writeBuffers && c < m_writeBuffers->size()) {

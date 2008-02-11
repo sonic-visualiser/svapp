@@ -64,6 +64,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager,
     m_outputRight(0.0),
     m_auditioningPlugin(0),
     m_auditioningPluginBypassed(false),
+    m_playStartFrame(0),
+    m_playStartFramePassed(false),
     m_timeStretcher(0),
     m_stretchRatio(1.0),
     m_stretcherInputCount(0),
@@ -355,7 +357,11 @@ AudioCallbackPlaySource::play(size_t startFrame)
     if (m_viewManager->getPlaySelectionMode() &&
 	!m_viewManager->getSelections().empty()) {
 
+        std::cerr << "AudioCallbackPlaySource::play: constraining frame " << startFrame << " to selection = ";
+
         startFrame = m_viewManager->constrainFrameToSelection(startFrame);
+
+        std::cerr << startFrame << std::endl;
 
     } else {
 	if (startFrame >= m_lastModelEndFrame) {
@@ -397,6 +403,13 @@ AudioCallbackPlaySource::play(size_t startFrame)
     m_mutex.unlock();
 
     m_audioGenerator->reset();
+
+    m_playStartFrame = startFrame;
+    m_playStartFramePassed = false;
+    m_playStartedAt = RealTime::zeroTime;
+    if (m_target) {
+        m_playStartedAt = RealTime::fromSeconds(m_target->getCurrentTime());
+    }
 
     bool changed = !m_playing;
     m_lastRetrievalTimestamp = 0;
@@ -631,11 +644,42 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 
     if (inRange >= m_rangeStarts.size()) inRange = m_rangeStarts.size()-1;
 
-    RealTime playing_t = bufferedto_t - m_rangeStarts[inRange];
+    RealTime playing_t = bufferedto_t;
 
     playing_t = playing_t
         - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
         + sincerequest_t;
+
+    // This rather gross little hack is used to ensure that latency
+    // compensation doesn't result in the playback pointer appearing
+    // to start earlier than the actual playback does.  It doesn't
+    // work properly (hence the bail-out in the middle) because if we
+    // are playing a relatively short looped region, the playing time
+    // estimated from the buffer fill frame may have wrapped around
+    // the region boundary and end up being much smaller than the
+    // theoretical play start frame, perhaps even for the entire
+    // duration of playback!
+
+    if (!m_playStartFramePassed) {
+        RealTime playstart_t = RealTime::frame2RealTime(m_playStartFrame,
+                                                        sourceRate);
+        if (playing_t < playstart_t) {
+//            std::cerr << "playing_t " << playing_t << " < playstart_t " 
+//                      << playstart_t << std::endl;
+            if (sincerequest_t > RealTime::zeroTime &&
+                m_playStartedAt + latency_t + stretchlat_t <
+                RealTime::fromSeconds(currentTime)) {
+//                std::cerr << "but we've been playing for long enough that I think we should disregard it (it probably results from loop wrapping)" << std::endl;
+                m_playStartFramePassed = true;
+            } else {
+                playing_t = playstart_t;
+            }
+        } else {
+            m_playStartFramePassed = true;
+        }
+    }
+
+    playing_t = playing_t - m_rangeStarts[inRange];
  
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
     std::cerr << "playing_t as offset into range " << inRange << " (with start = " << m_rangeStarts[inRange] << ") = " << playing_t << std::endl;
