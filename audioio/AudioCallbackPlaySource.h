@@ -26,6 +26,7 @@
 #include <QWaitCondition>
 
 #include "base/Thread.h"
+#include "base/RealTime.h"
 
 #include <samplerate.h>
 
@@ -99,6 +100,12 @@ public:
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
     virtual size_t getCurrentPlayingFrame();
+    
+    /** 
+     * Return the last frame that would come out of the speakers if we
+     * stopped playback right now.
+     */
+    virtual size_t getCurrentBufferedFrame();
 
     /**
      * Return the frame at which playback is expected to end (if not looping).
@@ -330,6 +337,13 @@ protected:
 
     // Called from getSourceSamples.
     void applyAuditioningEffect(size_t count, float **buffers);
+
+    // Ranges of current selections, if play selection is active
+    std::vector<RealTime> m_rangeStarts;
+    std::vector<RealTime> m_rangeDurations;
+    void rebuildRangeLists();
+
+    size_t getCurrentFrame(RealTime outputLatency);
 
     class FillThread : public Thread
     {

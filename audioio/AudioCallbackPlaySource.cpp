@@ -244,7 +244,9 @@ AudioCallbackPlaySource::modelChanged(size_t startFrame, size_t endFrame)
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cerr << "AudioCallbackPlaySource::modelChanged(" << startFrame << "," << endFrame << ")" << std::endl;
 #endif
-    if (endFrame > m_lastModelEndFrame) m_lastModelEndFrame = endFrame;
+    if (endFrame > m_lastModelEndFrame) {
+        m_lastModelEndFrame = endFrame;
+    }
 }
 
 void
@@ -312,6 +314,8 @@ AudioCallbackPlaySource::clearModels()
     m_mutex.unlock();
 
     m_audioGenerator->clearModels();
+
+    clearRingBuffers();
 }    
 
 void
@@ -319,22 +323,13 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, size_t count)
 {
     if (!haveLock) m_mutex.lock();
 
+    rebuildRangeLists();
+
     if (count == 0) {
 	if (m_writeBuffers) count = m_writeBuffers->size();
     }
 
-    size_t sf = m_readBufferFill;
-    RingBuffer<float> *rb = getReadRingBuffer(0);
-    if (rb) {
-	//!!! This is incorrect if we're in a non-contiguous selection
-	//Same goes for all related code (subtracting the read space
-	//from the fill frame to try to establish where the effective
-	//pre-resample/timestretch read pointer is)
-	size_t rs = rb->getReadSpace();
-	if (rs < sf) sf -= rs;
-	else sf = 0;
-    }
-    m_writeBufferFill = sf;
+    m_writeBufferFill = getCurrentBufferedFrame();
 
     if (m_readBuffers != m_writeBuffers) {
 	delete m_writeBuffers;
@@ -383,10 +378,12 @@ AudioCallbackPlaySource::play(size_t startFrame)
         m_timeStretcher->reset();
     }
     if (m_playing) {
+        std::cerr << "playing already, resetting" << std::endl;
 	m_readBufferFill = m_writeBufferFill = startFrame;
 	if (m_readBuffers) {
 	    for (size_t c = 0; c < getTargetChannelCount(); ++c) {
 		RingBuffer<float> *rb = getReadRingBuffer(c);
+                std::cerr << "reset ring buffer for channel " << c << std::endl;
 		if (rb) rb->reset();
 	    }
 	}
@@ -498,6 +495,22 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     // This method attempts to estimate which audio sample frame is
     // "currently coming through the speakers".
 
+    size_t targetRate = getTargetSampleRate();
+    size_t latency = m_playLatency; // at target rate
+    RealTime latency_t = RealTime::frame2RealTime(latency, targetRate);
+
+    return getCurrentFrame(latency_t);
+}
+
+size_t
+AudioCallbackPlaySource::getCurrentBufferedFrame()
+{
+    return getCurrentFrame(RealTime::zeroTime);
+}
+
+size_t
+AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
+{
     bool resample = false;
     double resampleRatio = 1.0;
 
@@ -529,9 +542,6 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     if (m_target) currentTime = m_target->getCurrentTime();
 
     RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, targetRate);
-
-    size_t latency = m_playLatency; // at target rate
-    RealTime latency_t = RealTime::frame2RealTime(latency, targetRate);
 
     size_t stretchlat = 0;
     double timeRatio = 1.0;
@@ -583,8 +593,6 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     }
 
     bool looping = m_viewManager->getPlayLoopMode();
-    bool constrained = (m_viewManager->getPlaySelectionMode() &&
-			!m_viewManager->getSelections().empty());
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
     std::cerr << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", time ratio " << timeRatio << "\n  stretcher latency: " << stretchlat_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved: " << lastretrieved_t << std::endl;
@@ -592,24 +600,109 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 
     RealTime end = RealTime::frame2RealTime(m_lastModelEndFrame, sourceRate);
 
-    MultiSelection::SelectionList selections = m_viewManager->getSelections();
-    MultiSelection::SelectionList::const_iterator i;
+    // Normally the range lists should contain at least one item each
+    // -- if playback is unconstrained, that item should report the
+    // entire source audio duration.
 
-    // These could be cached from one call to the next, if the
-    // selection has not changed... but some of the work would still
-    // need to be done because the playback model may have changed.
+    if (m_rangeStarts.empty()) {
+        rebuildRangeLists();
+    }
 
-    // Currently, we know that this method is only ever called from a
-    // single thread (the GUI thread), so we could be nasty and
-    // maintain these as statics to avoid re-creating them...
-
-    std::vector<RealTime> rangeStarts;
-    std::vector<RealTime> rangeDurations;
+    if (m_rangeStarts.empty()) {
+        // this code is only used in case of error in rebuildRangeLists
+        RealTime playing_t = bufferedto_t
+            - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
+            + sincerequest_t;
+        size_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
+        return m_viewManager->alignPlaybackFrameToReference(frame);
+    }
 
     int inRange = 0;
     int index = 0;
 
-    if (constrained) {
+    for (size_t i = 0; i < m_rangeStarts.size(); ++i) {
+        if (bufferedto_t >= m_rangeStarts[i]) {
+            inRange = index;
+        } else {
+            break;
+        }
+        ++index;
+    }
+
+    if (inRange >= m_rangeStarts.size()) inRange = m_rangeStarts.size()-1;
+
+    RealTime playing_t = bufferedto_t - m_rangeStarts[inRange];
+
+    playing_t = playing_t
+        - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
+        + sincerequest_t;
+ 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "playing_t as offset into range " << inRange << " (with start = " << m_rangeStarts[inRange] << ") = " << playing_t << std::endl;
+#endif
+
+    while (playing_t < RealTime::zeroTime) {
+
+        if (inRange == 0) {
+            if (looping) {
+                inRange = m_rangeStarts.size() - 1;
+            } else {
+                break;
+            }
+        } else {
+            --inRange;
+        }
+
+        playing_t = playing_t + m_rangeDurations[inRange];
+    }
+
+    playing_t = playing_t + m_rangeStarts[inRange];
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "  playing time: " << playing_t << std::endl;
+#endif
+
+    if (!looping) {
+        if (inRange == m_rangeStarts.size()-1 &&
+            playing_t >= m_rangeStarts[inRange] + m_rangeDurations[inRange]) {
+            stop();
+        }
+    }
+
+    if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
+
+    size_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
+    return m_viewManager->alignPlaybackFrameToReference(frame);
+}
+
+void
+AudioCallbackPlaySource::rebuildRangeLists()
+{
+    bool constrained = (m_viewManager->getPlaySelectionMode());
+
+    m_rangeStarts.clear();
+    m_rangeDurations.clear();
+
+    size_t sourceRate = getSourceSampleRate();
+    if (sourceRate == 0) return;
+
+    RealTime end = RealTime::frame2RealTime(m_lastModelEndFrame, sourceRate);
+    if (end == RealTime::zeroTime) return;
+
+    if (!constrained) {
+        m_rangeStarts.push_back(RealTime::zeroTime);
+        m_rangeDurations.push_back(end);
+        return;
+    }
+
+    MultiSelection::SelectionList selections = m_viewManager->getSelections();
+    MultiSelection::SelectionList::const_iterator i;
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "AudioCallbackPlaySource::rebuildRangeLists" << std::endl;
+#endif
+
+    if (!selections.empty()) {
 
         for (i = selections.begin(); i != selections.end(); ++i) {
             
@@ -623,66 +716,17 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
                   m_viewManager->alignReferenceToPlaybackFrame(i->getStartFrame()),
                   sourceRate));
             
-            rangeStarts.push_back(start);
-            rangeDurations.push_back(duration);
-            
-            if (bufferedto_t >= start) {
-                inRange = index;
-            }
-            
-            ++index;
+            m_rangeStarts.push_back(start);
+            m_rangeDurations.push_back(duration);
         }
+    } else {
+        m_rangeStarts.push_back(RealTime::zeroTime);
+        m_rangeDurations.push_back(end);
     }
 
-    if (rangeStarts.empty()) {
-        rangeStarts.push_back(RealTime::zeroTime);
-        rangeDurations.push_back(end);
-    }
-
-    if (inRange >= rangeStarts.size()) inRange = rangeStarts.size()-1;
-
-    RealTime playing_t = bufferedto_t - rangeStarts[inRange];
-
-    playing_t = playing_t
-        - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
-        + sincerequest_t;
- 
-#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    std::cerr << "playing_t as offset into range " << inRange << " (with start = " << rangeStarts[inRange] << ") = " << playing_t << std::endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "Now have " << m_rangeStarts.size() << " play ranges" << std::endl;
 #endif
-
-    while (playing_t < RealTime::zeroTime) {
-
-        if (inRange == 0) {
-            if (looping) {
-                inRange = rangeStarts.size() - 1;
-            } else {
-                break;
-            }
-        } else {
-            --inRange;
-        }
-
-        playing_t = playing_t + rangeDurations[inRange];
-    }
-
-    playing_t = playing_t + rangeStarts[inRange];
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    std::cerr << "  playing time: " << playing_t << std::endl;
-#endif
-
-    if (!looping) {
-        if (inRange == rangeStarts.size()-1 &&
-            playing_t >= rangeStarts[inRange] + rangeDurations[inRange]) {
-            stop();
-        }
-    }
-
-    if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
-
-    size_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
-    return m_viewManager->alignPlaybackFrameToReference(frame);
 }
 
 void

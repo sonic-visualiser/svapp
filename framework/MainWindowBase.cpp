@@ -449,9 +449,18 @@ MainWindowBase::currentPaneChanged(Pane *p)
     }
 
     Model *prevPlaybackModel = m_viewManager->getPlaybackModel();
-    int frame = m_playSource->getCurrentPlayingFrame();
 
-    std::cerr << "playing frame (in ref model) = " << frame << std::endl;
+    // What we want here is not the currently playing frame (unless we
+    // are about to clear out the audio playback buffers -- which may
+    // or may not be possible, depending on the audio driver).  What
+    // we want is the frame that was last committed to the soundcard
+    // buffers, as the audio driver will continue playing up to that
+    // frame before switching to whichever one we decide we want to
+    // switch to, regardless of our efforts.
+
+    int frame = m_playSource->getCurrentBufferedFrame();
+
+//    std::cerr << "currentPaneChanged: current frame (in ref model) = " << frame << std::endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -488,11 +497,6 @@ MainWindowBase::currentPaneChanged(Pane *p)
     m_playSource->setSoloModelSet(soloModels);
 
     if (a && b && (a != b)) {
-/*!!!
-        int rframe = a->alignToReference(frame);
-        int bframe = b->alignFromReference(rframe);
-        if (m_playSource->isPlaying()) m_playSource->play(bframe);
-*/
         if (m_playSource->isPlaying()) m_playSource->play(frame);
     }
 }
