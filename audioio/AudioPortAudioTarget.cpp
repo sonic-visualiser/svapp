@@ -74,6 +74,17 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
                         paNoFlag, processStatic, this);
 #endif    
 
+#ifndef HAVE_PORTAUDIO_V18
+    if (err != paNoError) {
+
+        std::cerr << "WARNING: AudioPortAudioTarget: Failed to open PortAudio stream with default frames per buffer, trying again with fixed frames per buffer..." << std::endl;
+        
+        err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
+                            1024,
+                            paNoFlag, processStatic, this);
+    }
+#endif
+
     if (err != paNoError) {
 	std::cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
 	m_stream = 0;
