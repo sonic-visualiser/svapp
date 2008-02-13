@@ -64,7 +64,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 			       processStatic, this);
 #else
     PaStreamParameters op;
-    op.device = 0;
+    op.device = Pa_GetDefaultOutputDevice();
     op.channelCount = 2;
     op.sampleFormat = paFloat32;
     op.suggestedLatency = 0.2;
@@ -82,6 +82,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
         err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                             1024,
                             paNoFlag, processStatic, this);
+	m_bufferSize = 1024;
     }
 #endif
 
@@ -95,7 +96,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 #ifndef HAVE_PORTAUDIO_V18
     const PaStreamInfo *info = Pa_GetStreamInfo(m_stream);
     m_latency = int(info->outputLatency * m_sampleRate + 0.001);
-    m_bufferSize = m_latency;
+    if (m_bufferSize < m_latency) m_bufferSize = m_latency;
 #endif
 
     std::cerr << "PortAudio latency = " << m_latency << " frames" << std::endl;

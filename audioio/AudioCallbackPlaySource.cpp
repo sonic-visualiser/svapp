@@ -709,6 +709,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     if (!looping) {
         if (inRange == m_rangeStarts.size()-1 &&
             playing_t >= m_rangeStarts[inRange] + m_rangeDurations[inRange]) {
+std::cerr << "Not looping, inRange " << inRange << " == rangeStarts.size()-1, playing_t " << playing_t << " >= m_rangeStarts[inRange] " << m_rangeStarts[inRange] << " + m_rangeDurations[inRange] " << m_rangeDurations[inRange] << " -- stopping" << std::endl;
             stop();
         }
     }
