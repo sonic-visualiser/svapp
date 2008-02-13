@@ -184,6 +184,7 @@ dynamic1(jack_nframes_t, jack_get_sample_rate, jack_client_t *, 0);
 dynamic1(int, jack_activate, jack_client_t *, 1);
 dynamic1(int, jack_deactivate, jack_client_t *, 1);
 dynamic1(int, jack_client_close, jack_client_t *, 1);
+dynamic1(jack_nframes_t, jack_frame_time, jack_client_t *, 0);
 dynamic1(jack_nframes_t, jack_port_get_latency, jack_port_t *, 0);
 dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 
@@ -196,6 +197,7 @@ dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 #define jack_activate dynamic_jack_activate
 #define jack_deactivate dynamic_jack_deactivate
 #define jack_client_close dynamic_jack_client_close
+#define jack_frame_time dynamic_jack_frame_time
 #define jack_get_ports dynamic_jack_get_ports
 #define jack_port_register dynamic_jack_port_register
 #define jack_port_unregister dynamic_jack_port_unregister
