@@ -614,7 +614,7 @@ MainWindowBase::paste()
     Clipboard &clipboard = m_viewManager->getClipboard();
 //    Clipboard::PointList contents = clipboard.getPoints();
 
-    bool inCompound = true;
+    bool inCompound = false;
 
     if (!layer || !layer->isLayerEditable()) {
         
