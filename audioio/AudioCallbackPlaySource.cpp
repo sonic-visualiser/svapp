@@ -248,6 +248,7 @@ AudioCallbackPlaySource::modelChanged(size_t startFrame, size_t endFrame)
 #endif
     if (endFrame > m_lastModelEndFrame) {
         m_lastModelEndFrame = endFrame;
+        rebuildRangeLists();
     }
 }
 
