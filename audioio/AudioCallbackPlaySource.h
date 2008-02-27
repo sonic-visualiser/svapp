@@ -26,18 +26,23 @@
 #include <QWaitCondition>
 
 #include "base/Thread.h"
+#include "base/RealTime.h"
 
 #include <samplerate.h>
 
 #include <set>
 #include <map>
 
+namespace RubberBand {
+    class RubberBandStretcher;
+}
+
 class Model;
 class ViewManager;
 class AudioGenerator;
 class PlayParameters;
-class PhaseVocoderTimeStretcher;
 class RealTimePluginInstance;
+class AudioCallbackPlayTarget;
 
 /**
  * AudioCallbackPlaySource manages audio data supply to callback-based
@@ -95,6 +100,12 @@ public:
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
     virtual size_t getCurrentPlayingFrame();
+    
+    /** 
+     * Return the last frame that would come out of the speakers if we
+     * stopped playback right now.
+     */
+    virtual size_t getCurrentBufferedFrame();
 
     /**
      * Return the frame at which playback is expected to end (if not looping).
@@ -102,13 +113,16 @@ public:
     virtual size_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
-     * Set the block size of the target audio device.  This should
-     * be called by the target class.
+     * Set the target and the block size of the target audio device.
+     * This should be called by the target class.
      */
-    void setTargetBlockSize(size_t);
+    void setTarget(AudioCallbackPlayTarget *, size_t blockSize);
 
     /**
-     * Get the block size of the target audio device.
+     * Get the block size of the target audio device.  This may be an
+     * estimate or upper bound, if the target has a variable block
+     * size; the source should behave itself even if this value turns
+     * out to be inaccurate.
      */
     size_t getTargetBlockSize() const;
 
@@ -185,12 +199,9 @@ public:
     size_t getSourceSamples(size_t count, float **buffer);
 
     /**
-     * Set the time stretcher factor (i.e. playback speed).  Also
-     * specify whether the time stretcher will be variable rate
-     * (sharpening transients), and whether time stretching will be
-     * carried out on data mixed down to mono for speed.
+     * Set the time stretcher factor (i.e. playback speed).
      */
-    void setTimeStretch(float factor, bool sharpen, bool mono);
+    void setTimeStretch(float factor);
 
     /**
      * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
@@ -274,6 +285,9 @@ protected:
     size_t                            m_sourceSampleRate;
     size_t                            m_targetSampleRate;
     size_t                            m_playLatency;
+    AudioCallbackPlayTarget          *m_target;
+    double                            m_lastRetrievalTimestamp;
+    size_t                            m_lastRetrievedBlockSize;
     bool                              m_playing;
     bool                              m_exiting;
     size_t                            m_lastModelEndFrame;
@@ -283,6 +297,9 @@ protected:
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
+    size_t                            m_playStartFrame;
+    bool                              m_playStartFramePassed;
+    RealTime                          m_playStartedAt;
 
     RingBuffer<float> *getWriteRingBuffer(size_t c) {
 	if (m_writeBuffers && c < m_writeBuffers->size()) {
@@ -304,8 +321,12 @@ protected:
     void clearRingBuffers(bool haveLock = false, size_t count = 0);
     void unifyRingBuffers();
 
-    PhaseVocoderTimeStretcher *m_timeStretcher;
-    Scavenger<PhaseVocoderTimeStretcher> m_timeStretcherScavenger;
+    RubberBand::RubberBandStretcher *m_timeStretcher;
+    float m_stretchRatio;
+    
+    size_t  m_stretcherInputCount;
+    float **m_stretcherInputs;
+    size_t *m_stretcherInputSizes;
 
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done
@@ -319,6 +340,13 @@ protected:
 
     // Called from getSourceSamples.
     void applyAuditioningEffect(size_t count, float **buffers);
+
+    // Ranges of current selections, if play selection is active
+    std::vector<RealTime> m_rangeStarts;
+    std::vector<RealTime> m_rangeDurations;
+    void rebuildRangeLists();
+
+    size_t getCurrentFrame(RealTime outputLatency);
 
     class FillThread : public Thread
     {

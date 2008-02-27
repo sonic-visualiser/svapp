@@ -35,7 +35,11 @@ public:
     AudioJACKTarget(AudioCallbackPlaySource *source);
     virtual ~AudioJACKTarget();
 
+    virtual void shutdown();
+
     virtual bool isOK() const;
+
+    virtual double getCurrentTime() const;
 
 public slots:
     virtual void sourceModelReplaced();
@@ -52,6 +56,7 @@ protected:
     jack_nframes_t              m_bufferSize;
     jack_nframes_t              m_sampleRate;
     QMutex                      m_mutex;
+    bool                        m_done;
 };
 
 #endif /* HAVE_JACK */

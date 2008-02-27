@@ -30,6 +30,10 @@ public:
 
     virtual bool isOK() const = 0;
 
+    virtual void shutdown() = 0;
+
+    virtual double getCurrentTime() const = 0;
+
     float getOutputGain() const {
 	return m_outputGain;
     }

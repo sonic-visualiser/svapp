@@ -32,6 +32,8 @@
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
 
+#include "plugin/transform/TransformFactory.h"
+
 #include "view/Pane.h"
 
 #include "Document.h"
@@ -53,6 +55,7 @@ SVFileReader::SVFileReader(Document *document,
     m_currentDerivedModel(0),
     m_currentDerivedModelId(-1),
     m_currentPlayParameters(0),
+    m_currentTransformSource(0),
     m_datasetSeparator(" "),
     m_inRow(false),
     m_inLayer(false),
@@ -136,6 +139,11 @@ SVFileReader::startElement(const QString &, const QString &,
     // row
     // view
     // window
+    // plugin
+    // transform
+    // selections
+    // selection
+    // measurement
 
     if (name == "sv") {
 
@@ -212,6 +220,14 @@ SVFileReader::startElement(const QString &, const QString &,
 
         ok = readMeasurement(attributes);
 
+    } else if (name == "transform") {
+        
+        ok = readTransform(attributes);
+
+    } else if (name == "parameter") {
+
+        ok = readParameter(attributes);
+
     } else {
         std::cerr << "WARNING: SV-XML: Unexpected element \""
                   << name.toLocal8Bit().data() << "\"" << std::endl;
@@ -285,25 +301,37 @@ SVFileReader::endElement(const QString &, const QString &,
                           << m_currentDerivedModelId
                           << " as target, not regenerating" << std::endl;
             } else {
+                QString message;
                 m_currentDerivedModel = m_models[m_currentDerivedModelId] =
-                    m_document->addDerivedModel(m_currentTransformer,
-                                                m_currentTransformerSource,
-                                                m_currentTransformerContext,
-                                                m_currentTransformerConfiguration);
+                    m_document->addDerivedModel
+                    (m_currentTransform,
+                     ModelTransformer::Input(m_currentTransformSource,
+                                             m_currentTransformChannel),
+                     message);
+                if (!m_currentDerivedModel) {
+                    emit modelRegenerationFailed(tr("(derived model in SV-XML)"),
+                                                 m_currentTransform.getIdentifier(),
+                                                 message);
+                } else if (message != "") {
+                    emit modelRegenerationWarning(tr("(derived model in SV-XML)"),
+                                                  m_currentTransform.getIdentifier(),
+                                                  message);
+                }                    
             }
         } else {
-            m_document->addDerivedModel(m_currentTransformer,
-                                        m_currentTransformerSource,
-                                        m_currentTransformerContext,
-                                        m_currentDerivedModel,
-                                        m_currentTransformerConfiguration);
+            m_document->addDerivedModel
+                (m_currentTransform,
+                 ModelTransformer::Input(m_currentTransformSource,
+                                         m_currentTransformChannel),
+                 m_currentDerivedModel);
         }
 
         m_addedModels.insert(m_currentDerivedModel);
         m_currentDerivedModel = 0;
         m_currentDerivedModelId = -1;
-        m_currentTransformer = "";
-        m_currentTransformerConfiguration = "";
+        m_currentTransformSource = 0;
+        m_currentTransform = Transform();
+        m_currentTransformChannel = -1;
 
     } else if (name == "row") {
 	m_inRow = false;
@@ -413,7 +441,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         QString path = ff->find(FileFinder::AudioFile,
                                 originalPath, m_location);
 
-        FileSource file(path, true);
+        FileSource file(path, FileSource::ProgressDialog);
         file.waitForStatus();
 
         if (!file.isOK()) {
@@ -713,6 +741,9 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	QString name = attributes.value("name");
 	layer->setObjectName(name);
 
+        QString presentationName = attributes.value("presentationName");
+        layer->setPresentationName(presentationName);
+
 	int modelId;
 	bool modelOk = false;
 	modelId = attributes.value("model").trimmed().toInt(&modelOk);
@@ -851,7 +882,12 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	size_t duration = 0;
 	duration = attributes.value("duration").trimmed().toUInt(&ok);
 	QString label = attributes.value("label");
-	nm->addPoint(NoteModel::Point(frame, value, duration, label));
+        float level = attributes.value("level").trimmed().toFloat(&ok);
+        if (!ok) { // level is optional
+            level = 1.f;
+            ok = true;
+        }
+	nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
 	return ok;
     }
 
@@ -988,8 +1024,6 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
 	return false;
     }
 
-    QString transform = attributes.value("transform");
-
     if (haveModel(modelId)) {
         m_currentDerivedModel = m_models[modelId];
     } else {
@@ -1004,31 +1038,43 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     sourceId = attributes.value("source").trimmed().toInt(&sourceOk);
 
     if (sourceOk && haveModel(sourceId)) {
-        m_currentTransformerSource = m_models[sourceId];
+        m_currentTransformSource = m_models[sourceId];
     } else {
-        m_currentTransformerSource = m_document->getMainModel();
+        m_currentTransformSource = m_document->getMainModel();
     }
 
-    m_currentTransformer = transform;
-    m_currentTransformerConfiguration = "";
-
-    m_currentTransformerContext = PluginTransformer::ExecutionContext();
+    m_currentTransform = Transform();
 
     bool ok = false;
     int channel = attributes.value("channel").trimmed().toInt(&ok);
-    if (ok) m_currentTransformerContext.channel = channel;
+    if (ok) m_currentTransformChannel = channel;
+    else m_currentTransformChannel = -1;
 
-    int domain = attributes.value("domain").trimmed().toInt(&ok);
-    if (ok) m_currentTransformerContext.domain = Vamp::Plugin::InputDomain(domain);
+    QString type = attributes.value("type");
+
+    if (type == "transform") {
+        m_currentTransformIsNewStyle = true;
+        return true;
+    } else {
+        m_currentTransformIsNewStyle = false;
+        std::cerr << "NOTE: SV-XML: Reading old-style derivation element"
+                  << std::endl;
+    }
+
+    QString transformId = attributes.value("transform");
+
+    m_currentTransform.setIdentifier(transformId);
 
     int stepSize = attributes.value("stepSize").trimmed().toInt(&ok);
-    if (ok) m_currentTransformerContext.stepSize = stepSize;
+    if (ok) m_currentTransform.setStepSize(stepSize);
 
     int blockSize = attributes.value("blockSize").trimmed().toInt(&ok);
-    if (ok) m_currentTransformerContext.blockSize = blockSize;
+    if (ok) m_currentTransform.setBlockSize(blockSize);
 
     int windowType = attributes.value("windowType").trimmed().toInt(&ok);
-    if (ok) m_currentTransformerContext.windowType = WindowType(windowType);
+    if (ok) m_currentTransform.setWindowType(WindowType(windowType));
+
+    if (!m_currentTransformSource) return true;
 
     QString startFrameStr = attributes.value("startFrame");
     QString durationStr = attributes.value("duration");
@@ -1045,8 +1091,13 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
         if (!ok) duration = 0;
     }
 
-    m_currentTransformerContext.startFrame = startFrame;
-    m_currentTransformerContext.duration = duration;
+    m_currentTransform.setStartTime
+        (RealTime::frame2RealTime
+         (startFrame, m_currentTransformSource->getSampleRate()));
+
+    m_currentTransform.setDuration
+        (RealTime::frame2RealTime
+         (duration, m_currentTransformSource->getSampleRate()));
 
     return true;
 }
@@ -1114,6 +1165,10 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
         return false;
     }
 
+    if (!m_currentPlayParameters && m_currentTransformIsNewStyle) {
+        return true;
+    }
+
     QString configurationXml = "<plugin";
     
     for (int i = 0; i < attributes.length(); ++i) {
@@ -1127,9 +1182,45 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
     if (m_currentPlayParameters) {
         m_currentPlayParameters->setPlayPluginConfiguration(configurationXml);
     } else {
-        m_currentTransformerConfiguration += configurationXml;
+        TransformFactory::getInstance()->
+            setParametersFromPluginConfigurationXml(m_currentTransform,
+                                                    configurationXml);
     }
 
+    return true;
+}
+
+bool
+SVFileReader::readTransform(const QXmlAttributes &attributes)
+{
+    if (m_currentDerivedModelId < 0) {
+        std::cerr << "WARNING: SV-XML: Transform found outside derivation" << std::endl;
+        return false;
+    }
+
+    m_currentTransform = Transform();
+    m_currentTransform.setFromXmlAttributes(attributes);
+    return true;
+}
+
+bool
+SVFileReader::readParameter(const QXmlAttributes &attributes)
+{
+    if (m_currentDerivedModelId < 0) {
+        std::cerr << "WARNING: SV-XML: Parameter found outside derivation" << std::endl;
+        return false;
+    }
+
+    QString name = attributes.value("name");
+    if (name == "") {
+        std::cerr << "WARNING: SV-XML: Ignoring nameless transform parameter"
+                  << std::endl;
+        return false;
+    }
+
+    float value = attributes.value("value").trimmed().toFloat();
+
+    m_currentTransform.setParameter(name, value);
     return true;
 }
 

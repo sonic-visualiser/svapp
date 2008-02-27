@@ -29,7 +29,8 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     m_stream(0),
     m_bufferSize(0),
     m_sampleRate(0),
-    m_latency(0)
+    m_latency(0),
+    m_done(false)
 {
     PaError err;
 
@@ -47,7 +48,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 	return;
     }
 
-    m_bufferSize = 1024;
+    m_bufferSize = 2048;
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
 	m_sampleRate = m_source->getSourceSampleRate();
@@ -62,10 +63,28 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 			       m_sampleRate, m_bufferSize, 0,
 			       processStatic, this);
 #else
-    err = Pa_OpenDefaultStream(&m_stream, 0, 2, paFloat32,
-			       m_sampleRate, m_bufferSize,
-			       processStatic, this);
+    PaStreamParameters op;
+    op.device = Pa_GetDefaultOutputDevice();
+    op.channelCount = 2;
+    op.sampleFormat = paFloat32;
+    op.suggestedLatency = 0.2;
+    op.hostApiSpecificStreamInfo = 0;
+    err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
+                        paFramesPerBufferUnspecified,
+                        paNoFlag, processStatic, this);
 #endif    
+
+#ifndef HAVE_PORTAUDIO_V18
+    if (err != paNoError) {
+
+        std::cerr << "WARNING: AudioPortAudioTarget: Failed to open PortAudio stream with default frames per buffer, trying again with fixed frames per buffer..." << std::endl;
+        
+        err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
+                            1024,
+                            paNoFlag, processStatic, this);
+	m_bufferSize = 1024;
+    }
+#endif
 
     if (err != paNoError) {
 	std::cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
@@ -77,6 +96,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 #ifndef HAVE_PORTAUDIO_V18
     const PaStreamInfo *info = Pa_GetStreamInfo(m_stream);
     m_latency = int(info->outputLatency * m_sampleRate + 0.001);
+    if (m_bufferSize < m_latency) m_bufferSize = m_latency;
 #endif
 
     std::cerr << "PortAudio latency = " << m_latency << " frames" << std::endl;
@@ -93,7 +113,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
     if (m_source) {
 	std::cerr << "AudioPortAudioTarget: block size " << m_bufferSize << std::endl;
-	m_source->setTargetBlockSize(m_bufferSize);
+	m_source->setTarget(this, m_bufferSize);
 	m_source->setTargetSampleRate(m_sampleRate);
 	m_source->setTargetPlayLatency(m_latency);
     }
@@ -105,23 +125,54 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
 AudioPortAudioTarget::~AudioPortAudioTarget()
 {
+    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget()" << std::endl;
+
+    if (m_source) {
+        m_source->setTarget(0, m_bufferSize);
+    }
+
+    shutdown();
+
     if (m_stream) {
+
+        std::cerr << "closing stream" << std::endl;
+
 	PaError err;
 	err = Pa_CloseStream(m_stream);
 	if (err != paNoError) {
 	    std::cerr << "ERROR: AudioPortAudioTarget: Failed to close PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
 	}
+
+        std::cerr << "terminating" << std::endl;
+
 	err = Pa_Terminate();
         if (err != paNoError) {
             std::cerr << "ERROR: AudioPortAudioTarget: Failed to terminate PortAudio: " << Pa_GetErrorText(err) << std::endl;
 	}   
     }
+
+    m_stream = 0;
+
+    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << std::endl;
+}
+
+void 
+AudioPortAudioTarget::shutdown()
+{
+    m_done = true;
 }
 
 bool
 AudioPortAudioTarget::isOK() const
 {
     return (m_stream != 0);
+}
+
+double
+AudioPortAudioTarget::getCurrentTime() const
+{
+    if (!m_stream) return 0.0;
+    else return Pa_GetStreamTime(m_stream);
 }
 
 #ifdef HAVE_PORTAUDIO_V18
@@ -169,7 +220,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
     std::cout << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;
 #endif
 
-    if (!m_source) return 0;
+    if (!m_source || m_done) return 0;
 
     float *output = (float *)outputBuffer;
 

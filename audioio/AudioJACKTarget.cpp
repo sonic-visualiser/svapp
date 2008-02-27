@@ -69,9 +69,9 @@ static jack_client_t *dynamic_jack_client_open(const char *client_name,
                                                jack_options_t options,
                                                jack_status_t *status, ...)
 {
-    typedef jack_client_t (*func)(const char *client_name,
-                                  jack_options_t options,
-                                  jack_status_t *status, ...);
+    typedef jack_client_t *(*func)(const char *client_name,
+                                   jack_options_t options,
+                                   jack_status_t *status, ...);
     void *s = symbol("jack_client_open");
     if (!s) return 0;
     func f = (func)s;
@@ -184,6 +184,7 @@ dynamic1(jack_nframes_t, jack_get_sample_rate, jack_client_t *, 0);
 dynamic1(int, jack_activate, jack_client_t *, 1);
 dynamic1(int, jack_deactivate, jack_client_t *, 1);
 dynamic1(int, jack_client_close, jack_client_t *, 1);
+dynamic1(jack_nframes_t, jack_frame_time, jack_client_t *, 0);
 dynamic1(jack_nframes_t, jack_port_get_latency, jack_port_t *, 0);
 dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 
@@ -196,6 +197,7 @@ dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 #define jack_activate dynamic_jack_activate
 #define jack_deactivate dynamic_jack_deactivate
 #define jack_client_close dynamic_jack_client_close
+#define jack_frame_time dynamic_jack_frame_time
 #define jack_get_ports dynamic_jack_get_ports
 #define jack_port_register dynamic_jack_port_register
 #define jack_port_unregister dynamic_jack_port_unregister
@@ -211,7 +213,8 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     AudioCallbackPlayTarget(source),
     m_client(0),
     m_bufferSize(0),
-    m_sampleRate(0)
+    m_sampleRate(0),
+    m_done(false)
 {
     JackOptions options = JackNullOption;
 #ifdef HAVE_PORTAUDIO
@@ -242,22 +245,68 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     if (m_source) {
 	sourceModelReplaced();
     }
+    
+    // Mainstream JACK (though not jackdmp) calls mlockall() to lock
+    // down all memory for real-time operation.  That isn't a terribly
+    // good idea in an application like this that may have very high
+    // dynamic memory usage in other threads, as mlockall() applies
+    // across all threads.  We're far better off undoing it here and
+    // accepting the possible loss of true RT capability.
+    MUNLOCKALL();
 }
 
 AudioJACKTarget::~AudioJACKTarget()
 {
     std::cerr << "AudioJACKTarget::~AudioJACKTarget()" << std::endl;
-    if (m_client) {
-	jack_deactivate(m_client);
-	jack_client_close(m_client);
+
+    if (m_source) {
+        m_source->setTarget(0, m_bufferSize);
     }
+
+    shutdown();
+
+    if (m_client) {
+
+        while (m_outputs.size() > 0) {
+            std::vector<jack_port_t *>::iterator itr = m_outputs.end();
+            --itr;
+            jack_port_t *port = *itr;
+            std::cerr << "unregister " << m_outputs.size() << std::endl;
+            if (port) jack_port_unregister(m_client, port);
+            m_outputs.erase(itr);
+        }
+        std::cerr << "Deactivating... ";
+	jack_deactivate(m_client);
+        std::cerr << "done\nClosing... ";
+	jack_client_close(m_client);
+        std::cerr << "done" << std::endl;
+    }
+
+    m_client = 0;
+
     std::cerr << "AudioJACKTarget::~AudioJACKTarget() done" << std::endl;
+}
+
+void
+AudioJACKTarget::shutdown()
+{
+    m_done = true;
 }
 
 bool
 AudioJACKTarget::isOK() const
 {
     return (m_client != 0);
+}
+
+double
+AudioJACKTarget::getCurrentTime() const
+{
+    if (m_client && m_sampleRate) {
+        return double(jack_frame_time(m_client)) / double(m_sampleRate);
+    } else {
+        return 0.0;
+    }
 }
 
 int
@@ -277,7 +326,7 @@ AudioJACKTarget::sourceModelReplaced()
 {
     m_mutex.lock();
 
-    m_source->setTargetBlockSize(m_bufferSize);
+    m_source->setTarget(this, m_bufferSize);
     m_source->setTargetSampleRate(m_sampleRate);
 
     size_t channels = m_source->getSourceChannelCount();
@@ -342,6 +391,8 @@ AudioJACKTarget::sourceModelReplaced()
 int
 AudioJACKTarget::process(jack_nframes_t nframes)
 {
+    if (m_done) return 0;
+
     if (!m_mutex.tryLock()) {
 	return 0;
     }
