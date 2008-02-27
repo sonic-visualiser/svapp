@@ -278,6 +278,28 @@ MainWindowBase::updateMenuStates()
     if (m_paneStack) currentPane = m_paneStack->getCurrentPane();
     if (currentPane) currentLayer = currentPane->getSelectedLayer();
 
+    bool havePrevPane = false, haveNextPane = false;
+    bool havePrevLayer = false, haveNextLayer = false;
+
+    if (currentPane) {
+        for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+            if (m_paneStack->getPane(i) == currentPane) {
+                if (i > 0) havePrevPane = true;
+                if (i < m_paneStack->getPaneCount()-1) haveNextPane = true;
+                break;
+            }
+        }
+        if (currentLayer) {
+            for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+                if (currentPane->getLayer(i) == currentLayer) {
+                    if (i > 0) havePrevLayer = true;
+                    if (i < currentPane->getLayerCount()-1) haveNextLayer = true;
+                    break;
+                }
+            }
+        }
+    }        
+
     bool haveCurrentPane =
         (currentPane != 0);
     bool haveCurrentLayer =
@@ -322,7 +344,7 @@ MainWindowBase::updateMenuStates()
     emit canPlay(havePlayTarget);
     emit canFfwd(true);
     emit canRewind(true);
-    emit canPaste(haveCurrentEditableLayer && haveClipboardContents);
+    emit canPaste(haveClipboardContents);
     emit canInsertInstant(haveCurrentPane);
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
     emit canRenumberInstants(haveCurrentTimeInstantsLayer && haveSelection);
@@ -330,6 +352,10 @@ MainWindowBase::updateMenuStates()
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
     emit canSave(m_sessionFile != "" && m_documentModified);
+    emit canSelectPreviousPane(havePrevPane);
+    emit canSelectNextPane(haveNextPane);
+    emit canSelectPreviousLayer(havePrevLayer);
+    emit canSelectNextLayer(haveNextLayer);
 }
 
 void
@@ -423,9 +449,18 @@ MainWindowBase::currentPaneChanged(Pane *p)
     }
 
     Model *prevPlaybackModel = m_viewManager->getPlaybackModel();
-    int frame = m_playSource->getCurrentPlayingFrame();
 
-    std::cerr << "playing frame (in ref model) = " << frame << std::endl;
+    // What we want here is not the currently playing frame (unless we
+    // are about to clear out the audio playback buffers -- which may
+    // or may not be possible, depending on the audio driver).  What
+    // we want is the frame that was last committed to the soundcard
+    // buffers, as the audio driver will continue playing up to that
+    // frame before switching to whichever one we decide we want to
+    // switch to, regardless of our efforts.
+
+    int frame = m_playSource->getCurrentBufferedFrame();
+
+//    std::cerr << "currentPaneChanged: current frame (in ref model) = " << frame << std::endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -462,11 +497,6 @@ MainWindowBase::currentPaneChanged(Pane *p)
     m_playSource->setSoloModelSet(soloModels);
 
     if (a && b && (a != b)) {
-/*!!!
-        int rframe = a->alignToReference(frame);
-        int bframe = b->alignFromReference(rframe);
-        if (m_playSource->isPlaying()) m_playSource->play(bframe);
-*/
         if (m_playSource->isPlaying()) m_playSource->play(frame);
     }
 }
@@ -546,7 +576,7 @@ MainWindowBase::cut()
 
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        layer->copy(*i, clipboard);
+        layer->copy(currentPane, *i, clipboard);
         layer->deleteSelection(*i);
     }
 
@@ -569,7 +599,7 @@ MainWindowBase::copy()
 
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        layer->copy(*i, clipboard);
+        layer->copy(currentPane, *i, clipboard);
     }
 }
 
@@ -579,30 +609,38 @@ MainWindowBase::paste()
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    //!!! if we have no current layer, we should create one of the most
-    // appropriate type
-
     Layer *layer = currentPane->getSelectedLayer();
-    if (!layer) return;
 
     Clipboard &clipboard = m_viewManager->getClipboard();
-    Clipboard::PointList contents = clipboard.getPoints();
-/*
-    long minFrame = 0;
-    bool have = false;
-    for (int i = 0; i < contents.size(); ++i) {
-        if (!contents[i].haveFrame()) continue;
-        if (!have || contents[i].getFrame() < minFrame) {
-            minFrame = contents[i].getFrame();
-            have = true;
+//    Clipboard::PointList contents = clipboard.getPoints();
+
+    bool inCompound = false;
+
+    if (!layer || !layer->isLayerEditable()) {
+        
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Paste"), true);
+
+        // no suitable current layer: create one of the most
+        // appropriate sort
+        LayerFactory::LayerType type =
+            LayerFactory::getInstance()->getLayerTypeForClipboardContents(clipboard);
+        layer = m_document->createEmptyLayer(type);
+
+        if (!layer) {
+            CommandHistory::getInstance()->endCompoundOperation();
+            return;
         }
+
+        m_document->addLayerToView(currentPane, layer);
+        m_paneStack->setCurrentLayer(currentPane, layer);
+
+        inCompound = true;
     }
 
-    long frameOffset = long(m_viewManager->getGlobalCentreFrame()) - minFrame;
+    layer->paste(currentPane, clipboard, 0, true);
 
-    layer->paste(clipboard, frameOffset);
-*/
-    layer->paste(clipboard, 0, true);
+    if (inCompound) CommandHistory::getInstance()->endCompoundOperation();
 }
 
 void
@@ -661,6 +699,8 @@ MainWindowBase::insertInstantAt(size_t frame)
         return;
     }
 
+    frame = pane->alignFromReference(frame);
+
     Layer *layer = dynamic_cast<TimeInstantLayer *>
         (pane->getSelectedLayer());
 
@@ -697,7 +737,7 @@ MainWindowBase::insertInstantAt(size_t frame)
             SparseOneDimensionalModel::EditCommand *command =
                 new SparseOneDimensionalModel::EditCommand(sodm, tr("Add Point"));
 
-            if (m_labeller->actingOnPrevPoint()) {
+            if (m_labeller->requiresPrevPoint()) {
 
                 SparseOneDimensionalModel::PointList prevPoints =
                     sodm->getPreviousPoints(frame);
@@ -712,14 +752,14 @@ MainWindowBase::insertInstantAt(size_t frame)
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (havePrevPoint) {
+                if (m_labeller->actingOnPrevPoint()) {
                     command->deletePoint(prevPoint);
                 }
 
                 m_labeller->label<SparseOneDimensionalModel::Point>
                     (point, havePrevPoint ? &prevPoint : 0);
 
-                if (havePrevPoint) {
+                if (m_labeller->actingOnPrevPoint()) {
                     command->addPoint(prevPoint);
                 }
             }
@@ -766,7 +806,7 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    return open(FileSource(fileOrUrl, true), mode);
+    return open(FileSource(fileOrUrl, FileSource::ProgressDialog), mode);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1008,7 +1048,8 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
     for (PlaylistFileReader::Playlist::const_iterator i = playlist.begin();
          i != playlist.end(); ++i) {
 
-        FileOpenStatus status = openAudio(FileSource(*i, true), mode);
+        FileOpenStatus status = openAudio
+            (FileSource(*i, FileSource::ProgressDialog), mode);
 
         if (status == FileOpenCancelled) {
             return FileOpenCancelled;
@@ -1059,6 +1100,12 @@ MainWindowBase::openLayer(FileSource source)
         }
         
         SVFileReader reader(m_document, callback, source.getLocation());
+        connect
+            (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+             this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+        connect
+            (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
         reader.setCurrentPane(pane);
         
         QXmlInputSource inputSource(&file);
@@ -1078,6 +1125,8 @@ MainWindowBase::openLayer(FileSource source)
             registerLastOpenedFilePath(FileFinder::LayerFile, path); // for file dialog
         }
 
+        return FileOpenSucceeded;
+
     } else {
         
         try {
@@ -1094,6 +1143,8 @@ MainWindowBase::openLayer(FileSource source)
                 if (newLayer) {
 
                     m_document->addLayerToView(pane, newLayer);
+                    m_paneStack->setCurrentLayer(pane, newLayer);
+
                     m_recentFiles.addFile(source.getLocation());
                     
                     if (!source.isRemote()) {
@@ -1101,7 +1152,7 @@ MainWindowBase::openLayer(FileSource source)
                             (FileFinder::LayerFile,
                              path); // for file dialog
                     }
-                    
+
                     return FileOpenSucceeded;
                 }
             }
@@ -1112,7 +1163,6 @@ MainWindowBase::openLayer(FileSource source)
         }
     }
     
-    source.setLeaveLocalFile(true);
     return FileOpenFailed;
 }
 
@@ -1169,7 +1219,7 @@ MainWindowBase::openImage(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFile(QString fileOrUrl)
 {
-    return openSession(FileSource(fileOrUrl, true));
+    return openSession(FileSource(fileOrUrl, FileSource::ProgressDialog));
 }
 
 MainWindowBase::FileOpenStatus
@@ -1192,6 +1242,12 @@ MainWindowBase::openSession(FileSource source)
     m_viewManager->clearSelections();
 
     SVFileReader reader(m_document, callback, source.getLocation());
+    connect
+        (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+    connect
+        (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
     QXmlInputSource inputSource(&bzFile);
     reader.parse(inputSource);
     
@@ -1282,10 +1338,16 @@ MainWindowBase::createDocument()
     connect(m_document, SIGNAL(modelAboutToBeDeleted(Model *)),
 	    this, SLOT(modelAboutToBeDeleted(Model *)));
 
-    connect(m_document, SIGNAL(modelGenerationFailed(QString)),
-            this, SLOT(modelGenerationFailed(QString)));
-    connect(m_document, SIGNAL(modelRegenerationFailed(QString, QString)),
-            this, SLOT(modelRegenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
+            this, SLOT(modelGenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+    connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
+            this, SLOT(modelGenerationFailed(QString, QString)));
+    connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+    connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
+            this, SLOT(alignmentFailed(QString, QString)));
 }
 
 bool
@@ -1545,6 +1607,7 @@ MainWindowBase::ffwd()
     int frame = m_viewManager->getPlaybackFrame();
     ++frame;
 
+    Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
     size_t sr = getMainModel()->getSampleRate();
 
@@ -1559,8 +1622,10 @@ MainWindowBase::ffwd()
     } else {
 
         size_t resolution = 0;
-        if (!layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                       frame, resolution, Layer::SnapRight)) {
+        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
+                                      frame, resolution, Layer::SnapRight)) {
+            if (pane) frame = pane->alignToReference(frame);
+        } else {
             frame = getMainModel()->getEndFrame();
         }
     }
@@ -1596,6 +1661,7 @@ MainWindowBase::rewind()
     int frame = m_viewManager->getPlaybackFrame();
     if (frame > 0) --frame;
 
+    Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
     size_t sr = getMainModel()->getSampleRate();
     
@@ -1622,8 +1688,11 @@ MainWindowBase::rewind()
     } else {
 
         size_t resolution = 0;
-        if (!layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                       frame, resolution, Layer::SnapLeft)) {
+        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
+                                      frame, resolution, Layer::SnapLeft)) {
+            
+            if (pane) frame = pane->alignToReference(frame);
+        } else {
             frame = getMainModel()->getStartFrame();
         }
     }
@@ -1809,6 +1878,90 @@ MainWindowBase::deleteCurrentLayer()
 	}
     }
     updateMenuStates();
+}
+
+void
+MainWindowBase::previousPane()
+{
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        if (m_paneStack->getPane(i) == currentPane) {
+            if (i == 0) return;
+            m_paneStack->setCurrentPane(m_paneStack->getPane(i-1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::nextPane()
+{
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        if (m_paneStack->getPane(i) == currentPane) {
+            if (i == m_paneStack->getPaneCount()-1) return;
+            m_paneStack->setCurrentPane(m_paneStack->getPane(i+1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::previousLayer()
+{
+    //!!! Not right -- pane lists layers in stacking order
+
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    Layer *currentLayer = currentPane->getSelectedLayer();
+    if (!currentLayer) return;
+
+    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+        if (currentPane->getLayer(i) == currentLayer) {
+            if (i == 0) return;
+            m_paneStack->setCurrentLayer(currentPane,
+                                         currentPane->getLayer(i-1));
+            updateMenuStates();
+            return;
+        }
+    }
+}
+
+void
+MainWindowBase::nextLayer()
+{
+    //!!! Not right -- pane lists layers in stacking order
+
+    if (!m_paneStack) return;
+
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (!currentPane) return;
+
+    Layer *currentLayer = currentPane->getSelectedLayer();
+    if (!currentLayer) return;
+
+    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
+        if (currentPane->getLayer(i) == currentLayer) {
+            if (i == currentPane->getLayerCount()-1) return;
+            m_paneStack->setCurrentLayer(currentPane,
+                                         currentPane->getLayer(i+1));
+            updateMenuStates();
+            return;
+        }
+    }
 }
 
 void

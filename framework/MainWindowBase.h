@@ -132,6 +132,10 @@ signals:
     void canSpeedUpPlayback(bool);
     void canSlowDownPlayback(bool);
     void canChangePlaybackSpeed(bool);
+    void canSelectPreviousPane(bool);
+    void canSelectNextPane(bool);
+    void canSelectPreviousLayer(bool);
+    void canSelectNextLayer(bool);
     void canSave(bool);
 
 public slots:
@@ -165,6 +169,11 @@ protected slots:
 
     virtual void deleteCurrentPane();
     virtual void deleteCurrentLayer();
+
+    virtual void previousPane();
+    virtual void nextPane();
+    virtual void previousLayer();
+    virtual void nextLayer();
 
     virtual void playLoopToggled();
     virtual void playSelectionToggled();
@@ -213,8 +222,11 @@ protected slots:
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
 
-    virtual void modelGenerationFailed(QString) = 0;
-    virtual void modelRegenerationFailed(QString, QString) = 0;
+    virtual void modelGenerationFailed(QString, QString) = 0;
+    virtual void modelGenerationWarning(QString, QString) = 0;
+    virtual void modelRegenerationFailed(QString, QString, QString) = 0;
+    virtual void modelRegenerationWarning(QString, QString, QString) = 0;
+    virtual void alignmentFailed(QString, QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
 

@@ -29,12 +29,15 @@
 #include "plugin/transform/ModelTransformerFactory.h"
 #include <QApplication>
 #include <QTextStream>
+#include <QSettings>
 #include <iostream>
 
 // For alignment:
 #include "data/model/AggregateWaveModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
+
+//#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
 
@@ -53,10 +56,14 @@ Document::~Document()
     //still refer to it in various places that don't have access to
     //the document, be nice to fix that
 
-//    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
+#endif
     CommandHistory::getInstance()->clear();
     
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::~Document: about to delete layers" << std::endl;
+#endif
     while (!m_layers.empty()) {
 	deleteLayer(*m_layers.begin(), true);
     }
@@ -73,19 +80,21 @@ Document::~Document()
 		std::cerr << "Document::~Document: WARNING: Main model is also"
 			  << " in models list!" << std::endl;
 	    } else if (model) {
-		emit modelAboutToBeDeleted(model);
                 model->aboutToDelete();
+		emit modelAboutToBeDeleted(model);
 		delete model;
 	    }
 	    m_models.erase(m_models.begin());
 	}
     }
 
-//    std::cerr << "Document::~Document: About to get rid of main model"
-//	      << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::~Document: About to get rid of main model"
+	      << std::endl;
+#endif
     if (m_mainModel) {
-        emit modelAboutToBeDeleted(m_mainModel);
         m_mainModel->aboutToDelete();
+        emit modelAboutToBeDeleted(m_mainModel);
     }
 
     emit mainModelChanged(0);
@@ -103,8 +112,10 @@ Document::createLayer(LayerFactory::LayerType type)
 
     m_layers.insert(newLayer);
 
-//    std::cerr << "Document::createLayer: Added layer of type " << type
-//              << ", now have " << m_layers.size() << " layers" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::createLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << std::endl;
+#endif
 
     emit layerAdded(newLayer);
 
@@ -147,8 +158,10 @@ Document::createImportedLayer(Model *model)
 
     m_layers.insert(newLayer);
 
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::createImportedLayer: Added layer of type " << type
               << ", now have " << m_layers.size() << " layers" << std::endl;
+#endif
 
     emit layerAdded(newLayer);
     return newLayer;
@@ -190,24 +203,23 @@ Document::createDerivedLayer(LayerFactory::LayerType type,
 }
 
 Layer *
-Document::createDerivedLayer(TransformId transform,
-                             Model *inputModel, 
-                             const PluginTransformer::ExecutionContext &context,
-                             QString configurationXml)
+Document::createDerivedLayer(const Transform &transform,
+                             const ModelTransformer::Input &input)
 {
-    Model *newModel = addDerivedModel(transform, inputModel,
-                                      context, configurationXml);
+    QString message;
+    Model *newModel = addDerivedModel(transform, input, message);
     if (!newModel) {
-        // error already printed to stderr by addDerivedModel
-        emit modelGenerationFailed(transform);
+        emit modelGenerationFailed(transform.getIdentifier(), message);
         return 0;
+    } else if (message != "") {
+        emit modelGenerationWarning(transform.getIdentifier(), message);
     }
 
     LayerFactory::LayerTypeSet types =
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.toStdString() << std::endl;
+	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier().toStdString() << std::endl;
 	delete newModel;
 	return 0;
     }
@@ -235,7 +247,8 @@ Document::createDerivedLayer(TransformId transform,
     if (newLayer) {
 	newLayer->setObjectName(getUniqueLayerName
                                 (TransformFactory::getInstance()->
-                                 getTransformFriendlyName(transform)));
+                                 getTransformFriendlyName
+                                 (transform.getIdentifier())));
     }
 
     emit layerAdded(newLayer);
@@ -259,20 +272,26 @@ Document::setMainModel(WaveFileModel *model)
     // using one of these.  Carry out this replacement before we
     // delete any of the models.
 
-//    std::cerr << "Document::setMainModel: Have "
-//              << m_layers.size() << " layers" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << std::endl;
+#endif
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
 
 	Layer *layer = *i;
 	Model *model = layer->getModel();
 
-//        std::cerr << "Document::setMainModel: inspecting model "
-//                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
-//                  << layer->objectName().toStdString() << std::endl;
+#ifdef DEBUG_DOCUMENT
+        std::cerr << "Document::setMainModel: inspecting model "
+                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
+                  << layer->objectName().toStdString() << std::endl;
+#endif
 
 	if (model == oldMainModel) {
-//            std::cerr << "... it uses the old main model, replacing" << std::endl;
+#ifdef DEBUG_DOCUMENT
+            std::cerr << "... it uses the old main model, replacing" << std::endl;
+#endif
 	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
 	    continue;
 	}
@@ -288,43 +307,60 @@ Document::setMainModel(WaveFileModel *model)
 	if (m_models[model].source &&
             (m_models[model].source == oldMainModel)) {
 
-//            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
+#ifdef DEBUG_DOCUMENT
+            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
+#endif
 
 	    // This model was derived from the previous main
 	    // model: regenerate it.
 	    
-	    TransformId transform = m_models[model].transform;
-            PluginTransformer::ExecutionContext context = m_models[model].context;
+	    const Transform &transform = m_models[model].transform;
+            QString transformId = transform.getIdentifier();
 	    
+            //!!! We have a problem here if the number of channels in
+            //the main model has changed.
+
+            QString message;
 	    Model *replacementModel =
                 addDerivedModel(transform,
-                                m_mainModel,
-                                context,
-                                m_models[model].configurationXml);
+                                ModelTransformer::Input
+                                (m_mainModel, m_models[model].channel),
+                                message);
 	    
 	    if (!replacementModel) {
 		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
-			  << transform.toStdString() << "\"" << " in layer " << layer << std::endl;
-                if (failedTransformers.find(transform) == failedTransformers.end()) {
+			  << transformId.toStdString() << "\"" << " in layer " << layer << std::endl;
+                if (failedTransformers.find(transformId)
+                    == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
-                                                 transform);
-                    failedTransformers.insert(transform);
+                                                 transformId,
+                                                 message);
+                    failedTransformers.insert(transformId);
                 }
 		obsoleteLayers.push_back(layer);
 	    } else {
-//                std::cerr << "Replacing model " << model << " (type "
-//                          << typeid(*model).name() << ") with model "
-//                          << replacementModel << " (type "
-//                          << typeid(*replacementModel).name() << ") in layer "
-//                          << layer << " (name " << layer->objectName().toStdString() << ")"
-//                          << std::endl;
+                if (message != "") {
+                    emit modelRegenerationWarning(layer->objectName(),
+                                                  transformId,
+                                                  message);
+                }
+#ifdef DEBUG_DOCUMENT
+                std::cerr << "Replacing model " << model << " (type "
+                          << typeid(*model).name() << ") with model "
+                          << replacementModel << " (type "
+                          << typeid(*replacementModel).name() << ") in layer "
+                          << layer << " (name " << layer->objectName().toStdString() << ")"
+                          << std::endl;
+#endif
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
+#ifdef DEBUG_DOCUMENT
                 if (rm) {
                     std::cerr << "new model has " << rm->getChannelCount() << " channels " << std::endl;
                 } else {
                     std::cerr << "new model is not a RangeSummarisableTimeValueModel!" << std::endl;
                 }
+#endif
 		setModel(layer, replacementModel);
 	    }
 	}	    
@@ -335,24 +371,36 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        if (oldMainModel &&
-            (i->first->getAlignmentReference() == oldMainModel)) {
+
+        if (m_autoAlignment) {
+
+            alignModel(i->first);
+
+        } else if (oldMainModel &&
+                   (i->first->getAlignmentReference() == oldMainModel)) {
+
             alignModel(i->first);
         }
     }
 
+    if (oldMainModel) {
+        oldMainModel->aboutToDelete();
+        emit modelAboutToBeDeleted(oldMainModel);
+    }
+
+    if (m_autoAlignment) {
+        alignModel(m_mainModel);
+    }
+
     emit mainModelChanged(m_mainModel);
 
-    // we already emitted modelAboutToBeDeleted for this
     delete oldMainModel;
 }
 
 void
-Document::addDerivedModel(TransformId transform,
-                          Model *inputModel,
-                          const PluginTransformer::ExecutionContext &context,
-                          Model *outputModelToAdd,
-                          QString configurationXml)
+Document::addDerivedModel(const Transform &transform,
+                          const ModelTransformer::Input &input,
+                          Model *outputModelToAdd)
 {
     if (m_models.find(outputModelToAdd) != m_models.end()) {
 	std::cerr << "WARNING: Document::addDerivedModel: Model already added"
@@ -360,16 +408,17 @@ Document::addDerivedModel(TransformId transform,
 	return;
     }
 
-//    std::cerr << "Document::addDerivedModel: source is " << inputModel << " \"" << inputModel->objectName().toStdString() << "\"" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName().toStdString() << "\"" << std::endl;
+#endif
 
     ModelRecord rec;
-    rec.source = inputModel;
+    rec.source = input.getModel();
+    rec.channel = input.getChannel();
     rec.transform = transform;
-    rec.context = context;
-    rec.configurationXml = configurationXml;
     rec.refcount = 0;
 
-    outputModelToAdd->setSourceModel(inputModel);
+    outputModelToAdd->setSourceModel(input.getModel());
 
     m_models[outputModelToAdd] = rec;
 
@@ -388,7 +437,6 @@ Document::addImportedModel(Model *model)
 
     ModelRecord rec;
     rec.source = 0;
-    rec.transform = "";
     rec.refcount = 0;
 
     m_models[model] = rec;
@@ -399,29 +447,41 @@ Document::addImportedModel(Model *model)
 }
 
 Model *
-Document::addDerivedModel(TransformId transform,
-                          Model *inputModel,
-                          const PluginTransformer::ExecutionContext &context,
-                          QString configurationXml)
+Document::addDerivedModel(const Transform &transform,
+                          const ModelTransformer::Input &input,
+                          QString &message)
 {
     Model *model = 0;
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
 	if (i->second.transform == transform &&
-	    i->second.source == inputModel && 
-            i->second.context == context &&
-            i->second.configurationXml == configurationXml) {
+	    i->second.source == input.getModel() && 
+            i->second.channel == input.getChannel()) {
 	    return i->first;
 	}
     }
 
     model = ModelTransformerFactory::getInstance()->transform
-	(transform, inputModel, context, configurationXml);
+        (transform, input, message);
+
+    // The transform we actually used was presumably identical to the
+    // one asked for, except that the version of the plugin may
+    // differ.  It's possible that the returned message contains a
+    // warning about this; that doesn't concern us here, but we do
+    // need to ensure that the transform we remember is correct for
+    // what was actually applied, with the current plugin version.
+
+    Transform applied = transform;
+    applied.setPluginVersion
+        (TransformFactory::getInstance()->
+         getDefaultTransformFor(transform.getIdentifier(),
+                                lrintf(transform.getSampleRate()))
+         .getPluginVersion());
 
     if (!model) {
-	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.toStdString() << std::endl;
+	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier().toStdString() << std::endl;
     } else {
-	addDerivedModel(transform, inputModel, context, model, configurationXml);
+	addDerivedModel(applied, input, model);
     }
 
     return model;
@@ -474,8 +534,8 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 		      << "their source fields appropriately" << std::endl;
 	}
 
-	emit modelAboutToBeDeleted(model);
         model->aboutToDelete();
+	emit modelAboutToBeDeleted(model);
 	m_models.erase(model);
 	delete model;
     }
@@ -494,7 +554,9 @@ Document::deleteLayer(Layer *layer, bool force)
 
 	if (force) {
 
+#ifdef DEBUG_DOCUMENT
 	    std::cerr << "(force flag set -- deleting from all views)" << std::endl;
+#endif
 
 	    for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
 		 j != m_layerViewMap[layer].end(); ++j) {
@@ -581,10 +643,12 @@ Document::addLayerToView(View *view, Layer *layer)
 {
     Model *model = layer->getModel();
     if (!model) {
-//	std::cerr << "Document::addLayerToView: Layer (\""
-//                  << layer->objectName().toStdString()
-//                  << "\") with no model being added to view: "
-//                  << "normally you want to set the model first" << std::endl;
+#ifdef DEBUG_DOCUMENT
+	std::cerr << "Document::addLayerToView: Layer (\""
+                  << layer->objectName().toStdString()
+                  << "\") with no model being added to view: "
+                  << "normally you want to set the model first" << std::endl;
+#endif
     } else {
 	if (model != m_mainModel &&
 	    m_models.find(model) == m_models.end()) {
@@ -665,7 +729,7 @@ Document::getUniqueLayerName(QString candidate)
 }
 
 std::vector<Model *>
-Document::getTransformerInputModels()
+Document::getTransformInputModels()
 {
     std::vector<Model *> models;
 
@@ -690,9 +754,28 @@ Document::getTransformerInputModels()
 }
 
 bool
+Document::isKnownModel(const Model *model) const
+{
+    if (model == m_mainModel) return true;
+    return (m_models.find(const_cast<Model *>(model)) != m_models.end());
+}
+
+TransformId
+Document::getAlignmentTransformName()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    TransformId id =
+        settings.value("transform-id",
+                       "vamp:match-vamp-plugin:match:path").toString();
+    settings.endGroup();
+    return id;
+}
+
+bool
 Document::canAlign() 
 {
-    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformId id = getAlignmentTransformName();
     TransformFactory *factory = TransformFactory::getInstance();
     return factory->haveTransform(id);
 }
@@ -700,14 +783,27 @@ Document::canAlign()
 void
 Document::alignModel(Model *model)
 {
-    if (!m_mainModel || model == m_mainModel) return;
+    if (!m_mainModel) return;
 
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
     if (!rm) return;
 
-    if (rm->getAlignmentReference() == m_mainModel) return;
+    if (rm->getAlignmentReference() == m_mainModel) {
+        std::cerr << "Document::alignModel: model " << rm << " is already aligned to main model " << m_mainModel << std::endl;
+        return;
+    }
     
+    if (model == m_mainModel) {
+        // The reference has an empty alignment to itself.  This makes
+        // it possible to distinguish between the reference and any
+        // unaligned model just by looking at the model itself,
+        // without also knowing what the main model is
+        std::cerr << "Document::alignModel(" << model << "): is main model, setting appropriately" << std::endl;
+        rm->setAlignment(new AlignmentModel(model, model, 0, 0));
+        return;
+    }
+
     // This involves creating three new models:
 
     // 1. an AggregateWaveModel to provide the mixdowns of the main
@@ -737,21 +833,26 @@ Document::alignModel(Model *model)
 
     Model *aggregate = new AggregateWaveModel(components);
 
-    TransformId id = "vamp:match-vamp-plugin:match:path";
+    TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
     
-    ModelTransformerFactory *factory = ModelTransformerFactory::getInstance();
+    TransformFactory *tf = TransformFactory::getInstance();
 
-    PluginTransformer::ExecutionContext context =
-        factory->getDefaultContextForTransformer(id, aggregate);
-    context.stepSize = context.blockSize/2;
+    Transform transform = tf->getDefaultTransformFor
+        (id, aggregate->getSampleRate());
 
-    QString args = "<plugin param-serialise=\"1\"/>";
+    transform.setStepSize(transform.getBlockSize()/2);
+    transform.setParameter("serialise", 1);
 
-    Model *transformOutput = factory->transform(id, aggregate, context, args);
+    std::cerr << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << std::endl;
+
+    ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
+
+    QString message;
+    Model *transformOutput = mtf->transform(transform, aggregate, message);
 
     if (!transformOutput) {
-        context.stepSize = 0;
-        transformOutput = factory->transform(id, aggregate, context, args);
+        transform.setStepSize(0);
+        transformOutput = mtf->transform(transform, aggregate, message);
     }
 
     SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
@@ -759,6 +860,7 @@ Document::alignModel(Model *model)
 
     if (!path) {
         std::cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << std::endl;
+        emit alignmentFailed(id, message);
         delete transformOutput;
         delete aggregate;
         return;
@@ -776,6 +878,7 @@ Document::alignModels()
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
         alignModel(i->first);
     }
+    alignModel(m_mainModel);
 }
 
 Document::AddLayerCommand::AddLayerCommand(Document *d,
@@ -791,7 +894,9 @@ Document::AddLayerCommand::AddLayerCommand(Document *d,
 
 Document::AddLayerCommand::~AddLayerCommand()
 {
-//    std::cerr << "Document::AddLayerCommand::~AddLayerCommand" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::AddLayerCommand::~AddLayerCommand" << std::endl;
+#endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
     }
@@ -839,7 +944,9 @@ Document::RemoveLayerCommand::RemoveLayerCommand(Document *d,
 
 Document::RemoveLayerCommand::~RemoveLayerCommand()
 {
-//    std::cerr << "Document::RemoveLayerCommand::~RemoveLayerCommand" << std::endl;
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::RemoveLayerCommand::~RemoveLayerCommand" << std::endl;
+#endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
     }
@@ -926,7 +1033,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         bool writeModel = true;
         bool haveDerivation = false;
 
-        if (rec.source && rec.transform != "") {
+        if (rec.source && rec.transform.getIdentifier() != "") {
             haveDerivation = true;
         } 
 
@@ -943,33 +1050,8 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         }
 
 	if (haveDerivation) {
-
-            QString extentsAttributes;
-            if (rec.context.startFrame != 0 ||
-                rec.context.duration != 0) {
-                extentsAttributes = QString("startFrame=\"%1\" duration=\"%2\" ")
-                    .arg(rec.context.startFrame)
-                    .arg(rec.context.duration);
-            }
-	    
-	    out << indent;
-	    out << QString("  <derivation source=\"%1\" model=\"%2\" channel=\"%3\" domain=\"%4\" stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" transform=\"%9\"")
-		.arg(XmlExportable::getObjectExportId(rec.source))
-		.arg(XmlExportable::getObjectExportId(i->first))
-                .arg(rec.context.channel)
-                .arg(rec.context.domain)
-                .arg(rec.context.stepSize)
-                .arg(rec.context.blockSize)
-                .arg(extentsAttributes)
-                .arg(int(rec.context.windowType))
-		.arg(XmlExportable::encodeEntities(rec.transform));
-
-            if (rec.configurationXml != "") {
-                out << ">\n    " + indent + rec.configurationXml
-                    + "\n" + indent + "  </derivation>\n";
-            } else {
-                out << "/>\n";
-            }
+            writeBackwardCompatibleDerivation(out, indent + "  ",
+                                              i->first, rec);
 	}
 
         //!!! We should probably own the PlayParameterRepository
@@ -992,4 +1074,82 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
     out << indent + "</data>\n";
 }
 
+void
+Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
+                                            Model *targetModel,
+                                            const ModelRecord &rec) const
+{
+    // There is a lot of redundancy in the XML we output here, because
+    // we want it to work with older SV session file reading code as
+    // well.
+    //
+    // Formerly, a transform was described using a derivation element
+    // which set out the source and target models, execution context
+    // (step size, input channel etc) and transform id, containing a
+    // plugin element which set out the transform parameters and so
+    // on.  (The plugin element came from a "configurationXml" string
+    // obtained from PluginXml.)
+    // 
+    // This has been replaced by a derivation element setting out the
+    // source and target models and input channel, containing a
+    // transform element which sets out everything in the Transform.
+    //
+    // In order to retain compatibility with older SV code, however,
+    // we have to write out the same stuff into the derivation as
+    // before, and manufacture an appropriate plugin element as well
+    // as the transform element.  In order that newer code knows it's
+    // dealing with a newer format, we will also write an attribute
+    // 'type="transform"' in the derivation element.
+
+    const Transform &transform = rec.transform;
+
+    // Just for reference, this is what we would write if we didn't
+    // have to be backward compatible:
+    //
+    //    out << indent
+    //        << QString("<derivation type=\"transform\" source=\"%1\" "
+    //                   "model=\"%2\" channel=\"%3\">\n")
+    //        .arg(XmlExportable::getObjectExportId(rec.source))
+    //        .arg(XmlExportable::getObjectExportId(targetModel))
+    //        .arg(rec.channel);
+    //
+    //    transform.toXml(out, indent + "  ");
+    //
+    //    out << indent << "</derivation>\n";
+    // 
+    // Unfortunately, we can't just do that.  So we do this...
+
+    QString extentsAttributes;
+    if (transform.getStartTime() != RealTime::zeroTime ||
+        transform.getDuration() != RealTime::zeroTime) {
+        extentsAttributes = QString("startFrame=\"%1\" duration=\"%2\" ")
+            .arg(RealTime::realTime2Frame(transform.getStartTime(),
+                                          targetModel->getSampleRate()))
+            .arg(RealTime::realTime2Frame(transform.getDuration(),
+                                          targetModel->getSampleRate()));
+    }
+	    
+    out << indent;
+    out << QString("<derivation type=\"transform\" source=\"%1\" "
+                   "model=\"%2\" channel=\"%3\" domain=\"%4\" "
+                   "stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" "
+                   "transform=\"%9\">\n")
+        .arg(XmlExportable::getObjectExportId(rec.source))
+        .arg(XmlExportable::getObjectExportId(targetModel))
+        .arg(rec.channel)
+        .arg(TransformFactory::getInstance()->getTransformInputDomain
+             (transform.getIdentifier()))
+        .arg(transform.getStepSize())
+        .arg(transform.getBlockSize())
+        .arg(extentsAttributes)
+        .arg(int(transform.getWindowType()))
+        .arg(XmlExportable::encodeEntities(transform.getIdentifier()));
+
+    transform.toXml(out, indent + "  ");
+    
+    out << indent << "  "
+        << TransformFactory::getInstance()->getPluginConfigurationXml(transform);
+
+    out << indent << "</derivation>\n";
+}
 

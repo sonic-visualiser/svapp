@@ -18,7 +18,6 @@
 
 #include "layer/LayerFactory.h"
 #include "plugin/transform/Transform.h"
-#include "plugin/transform/PluginTransformer.h"//!!!
 #include "plugin/transform/ModelTransformer.h"
 #include "base/Command.h"
 
@@ -114,10 +113,8 @@ public:
      * running the transform and associating the resulting model with
      * the new layer.
      */
-    Layer *createDerivedLayer(TransformId,
-                              Model *inputModel, 
-                              const PluginTransformer::ExecutionContext &context,
-                              QString configurationXml);
+    Layer *createDerivedLayer(const Transform &,
+                              const ModelTransformer::Input &);
 
     /**
      * Delete the given layer, and also its associated model if no
@@ -144,27 +141,26 @@ public:
      */
     const WaveFileModel *getMainModel() const { return m_mainModel; }
 
-    std::vector<Model *> getTransformerInputModels();
+    std::vector<Model *> getTransformInputModels();
+
+    bool isKnownModel(const Model *) const;
 
     /**
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.
      */
-    Model *addDerivedModel(TransformId transform,
-                           Model *inputModel,
-                           const PluginTransformer::ExecutionContext &context,
-                           QString configurationXml);
+    Model *addDerivedModel(const Transform &transform,
+                           const ModelTransformer::Input &input,
+                           QString &returnedMessage);
 
     /**
      * Add a derived model associated with the given transform.  This
      * is necessary to register any derived model that was not created
      * by the document using createDerivedModel or createDerivedLayer.
      */
-    void addDerivedModel(TransformId,
-                         Model *inputModel,
-                         const PluginTransformer::ExecutionContext &context,
-                         Model *outputModelToAdd,
-                         QString configurationXml);
+    void addDerivedModel(const Transform &transform,
+                         const ModelTransformer::Input &input,
+                         Model *outputModelToAdd);
 
     /**
      * Add an imported (non-derived, non-main) model.  This is
@@ -232,8 +228,13 @@ signals:
     void mainModelChanged(WaveFileModel *); // emitted after modelAdded
     void modelAboutToBeDeleted(Model *);
 
-    void modelGenerationFailed(QString transformName);
-    void modelRegenerationFailed(QString layerName, QString transformName);
+    void modelGenerationFailed(QString transformName, QString message);
+    void modelGenerationWarning(QString transformName, QString message);
+    void modelRegenerationFailed(QString layerName, QString transformName,
+                                 QString message);
+    void modelRegenerationWarning(QString layerName, QString transformName,
+                                  QString message);
+    void alignmentFailed(QString transformName, QString message);
 
 protected:
     void releaseModel(Model *model);
@@ -267,10 +268,14 @@ protected:
 	// transform name is set but source is NULL, then there was a
 	// transform involved but the (target) model has been modified
 	// since being generated from it.
+        
+        // This does not use ModelTransformer::Input, because it would
+        // be confusing to have Input objects hanging around with NULL
+        // models in them.
+
 	const Model *source;
-	TransformId transform;
-        PluginTransformer::ExecutionContext context;
-        QString configurationXml;
+        int channel;
+        Transform transform;
 
 	// Count of the number of layers using this model.
 	int refcount;
@@ -292,7 +297,7 @@ protected:
     protected:
 	Document *m_d;
 	View *m_view; // I don't own this
-	Layer *m_layer; // Document owns this, but I determine its lifespans
+	Layer *m_layer; // Document owns this, but I determine its lifespan
 	QString m_name;
 	bool m_added;
     };
@@ -322,6 +327,10 @@ protected:
     void removeFromLayerViewMap(Layer *, View *);
 
     QString getUniqueLayerName(QString candidate);
+    void writeBackwardCompatibleDerivation(QTextStream &, QString, Model *,
+                                           const ModelRecord &) const;
+
+    static TransformId getAlignmentTransformName();
     
     /**
      * And these are the layers.  We also control the lifespans of
