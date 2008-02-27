@@ -57,6 +57,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager,
     m_target(0),
     m_lastRetrievalTimestamp(0.0),
     m_lastRetrievedBlockSize(0),
+    m_trustworthyTimestamps(true),
+    m_lastCurrentFrame(0),
     m_playing(false),
     m_exiting(false),
     m_lastModelEndFrame(0),
@@ -379,28 +381,25 @@ AudioCallbackPlaySource::play(size_t startFrame)
     // The fill thread will automatically empty its buffers before
     // starting again if we have not so far been playing, but not if
     // we're just re-seeking.
+    // NO -- we can end up playing some first -- always reset here
 
     m_mutex.lock();
+
     if (m_timeStretcher) {
         m_timeStretcher->reset();
     }
-    if (m_playing) {
-        std::cerr << "playing already, resetting" << std::endl;
-	m_readBufferFill = m_writeBufferFill = startFrame;
-	if (m_readBuffers) {
-	    for (size_t c = 0; c < getTargetChannelCount(); ++c) {
-		RingBuffer<float> *rb = getReadRingBuffer(c);
-                std::cerr << "reset ring buffer for channel " << c << std::endl;
-		if (rb) rb->reset();
-	    }
-	}
-	if (m_converter) src_reset(m_converter);
-        if (m_crapConverter) src_reset(m_crapConverter);
-    } else {
-	if (m_converter) src_reset(m_converter);
-        if (m_crapConverter) src_reset(m_crapConverter);
-	m_readBufferFill = m_writeBufferFill = startFrame;
+
+    m_readBufferFill = m_writeBufferFill = startFrame;
+    if (m_readBuffers) {
+        for (size_t c = 0; c < getTargetChannelCount(); ++c) {
+            RingBuffer<float> *rb = getReadRingBuffer(c);
+            std::cerr << "reset ring buffer for channel " << c << std::endl;
+            if (rb) rb->reset();
+        }
     }
+    if (m_converter) src_reset(m_converter);
+    if (m_crapConverter) src_reset(m_crapConverter);
+
     m_mutex.unlock();
 
     m_audioGenerator->reset();
@@ -414,6 +413,7 @@ AudioCallbackPlaySource::play(size_t startFrame)
 
     bool changed = !m_playing;
     m_lastRetrievalTimestamp = 0;
+    m_lastCurrentFrame = 0;
     m_playing = true;
     m_condition.wakeAll();
     if (changed) emit playStatusChanged(m_playing);
@@ -426,6 +426,7 @@ AudioCallbackPlaySource::stop()
     m_playing = false;
     m_condition.wakeAll();
     m_lastRetrievalTimestamp = 0;
+    m_lastCurrentFrame = 0;
     if (changed) emit playStatusChanged(m_playing);
 }
 
@@ -555,6 +556,8 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     double currentTime = 0.0;
     if (m_target) currentTime = m_target->getCurrentTime();
 
+    bool looping = m_viewManager->getPlayLoopMode();
+
     RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, targetRate);
 
     size_t stretchlat = 0;
@@ -579,7 +582,9 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     RealTime sincerequest_t = RealTime::zeroTime;
     RealTime lastretrieved_t = RealTime::zeroTime;
 
-    if (m_target && lastRetrievalTimestamp != 0.0) {
+    if (m_target &&
+        m_trustworthyTimestamps &&
+        lastRetrievalTimestamp != 0.0) {
 
         lastretrieved_t = RealTime::frame2RealTime
             (lastRetrievedBlockSize, targetRate);
@@ -587,10 +592,14 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         // calculate number of frames at target rate that have elapsed
         // since the end of the last call to getSourceSamples
 
-        double elapsed = currentTime - lastRetrievalTimestamp;
+        if (m_trustworthyTimestamps && !looping) {
 
-        if (elapsed > 0.0) {
-            sincerequest_t = RealTime::fromSeconds(elapsed);
+            // this adjustment seems to cause more problems when looping
+            double elapsed = currentTime - lastRetrievalTimestamp;
+
+            if (elapsed > 0.0) {
+                sincerequest_t = RealTime::fromSeconds(elapsed);
+            }
         }
 
     } else {
@@ -605,8 +614,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         lastretrieved_t = lastretrieved_t / timeRatio;
         sincerequest_t = sincerequest_t / timeRatio;
     }
-
-    bool looping = m_viewManager->getPlayLoopMode();
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
     std::cerr << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", time ratio " << timeRatio << "\n  stretcher latency: " << stretchlat_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved: " << lastretrieved_t << std::endl;
@@ -718,6 +725,15 @@ std::cerr << "Not looping, inRange " << inRange << " == rangeStarts.size()-1, pl
     if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
 
     size_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
+
+    if (m_lastCurrentFrame > 0 && !looping) {
+        if (frame < m_lastCurrentFrame) {
+            frame = m_lastCurrentFrame;
+        }
+    }
+
+    m_lastCurrentFrame = frame;
+
     return m_viewManager->alignPlaybackFrameToReference(frame);
 }
 
@@ -1137,9 +1153,9 @@ AudioCallbackPlaySource::applyAuditioningEffect(size_t count, float **buffers)
 //                  << std::endl;
         return;
     }
-    if (plugin->getBufferSize() != count) {
+    if (plugin->getBufferSize() < count) {
 //        std::cerr << "plugin buffer size " << plugin->getBufferSize() 
-//                  << " != our block size " << count
+//                  << " < our block size " << count
 //                  << std::endl;
         return;
     }
@@ -1153,7 +1169,7 @@ AudioCallbackPlaySource::applyAuditioningEffect(size_t count, float **buffers)
         }
     }
 
-    plugin->run(Vamp::RealTime::zeroTime);
+    plugin->run(Vamp::RealTime::zeroTime, count);
     
     for (size_t c = 0; c < getTargetChannelCount(); ++c) {
         for (size_t i = 0; i < count; ++i) {

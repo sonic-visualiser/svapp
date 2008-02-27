@@ -288,6 +288,8 @@ protected:
     AudioCallbackPlayTarget          *m_target;
     double                            m_lastRetrievalTimestamp;
     size_t                            m_lastRetrievedBlockSize;
+    bool                              m_trustworthyTimestamps;
+    size_t                            m_lastCurrentFrame;
     bool                              m_playing;
     bool                              m_exiting;
     size_t                            m_lastModelEndFrame;
