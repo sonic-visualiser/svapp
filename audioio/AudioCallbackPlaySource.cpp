@@ -150,7 +150,7 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    std::cout << "Adding model with " << modelChannels << " channels " << std::endl;
+    std::cout << "Adding model with " << modelChannels << " channels at rate " << model->getSampleRate() << std::endl;
 #endif
 
     if (m_sourceSampleRate == 0) {
@@ -1194,7 +1194,12 @@ AudioCallbackPlaySource::fillBuffers()
 	}
     }
     
-    if (space == 0) return false;
+    if (space == 0) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        std::cout << "AudioCallbackPlaySourceFillThread: no space to fill" << std::endl;
+#endif
+        return false;
+    }
 
     size_t f = m_writeBufferFill;
 	
@@ -1665,7 +1670,12 @@ AudioCallbackPlaySource::FillThread::run()
 
 	work = false;
 
-	if (!s.getSourceSampleRate()) continue;
+	if (!s.getSourceSampleRate()) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+            std::cout << "AudioCallbackPlaySourceFillThread: source sample rate is zero" << std::endl;
+#endif
+            continue;
+        }
 
 	bool playing = s.m_playing;
 
