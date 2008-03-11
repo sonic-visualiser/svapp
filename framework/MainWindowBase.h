@@ -137,6 +137,7 @@ signals:
     void canSelectPreviousLayer(bool);
     void canSelectNextLayer(bool);
     void canSave(bool);
+    void hideSplash();
 
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);

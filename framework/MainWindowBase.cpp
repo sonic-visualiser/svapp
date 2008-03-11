@@ -1296,6 +1296,7 @@ MainWindowBase::createPlayTarget()
 
     m_playTarget = AudioTargetFactory::createCallbackTarget(m_playSource);
     if (!m_playTarget) {
+        emit hideSplash();
 	QMessageBox::warning
 	    (this, tr("Couldn't open audio device"),
 	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Audio playback will not be available during this session."),
