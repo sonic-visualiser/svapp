@@ -18,7 +18,7 @@
 #include "AudioGenerator.h"
 
 #include "data/model/Model.h"
-#include "view/ViewManager.h"
+#include "base/ViewManagerBase.h"
 #include "base/PlayParameterRepository.h"
 #include "base/Preferences.h"
 #include "data/model/DenseTimeValueModel.h"
@@ -39,7 +39,7 @@ using namespace RubberBand;
 
 const size_t AudioCallbackPlaySource::m_ringBufferSize = 131071;
 
-AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManager *manager,
+AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
                                                  QString clientName) :
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),

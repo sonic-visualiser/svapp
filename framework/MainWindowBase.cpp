@@ -35,6 +35,7 @@
 #include "layer/ImageLayer.h"
 
 #include "widgets/ListInputDialog.h"
+#include "widgets/CommandHistory.h"
 
 #include "audioio/AudioCallbackPlaySource.h"
 #include "audioio/AudioCallbackPlayTarget.h"
@@ -54,7 +55,6 @@
 
 #include "base/PlayParameterRepository.h"
 #include "base/XmlExportable.h"
-#include "base/CommandHistory.h"
 #include "base/Profiler.h"
 #include "base/Preferences.h"
 
@@ -122,6 +122,15 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     connect(m_viewManager, SIGNAL(inProgressSelectionChanged()),
 	    this, SLOT(inProgressSelectionChanged()));
 
+    // set a sensible default font size for views -- cannot do this
+    // in Preferences, which is in base and not supposed to use QtGui
+    int viewFontSize = QApplication::font().pointSize() * 0.9;
+    QSettings settings;
+    settings.beginGroup("Preferences");
+    viewFontSize = settings.value("view-font-size", viewFontSize).toInt();
+    settings.setValue("view-font-size", viewFontSize);
+    settings.endGroup();
+
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
@@ -188,7 +197,6 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     }
 
     Labeller::ValueType labellerType = Labeller::ValueFromTwoLevelCounter;
-    QSettings settings;
     settings.beginGroup("MainWindow");
     labellerType = (Labeller::ValueType)
         settings.value("labellertype", (int)labellerType).toInt();

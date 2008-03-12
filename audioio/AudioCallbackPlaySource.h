@@ -38,7 +38,7 @@ namespace RubberBand {
 }
 
 class Model;
-class ViewManager;
+class ViewManagerBase;
 class AudioGenerator;
 class PlayParameters;
 class RealTimePluginInstance;
@@ -57,7 +57,7 @@ class AudioCallbackPlaySource : public virtual QObject,
     Q_OBJECT
 
 public:
-    AudioCallbackPlaySource(ViewManager *, QString clientName);
+    AudioCallbackPlaySource(ViewManagerBase *, QString clientName);
     virtual ~AudioCallbackPlaySource();
     
     /**
@@ -260,7 +260,7 @@ protected slots:
     void modelChanged(size_t startFrame, size_t endFrame);
 
 protected:
-    ViewManager                      *m_viewManager;
+    ViewManagerBase                  *m_viewManager;
     AudioGenerator                   *m_audioGenerator;
     QString                           m_clientName;
 

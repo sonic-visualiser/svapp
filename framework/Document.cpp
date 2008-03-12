@@ -20,7 +20,7 @@
 #include "data/model/DenseThreeDimensionalModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "layer/Layer.h"
-#include "base/CommandHistory.h"
+#include "widgets/CommandHistory.h"
 #include "base/Command.h"
 #include "view/View.h"
 #include "base/PlayParameterRepository.h"
