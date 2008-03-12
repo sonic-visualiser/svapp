@@ -32,7 +32,7 @@
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
 
-#include "plugin/transform/TransformFactory.h"
+#include "transform/TransformFactory.h"
 
 #include "view/Pane.h"
 

@@ -17,8 +17,8 @@
 #define _DOCUMENT_H_
 
 #include "layer/LayerFactory.h"
-#include "plugin/transform/Transform.h"
-#include "plugin/transform/ModelTransformer.h"
+#include "transform/Transform.h"
+#include "transform/ModelTransformer.h"
 #include "base/Command.h"
 
 #include <map>

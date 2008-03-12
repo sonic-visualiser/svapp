@@ -25,8 +25,8 @@
 #include "view/View.h"
 #include "base/PlayParameterRepository.h"
 #include "base/PlayParameters.h"
-#include "plugin/transform/TransformFactory.h"
-#include "plugin/transform/ModelTransformerFactory.h"
+#include "transform/TransformFactory.h"
+#include "transform/ModelTransformerFactory.h"
 #include <QApplication>
 #include <QTextStream>
 #include <QSettings>

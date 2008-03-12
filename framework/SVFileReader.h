@@ -17,7 +17,7 @@
 #define _SV_FILE_READER_H_
 
 #include "layer/LayerFactory.h"
-#include "plugin/transform/Transform.h"
+#include "transform/Transform.h"
 
 #include <QXmlDefaultHandler>
 
