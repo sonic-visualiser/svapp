@@ -50,30 +50,51 @@ AudioGenerator::AudioGenerator() :
     m_targetChannelCount(1),
     m_soloing(false)
 {
-    connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playPluginIdChanged(const Model *, QString)),
-            this,
-            SLOT(playPluginIdChanged(const Model *, QString)));
+    initialiseSampleDir();
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playPluginConfigurationChanged(const Model *, QString)),
+            SIGNAL(playPluginIdChanged(const Playable *, QString)),
             this,
-            SLOT(playPluginConfigurationChanged(const Model *, QString)));
+            SLOT(playPluginIdChanged(const Playable *, QString)));
+
+    connect(PlayParameterRepository::getInstance(),
+            SIGNAL(playPluginConfigurationChanged(const Playable *, QString)),
+            this,
+            SLOT(playPluginConfigurationChanged(const Playable *, QString)));
 }
 
 AudioGenerator::~AudioGenerator()
 {
 }
 
-bool
-AudioGenerator::canPlay(const Model *model)
+void
+AudioGenerator::initialiseSampleDir()
 {
-    if (dynamic_cast<const DenseTimeValueModel *>(model) ||
-	dynamic_cast<const SparseOneDimensionalModel *>(model) ||
-	dynamic_cast<const NoteModel *>(model)) {
-	return true;
-    } else {
-	return false;
+    if (m_sampleDir != "") return;
+
+    try {
+        m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
+    } catch (DirectoryCreationFailed f) {
+        std::cerr << "WARNING: AudioGenerator::initialiseSampleDir:"
+                  << " Failed to create temporary sample directory"
+                  << std::endl;
+        m_sampleDir = "";
+        return;
+    }
+
+    QDir sampleResourceDir(":/samples", "*.wav");
+
+    for (unsigned int i = 0; i < sampleResourceDir.count(); ++i) {
+
+        QString fileName(sampleResourceDir[i]);
+        QFile file(sampleResourceDir.filePath(fileName));
+
+        if (!file.copy(QDir(m_sampleDir).filePath(fileName))) {
+            std::cerr << "WARNING: AudioGenerator::getSampleDir: "
+                      << "Unable to copy " << fileName.toStdString()
+                      << " into temporary directory \""
+                      << m_sampleDir.toStdString() << "\"" << std::endl;
+        }
     }
 }
 
@@ -106,8 +127,16 @@ AudioGenerator::addModel(Model *model)
 }
 
 void
-AudioGenerator::playPluginIdChanged(const Model *model, QString)
+AudioGenerator::playPluginIdChanged(const Playable *playable, QString)
 {
+    const Model *model = dynamic_cast<const Model *>(playable);
+    if (!model) {
+        std::cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+                  << playable << " is not a supported model type"
+                  << std::endl;
+        return;
+    }
+
     if (m_synthMap.find(model) == m_synthMap.end()) return;
     
     RealTimePluginInstance *plugin = loadPluginFor(model);
@@ -119,10 +148,18 @@ AudioGenerator::playPluginIdChanged(const Model *model, QString)
 }
 
 void
-AudioGenerator::playPluginConfigurationChanged(const Model *model,
+AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
                                                QString configurationXml)
 {
 //    std::cerr << "AudioGenerator::playPluginConfigurationChanged" << std::endl;
+
+    const Model *model = dynamic_cast<const Model *>(playable);
+    if (!model) {
+        std::cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+                  << playable << " is not a supported model type"
+                  << std::endl;
+        return;
+    }
 
     if (m_synthMap.find(model) == m_synthMap.end()) {
         std::cerr << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << std::endl;
@@ -135,87 +172,12 @@ AudioGenerator::playPluginConfigurationChanged(const Model *model,
     }
 }
 
-QString
-AudioGenerator::getDefaultPlayPluginId(const Model *model)
-{
-    const SparseOneDimensionalModel *sodm =
-        dynamic_cast<const SparseOneDimensionalModel *>(model);
-    if (sodm) {
-        return QString("dssi:%1:sample_player").
-            arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
-    }
-
-    const NoteModel *nm = dynamic_cast<const NoteModel *>(model);
-    if (nm) {
-        return QString("dssi:%1:sample_player").
-            arg(PluginIdentifier::BUILTIN_PLUGIN_SONAME);
-    }  
-    
-    return "";
-}
-
-QString
-AudioGenerator::getDefaultPlayPluginConfiguration(const Model *model)
-{
-    QString program = "";
-
-    const SparseOneDimensionalModel *sodm =
-        dynamic_cast<const SparseOneDimensionalModel *>(model);
-    if (sodm) {
-        program = "tap";
-    }
-
-    const NoteModel *nm = dynamic_cast<const NoteModel *>(model);
-    if (nm) {
-        program = "piano";
-    }
-
-    if (program == "") return "";
-
-    return
-        QString("<plugin configuration=\"%1\" program=\"%2\"/>")
-        .arg(XmlExportable::encodeEntities
-             (QString("sampledir=%1")
-              .arg(PluginXml::encodeConfigurationChars(getSampleDir()))))
-        .arg(XmlExportable::encodeEntities(program));
-}    
-
-QString
-AudioGenerator::getSampleDir()
-{
-    if (m_sampleDir != "") return m_sampleDir;
-
-    try {
-        m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
-    } catch (DirectoryCreationFailed f) {
-        std::cerr << "WARNING: AudioGenerator::getSampleDir: Failed to create "
-                  << "temporary sample directory" << std::endl;
-        m_sampleDir = "";
-        return "";
-    }
-
-    QDir sampleResourceDir(":/samples", "*.wav");
-
-    for (unsigned int i = 0; i < sampleResourceDir.count(); ++i) {
-
-        QString fileName(sampleResourceDir[i]);
-        QFile file(sampleResourceDir.filePath(fileName));
-
-        if (!file.copy(QDir(m_sampleDir).filePath(fileName))) {
-            std::cerr << "WARNING: AudioGenerator::getSampleDir: "
-                      << "Unable to copy " << fileName.toStdString()
-                      << " into temporary directory \""
-                      << m_sampleDir.toStdString() << "\"" << std::endl;
-        }
-    }
-
-    return m_sampleDir;
-}
-
 void
 AudioGenerator::setSampleDir(RealTimePluginInstance *plugin)
 {
-    plugin->configure("sampledir", getSampleDir().toStdString());
+    if (m_sampleDir != "") {
+        plugin->configure("sampledir", m_sampleDir.toStdString());
+    }
 } 
 
 RealTimePluginInstance *
@@ -223,16 +185,14 @@ AudioGenerator::loadPluginFor(const Model *model)
 {
     QString pluginId, configurationXml;
 
+    const Playable *playable = model;
+    if (!playable || !playable->canPlay()) return 0;
+
     PlayParameters *parameters =
-	PlayParameterRepository::getInstance()->getPlayParameters(model);
+	PlayParameterRepository::getInstance()->getPlayParameters(playable);
     if (parameters) {
         pluginId = parameters->getPlayPluginId();
         configurationXml = parameters->getPlayPluginConfiguration();
-    }
-
-    if (pluginId == "") {
-        pluginId = getDefaultPlayPluginId(model);
-        configurationXml = getDefaultPlayPluginConfiguration(model);
     }
 
     if (pluginId == "") return 0;
@@ -243,6 +203,8 @@ AudioGenerator::loadPluginFor(const Model *model)
     if (configurationXml != "") {
         PluginXml(plugin).setParametersFromXml(configurationXml);
     }
+
+    configurationXml = PluginXml(plugin).toXmlString();
 
     if (parameters) {
         parameters->setPlayPluginId(pluginId);
@@ -382,8 +344,11 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 
     QMutexLocker locker(&m_mutex);
 
+    Playable *playable = model;
+    if (!playable || !playable->canPlay()) return frameCount;
+
     PlayParameters *parameters =
-	PlayParameterRepository::getInstance()->getPlayParameters(model);
+	PlayParameterRepository::getInstance()->getPlayParameters(playable);
     if (!parameters) return frameCount;
 
     bool playing = !parameters->isPlayMuted();

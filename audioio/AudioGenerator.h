@@ -21,6 +21,7 @@ class NoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class RealTimePluginInstance;
+class Playable;
 
 #include <QObject>
 #include <QMutex>
@@ -37,22 +38,10 @@ public:
     virtual ~AudioGenerator();
 
     /**
-     * Return true if the given model is of a type that we generally
-     * know how to play.  This doesn't guarantee that a specific
-     * AudioGenerator will actually produce sounds for it (for
-     * example, it may turn out that a vital plugin is missing).
-     */
-    static bool canPlay(const Model *model);
-
-    static QString getDefaultPlayPluginId(const Model *model);
-    static QString getDefaultPlayPluginConfiguration(const Model *model);
-
-    /**
      * Add a data model to be played from and initialise any necessary
      * audio generation code.  Returns true if the model will be
-     * played.  (The return value test here is stricter than that for
-     * canPlay, above.)  The model will be added regardless of the
-     * return value.
+     * played.  The model will be added regardless of the return
+     * value.
      */
     virtual bool addModel(Model *model);
 
@@ -102,8 +91,8 @@ public:
     virtual void clearSoloModelSet();
 
 protected slots:
-    void playPluginIdChanged(const Model *, QString);
-    void playPluginConfigurationChanged(const Model *, QString);
+    void playPluginIdChanged(const Playable *, QString);
+    void playPluginConfigurationChanged(const Playable *, QString);
 
 protected:
     size_t       m_sourceSampleRate;
@@ -136,7 +125,7 @@ protected:
 
     virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
-    static QString getSampleDir();
+    static void initialiseSampleDir();
     static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel

@@ -780,7 +780,8 @@ MainWindowBase::insertInstantAt(size_t frame)
                                    sodm->getSampleRate())
                                   .toText(false).c_str()));
 
-            command->finish();
+            Command *c = command->finish();
+            if (c) CommandHistory::getInstance()->addCommand(c, false);
         }
     }
 }
@@ -931,9 +932,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
         Model *prevMain = getMainModel();
         if (prevMain) {
             m_playSource->removeModel(prevMain);
-            PlayParameterRepository::getInstance()->removeModel(prevMain);
+            PlayParameterRepository::getInstance()->removePlayable(prevMain);
         }
-        PlayParameterRepository::getInstance()->addModel(newModel);
+        PlayParameterRepository::getInstance()->addPlayable(newModel);
 
 	m_document->setMainModel(newModel);
 

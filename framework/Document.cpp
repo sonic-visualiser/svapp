@@ -993,7 +993,17 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         .arg(extraAttributes == "" ? "" : " ").arg(extraAttributes);
 
     if (m_mainModel) {
+
 	m_mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
+
+        PlayParameters *playParameters =
+            PlayParameterRepository::getInstance()->getPlayParameters(m_mainModel);
+        if (playParameters) {
+            playParameters->toXml
+                (out, indent + "  ",
+                 QString("model=\"%1\"")
+                 .arg(XmlExportable::getObjectExportId(m_mainModel)));
+        }
     }
 
     // Models that are not used in a layer that is in a view should
