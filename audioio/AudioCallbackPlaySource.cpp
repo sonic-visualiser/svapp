@@ -889,8 +889,12 @@ AudioCallbackPlaySource::setResampleQuality(int q)
 }
 
 void
-AudioCallbackPlaySource::setAuditioningPlugin(RealTimePluginInstance *plugin)
+AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
 {
+    RealTimePluginInstance *plugin = dynamic_cast<RealTimePluginInstance *>(a);
+    if (a && !plugin) {
+        std::cerr << "WARNING: AudioCallbackPlaySource::setAuditioningEffect: auditionable object " << a << " is not a real-time plugin instance" << std::endl;
+    }
     RealTimePluginInstance *formerPlugin = m_auditioningPlugin;
     m_auditioningPlugin = plugin;
     m_auditioningPluginBypassed = false;

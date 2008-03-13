@@ -219,12 +219,12 @@ public:
      *
      * This playback source takes ownership of the plugin, which will
      * be deleted at some point after the following call to
-     * setAuditioningPlugin (depending on real-time constraints).
+     * setAuditioningEffect (depending on real-time constraints).
      *
      * Pass a null pointer to remove the current auditioning plugin,
      * if any.
      */
-    void setAuditioningPlugin(RealTimePluginInstance *plugin);
+    void setAuditioningEffect(Auditionable *plugin);
 
     /**
      * Specify that only the given set of models should be played.
