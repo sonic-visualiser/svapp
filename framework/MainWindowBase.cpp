@@ -36,6 +36,9 @@
 
 #include "widgets/ListInputDialog.h"
 #include "widgets/CommandHistory.h"
+#include "widgets/ProgressDialog.h"
+#include "widgets/MIDIFileImportDialog.h"
+#include "widgets/CSVFormatDialog.h"
 
 #include "audioio/AudioCallbackPlaySource.h"
 #include "audioio/AudioCallbackPlayTarget.h"
@@ -815,7 +818,8 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    return open(FileSource(fileOrUrl, FileSource::ProgressDialog), mode);
+    ProgressDialog dialog(tr("Opening file or URL..."), true, 2000);
+    return open(FileSource(fileOrUrl, &dialog), mode);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1057,8 +1061,8 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
     for (PlaylistFileReader::Playlist::const_iterator i = playlist.begin();
          i != playlist.end(); ++i) {
 
-        FileOpenStatus status = openAudio
-            (FileSource(*i, FileSource::ProgressDialog), mode);
+        ProgressDialog dialog(tr("Opening playlist..."), true, 2000);
+        FileOpenStatus status = openAudio(FileSource(*i, &dialog), mode);
 
         if (status == FileOpenCancelled) {
             return FileOpenCancelled;
@@ -1140,9 +1144,21 @@ MainWindowBase::openLayer(FileSource source)
         
         try {
 
-            Model *model = DataFileReaderFactory::load
-                (path, getMainModel()->getSampleRate());
+            MIDIFileImportDialog midiDlg(this);
+
+            Model *model = DataFileReaderFactory::loadNonCSV
+                (path, &midiDlg, getMainModel()->getSampleRate());
         
+            if (!model) {
+                CSVFormatDialog *dialog = new CSVFormatDialog
+                    (this, CSVFormat(path), getMainModel()->getSampleRate());
+                if (dialog->exec() == QDialog::Accepted) {
+                    model = DataFileReaderFactory::loadCSV
+                        (path, dialog->getFormat(),
+                         getMainModel()->getSampleRate());
+                }
+            }
+
             if (model) {
 
                 std::cerr << "MainWindowBase::openLayer: Have model" << std::endl;
@@ -1228,7 +1244,8 @@ MainWindowBase::openImage(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFile(QString fileOrUrl)
 {
-    return openSession(FileSource(fileOrUrl, FileSource::ProgressDialog));
+    ProgressDialog dialog(tr("Opening session..."), true, 2000);
+    return openSession(FileSource(fileOrUrl, &dialog));
 }
 
 MainWindowBase::FileOpenStatus

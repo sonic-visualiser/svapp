@@ -21,8 +21,9 @@
 #include "base/PlayParameterRepository.h"
 
 #include "data/fileio/AudioFileReaderFactory.h"
-#include "data/fileio/FileFinder.h"
 #include "data/fileio/FileSource.h"
+
+#include "widgets/FileFinder.h"
 
 #include "data/model/WaveFileModel.h"
 #include "data/model/EditableDenseThreeDimensionalModel.h"
@@ -35,6 +36,8 @@
 #include "transform/TransformFactory.h"
 
 #include "view/Pane.h"
+
+#include "widgets/ProgressDialog.h"
 
 #include "Document.h"
 
@@ -441,7 +444,8 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         QString path = ff->find(FileFinder::AudioFile,
                                 originalPath, m_location);
 
-        FileSource file(path, FileSource::ProgressDialog);
+        ProgressDialog dialog(tr("Opening file or URL..."), true, 2000);
+        FileSource file(path, &dialog);
         file.waitForStatus();
 
         if (!file.isOK()) {
