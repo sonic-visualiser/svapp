@@ -1019,10 +1019,12 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         }
     }
 
+    std::set<Model *> written;
+
     for (ModelMap::const_iterator i = m_models.begin();
 	 i != m_models.end(); ++i) {
 
-        const Model *model = i->first;
+        Model *model = i->first;
 	const ModelRecord &rec = i->second;
 
         if (used.find(model) == used.end()) continue;
@@ -1056,25 +1058,44 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
         }
 
         if (writeModel) {
-            i->first->toXml(out, indent + "  ");
+            model->toXml(out, indent + "  ");
+            written.insert(model);
         }
 
 	if (haveDerivation) {
             writeBackwardCompatibleDerivation(out, indent + "  ",
-                                              i->first, rec);
+                                              model, rec);
 	}
 
         //!!! We should probably own the PlayParameterRepository
         PlayParameters *playParameters =
-            PlayParameterRepository::getInstance()->getPlayParameters(i->first);
+            PlayParameterRepository::getInstance()->getPlayParameters(model);
         if (playParameters) {
             playParameters->toXml
                 (out, indent + "  ",
                  QString("model=\"%1\"")
-                 .arg(XmlExportable::getObjectExportId(i->first)));
+                 .arg(XmlExportable::getObjectExportId(model)));
         }
     }
 	    
+    //!!!
+
+    // We should write out the alignment models here.  AlignmentModel
+    // needs a toXml that writes out the export IDs of its reference
+    // and aligned models, and then streams its path model.  Note that
+    // this will only work when the alignment is complete, so we
+    // should probably wait for it if it isn't already by this point.
+
+    for (std::set<Model *>::const_iterator i = written.begin();
+	 i != written.end(); ++i) {
+
+        const Model *model = *i;
+        const AlignmentModel *alignment = model->getAlignment();
+        if (!alignment) continue;
+
+        alignment->toXml(out, indent + "  ");
+    }
+
     for (LayerSet::const_iterator i = m_layers.begin();
 	 i != m_layers.end(); ++i) {
 

@@ -32,6 +32,7 @@
 #include "data/model/NoteModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
+#include "data/model/AlignmentModel.h"
 
 #include "transform/TransformFactory.h"
 
@@ -563,6 +564,11 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 			(sampleRate, resolution, notifyOnAdd);
                     model->setObjectName(name);
 		    m_models[id] = model;
+                } else if (attributes.value("subtype") == "path") {
+                    PathModel *model = new PathModel
+                        (sampleRate, resolution, notifyOnAdd);
+                    model->setObjectName(name);
+                    m_models[id] = model;
 		} else {
 		    SparseTimeValueModel *model;
                     if (haveMinMax) {
@@ -601,6 +607,57 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 	    std::cerr << "WARNING: SV-XML: Unexpected sparse model dimension ("
 		      << dimensions << ")" << std::endl;
 	}
+
+    } else if (type == "alignment") {
+
+        READ_MANDATORY(int, reference, toInt);
+        READ_MANDATORY(int, aligned, toInt);
+        READ_MANDATORY(int, path, toInt);
+
+        Model *refModel = 0, *alignedModel = 0, *pathModel = 0;
+
+        if (m_models.find(reference) != m_models.end()) {
+            refModel = m_models[reference];
+        } else {
+            std::cerr << "WARNING: SV-XML: Unknown reference model id "
+                      << reference << " in alignment model id " << id
+                      << std::endl;
+        }
+
+        if (m_models.find(aligned) != m_models.end()) {
+            alignedModel = m_models[aligned];
+        } else {
+            std::cerr << "WARNING: SV-XML: Unknown aligned model id "
+                      << aligned << " in alignment model id " << id
+                      << std::endl;
+        }
+
+        if (m_models.find(path) != m_models.end()) {
+            pathModel = m_models[path];
+        } else {
+            std::cerr << "WARNING: SV-XML: Unknown path model id "
+                      << path << " in alignment model id " << id
+                      << std::endl;
+        }
+
+        if (refModel && alignedModel && pathModel) {
+            AlignmentModel *model = new AlignmentModel
+                (refModel, alignedModel, 0, 0);
+            PathModel *pm = dynamic_cast<PathModel *>(pathModel);
+            if (!pm) {
+                std::cerr << "WARNING: SV-XML: Model id " << path
+                          << " referenced as path for alignment " << id
+                          << " is not a path model" << std::endl;
+            } else {
+                model->setPath(pm);
+                pm->setCompletion(100);
+            }
+            model->setObjectName(name);
+            m_models[id] = model;
+            alignedModel->setAlignment(model);
+            return true;
+        }
+        
     } else {
 
 	std::cerr << "WARNING: SV-XML: Unexpected model type \""
@@ -825,6 +882,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     case 2:
 	if (dynamic_cast<SparseTimeValueModel *>(model)) good = true;
 	else if (dynamic_cast<TextModel *>(model)) good = true;
+	else if (dynamic_cast<PathModel *>(model)) good = true;
 	break;
 
     case 3:
@@ -904,6 +962,16 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	QString label = attributes.value("label");
 //        std::cerr << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label.toStdString() << ", ok = " << ok << std::endl;
 	tm->addPoint(TextModel::Point(frame, height, label));
+	return ok;
+    }
+
+    PathModel *pm = dynamic_cast<PathModel *>(m_currentDataset);
+
+    if (pm) {
+//        std::cerr << "Current dataset is a path model" << std::endl;
+        int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
+//        std::cerr << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << std::endl;
+	pm->addPoint(PathModel::Point(frame, mapframe));
 	return ok;
     }
 
