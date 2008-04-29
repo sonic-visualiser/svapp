@@ -21,6 +21,8 @@
 #include <iostream>
 #include <cmath>
 
+#include <alloca.h>
+
 //#define DEBUG_AUDIO_JACK_TARGET 1
 
 #ifdef BUILD_STATIC
@@ -354,7 +356,7 @@ AudioJACKTarget::sourceModelReplaced()
 	char name[20];
 	jack_port_t *port;
 
-	sprintf(name, "out %d", m_outputs.size() + 1);
+	sprintf(name, "out %d", int(m_outputs.size() + 1));
 
 	port = jack_port_register(m_client,
 				  name,
