@@ -831,14 +831,15 @@ Document::alignModel(Model *model)
     components.push_back(AggregateWaveModel::ModelChannelSpec
                          (rm, -1));
 
-    Model *aggregate = new AggregateWaveModel(components);
+    Model *aggregateModel = new AggregateWaveModel(components);
+    ModelTransformer::Input aggregate(aggregateModel);
 
     TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
     
     TransformFactory *tf = TransformFactory::getInstance();
 
     Transform transform = tf->getDefaultTransformFor
-        (id, aggregate->getSampleRate());
+        (id, aggregateModel->getSampleRate());
 
     transform.setStepSize(transform.getBlockSize()/2);
     transform.setParameter("serialise", 1);
@@ -862,12 +863,14 @@ Document::alignModel(Model *model)
         std::cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << std::endl;
         emit alignmentFailed(id, message);
         delete transformOutput;
-        delete aggregate;
+        delete aggregateModel;
         return;
     }
 
+    path->setCompletion(0);
+
     AlignmentModel *alignmentModel = new AlignmentModel
-        (m_mainModel, model, aggregate, path);
+        (m_mainModel, model, aggregateModel, path);
 
     rm->setAlignment(alignmentModel);
 }
