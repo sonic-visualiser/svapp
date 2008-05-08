@@ -106,7 +106,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_audioOutput(withAudioOutput),
     m_playSource(0),
     m_playTarget(0),
-    m_oscQueue(withOSCSupport ? new OSCQueue() : 0),
+    m_oscQueue(0),
+    m_oscQueueStarter(0),
     m_recentFiles("RecentFiles", 20),
     m_recentTransforms("RecentTransforms", 20),
     m_documentModified(false),
@@ -114,6 +115,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_abandoning(false),
     m_labeller(0)
 {
+    Profiler profiler("MainWindowBase::MainWindowBase");
+
     connect(CommandHistory::getInstance(), SIGNAL(commandExecuted()),
 	    this, SLOT(documentModified()));
     connect(CommandHistory::getInstance(), SIGNAL(documentRestored()),
@@ -192,13 +195,6 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
             this,
             SLOT(preferenceChanged(PropertyContainer::PropertyName)));
 
-    if (m_oscQueue && m_oscQueue->isOK()) {
-        connect(m_oscQueue, SIGNAL(messagesAvailable()), this, SLOT(pollOSC()));
-        QTimer *oscTimer = new QTimer(this);
-        connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
-        oscTimer->start(1000);
-    }
-
     Labeller::ValueType labellerType = Labeller::ValueFromTwoLevelCounter;
     settings.beginGroup("MainWindow");
     labellerType = (Labeller::ValueType)
@@ -208,6 +204,12 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
 
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
+
+    if (withOSCSupport) {
+        m_oscQueueStarter = new OSCQueueStarter(this);
+        connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
+        m_oscQueueStarter->start();
+    }
 }
 
 MainWindowBase::~MainWindowBase()
@@ -218,6 +220,18 @@ MainWindowBase::~MainWindowBase()
     delete m_viewManager;
     delete m_oscQueue;
     Profiles::getInstance()->dump();
+}
+
+void
+MainWindowBase::oscReady()
+{
+    if (m_oscQueue && m_oscQueue->isOK()) {
+        connect(m_oscQueue, SIGNAL(messagesAvailable()), this, SLOT(pollOSC()));
+        QTimer *oscTimer = new QTimer(this);
+        connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
+        oscTimer->start(1000);
+        std::cerr << "Finished setting up OSC interface" << std::endl;
+    }
 }
 
 QString

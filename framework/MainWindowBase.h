@@ -21,6 +21,7 @@
 #include <QUrl>
 #include <QMainWindow>
 #include <QPointer>
+#include <QThread>
 
 #include "base/Command.h"
 #include "view/ViewManager.h"
@@ -31,6 +32,7 @@
 #include "SVFileReader.h"
 #include "widgets/FileFinder.h"
 #include "data/fileio/FileSource.h"
+#include "data/osc/OSCQueue.h"
 #include <map>
 
 class Document;
@@ -52,7 +54,6 @@ class QCheckBox;
 class PreferencesDialog;
 class QTreeView;
 class QPushButton;
-class OSCQueue;
 class OSCMessage;
 class KeyReference;
 class Labeller;
@@ -238,6 +239,7 @@ protected slots:
     virtual void paneDropAccepted(Pane *, QString) = 0;
     virtual void paneDeleteButtonClicked(Pane *);
 
+    virtual void oscReady();
     virtual void pollOSC();
     virtual void handleOSCMessage(const OSCMessage &) = 0;
 
@@ -260,7 +262,20 @@ protected:
     AudioCallbackPlaySource *m_playSource;
     AudioCallbackPlayTarget *m_playTarget;
 
+    class OSCQueueStarter : public QThread
+    {
+    public:
+        OSCQueueStarter(MainWindowBase *mwb) : QThread(mwb), m_mwb(mwb) { }
+        virtual void run() {
+            OSCQueue *queue = new OSCQueue(); // can take a long time
+            m_mwb->m_oscQueue = queue;
+        }
+    private:
+        MainWindowBase *m_mwb;
+    };
+
     OSCQueue                *m_oscQueue;
+    OSCQueueStarter         *m_oscQueueStarter;
 
     RecentFiles              m_recentFiles;
     RecentFiles              m_recentTransforms;
