@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-SV_UNIT_PACKAGES = fftw3f samplerate jack portaudio rubberband
+SV_UNIT_PACKAGES = fftw3f samplerate jack portaudio-2.0 rubberband
 load(../sv.prf)
 
 CONFIG += sv staticlib qt thread warn_on stl rtti exceptions

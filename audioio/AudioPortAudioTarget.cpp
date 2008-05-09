@@ -13,7 +13,7 @@
     COPYING included with this distribution for more information.
 */
 
-#ifdef HAVE_PORTAUDIO
+#ifdef HAVE_PORTAUDIO_2_0
 
 #include "AudioPortAudioTarget.h"
 #include "AudioCallbackPlaySource.h"
@@ -35,11 +35,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     PaError err;
 
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET
-#ifdef HAVE_PORTAUDIO_V18
-    std::cerr << "AudioPortAudioTarget: Initialising for PortAudio v18" << std::endl;
-#else
     std::cerr << "AudioPortAudioTarget: Initialising for PortAudio v19" << std::endl;
-#endif
 #endif
 
     err = Pa_Initialize();
@@ -54,15 +50,6 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 	m_sampleRate = m_source->getSourceSampleRate();
     }
 
-#ifdef HAVE_PORTAUDIO_V18
-    m_latency = Pa_GetMinNumBuffers(m_bufferSize, m_sampleRate) * m_bufferSize;
-#endif
-
-#ifdef HAVE_PORTAUDIO_V18
-    err = Pa_OpenDefaultStream(&m_stream, 0, 2, paFloat32,
-			       m_sampleRate, m_bufferSize, 0,
-			       processStatic, this);
-#else
     PaStreamParameters op;
     op.device = Pa_GetDefaultOutputDevice();
     op.channelCount = 2;
@@ -72,9 +59,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                         paFramesPerBufferUnspecified,
                         paNoFlag, processStatic, this);
-#endif    
 
-#ifndef HAVE_PORTAUDIO_V18
     if (err != paNoError) {
 
         std::cerr << "WARNING: AudioPortAudioTarget: Failed to open PortAudio stream with default frames per buffer, trying again with fixed frames per buffer..." << std::endl;
@@ -84,7 +69,6 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
                             paNoFlag, processStatic, this);
 	m_bufferSize = 1024;
     }
-#endif
 
     if (err != paNoError) {
 	std::cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
@@ -93,11 +77,9 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 	return;
     }
 
-#ifndef HAVE_PORTAUDIO_V18
     const PaStreamInfo *info = Pa_GetStreamInfo(m_stream);
     m_latency = int(info->outputLatency * m_sampleRate + 0.001);
     if (m_bufferSize < m_latency) m_bufferSize = m_latency;
-#endif
 
     std::cerr << "PortAudio latency = " << m_latency << " frames" << std::endl;
 
@@ -175,16 +157,6 @@ AudioPortAudioTarget::getCurrentTime() const
     else return Pa_GetStreamTime(m_stream);
 }
 
-#ifdef HAVE_PORTAUDIO_V18
-int
-AudioPortAudioTarget::processStatic(void *input, void *output,
-				    unsigned long nframes,
-				    PaTimestamp outTime, void *data)
-{
-    return ((AudioPortAudioTarget *)data)->process(input, output,
-						   nframes, outTime);
-}
-#else
 int
 AudioPortAudioTarget::processStatic(const void *input, void *output,
                                     unsigned long nframes,
@@ -195,7 +167,6 @@ AudioPortAudioTarget::processStatic(const void *input, void *output,
                                                    nframes, timeInfo,
                                                    flags);
 }
-#endif
 
 void
 AudioPortAudioTarget::sourceModelReplaced()
@@ -203,18 +174,11 @@ AudioPortAudioTarget::sourceModelReplaced()
     m_source->setTargetSampleRate(m_sampleRate);
 }
 
-#ifdef HAVE_PORTAUDIO_V18
-int
-AudioPortAudioTarget::process(void *inputBuffer, void *outputBuffer,
-			      unsigned long nframes,
-			      PaTimestamp)
-#else
 int
 AudioPortAudioTarget::process(const void *, void *outputBuffer,
                               unsigned long nframes,
                               const PaStreamCallbackTimeInfo *,
                               PaStreamCallbackFlags)
-#endif
 {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET    
     std::cout << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;

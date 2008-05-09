@@ -16,14 +16,14 @@
 #ifndef _AUDIO_PORT_AUDIO_TARGET_H_
 #define _AUDIO_PORT_AUDIO_TARGET_H_
 
-#ifdef HAVE_PORTAUDIO
+#ifdef HAVE_PORTAUDIO_2_0
 
-// This code can be compiled for either PortAudio v18 or v19.
-// PortAudio v19 is the default.  If you want to use v18, define
-// the preprocessor symbol HAVE_PORTAUDIO_v18.
+// This code requires PortAudio v19 -- it won't work with v18.
 
 #include <portaudio.h>
 #include <vector>
+
+#include <QObject>
 
 #include "AudioCallbackPlayTarget.h"
 
@@ -47,18 +47,6 @@ public slots:
     virtual void sourceModelReplaced();
 
 protected:
-#ifdef HAVE_PORTAUDIO_V18
-
-    int process(void *input, void *output, unsigned long frames,
-		PaTimestamp outTime);
-
-    static int processStatic(void *, void *, unsigned long,
-			     PaTimestamp, void *);
-
-    PortAudioStream *m_stream;
-
-#else
-
     int process(const void *input, void *output, unsigned long frames,
                 const PaStreamCallbackTimeInfo *timeInfo,
                 PaStreamCallbackFlags statusFlags);
@@ -68,8 +56,6 @@ protected:
                              PaStreamCallbackFlags, void *);
 
     PaStream *m_stream;
-
-#endif
 
     int m_bufferSize;
     int m_sampleRate;

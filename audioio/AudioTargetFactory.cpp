@@ -52,8 +52,8 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
 	delete target;
     }
 #endif
-
-#ifdef HAVE_PORTAUDIO
+    
+#ifdef HAVE_PORTAUDIO_2_0
     target = new AudioPortAudioTarget(source);
     if (target->isOK()) return target;
     else {
