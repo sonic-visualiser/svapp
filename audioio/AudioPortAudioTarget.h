@@ -21,7 +21,6 @@
 // This code requires PortAudio v19 -- it won't work with v18.
 
 #include <portaudio.h>
-#include <vector>
 
 #include <QObject>
 
