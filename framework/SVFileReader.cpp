@@ -19,6 +19,7 @@
 #include "view/View.h"
 #include "base/PlayParameters.h"
 #include "base/PlayParameterRepository.h"
+#include "base/Preferences.h"
 
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "data/fileio/FileSource.h"
@@ -456,7 +457,16 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         } else {
 
             file.waitForData();
-            model = new WaveFileModel(file);
+
+            size_t rate = 0;
+
+            if (!mainModel &&
+                Preferences::getInstance()->getResampleOnLoad()) {
+                WaveFileModel *mm = m_document->getMainModel();
+                if (mm) rate = mm->getSampleRate();
+            }
+
+            model = new WaveFileModel(file, rate);
             if (!model->isOK()) {
                 delete model;
                 model = 0;
