@@ -219,7 +219,10 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     m_done(false)
 {
     JackOptions options = JackNullOption;
-#ifdef HAVE_PORTAUDIO
+#ifdef HAVE_PORTAUDIO_2_0
+    options = JackNoStartServer;
+#endif
+#ifdef HAVE_LIBPULSE
     options = JackNoStartServer;
 #endif
 

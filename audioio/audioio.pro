@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-SV_UNIT_PACKAGES = fftw3f samplerate jack portaudio-2.0 rubberband
+SV_UNIT_PACKAGES = fftw3f samplerate jack portaudio-2.0 libpulse rubberband
 load(../sv.prf)
 
 CONFIG += sv staticlib qt thread warn_on stl rtti exceptions
@@ -19,6 +19,7 @@ HEADERS += AudioCallbackPlaySource.h \
            AudioGenerator.h \
            AudioJACKTarget.h \
            AudioPortAudioTarget.h \
+           AudioPulseAudioTarget.h \
            AudioTargetFactory.h \
            PlaySpeedRangeMapper.h
 SOURCES += AudioCallbackPlaySource.cpp \
@@ -27,5 +28,6 @@ SOURCES += AudioCallbackPlaySource.cpp \
            AudioGenerator.cpp \
            AudioJACKTarget.cpp \
            AudioPortAudioTarget.cpp \
+           AudioPulseAudioTarget.cpp \
            AudioTargetFactory.cpp \
            PlaySpeedRangeMapper.cpp
