@@ -53,7 +53,7 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
 
     //!!! handle signals how?
 
-    m_bufferSize = 2048;
+    m_bufferSize = 20480;
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
 	m_sampleRate = m_source->getSourceSampleRate();
@@ -124,9 +124,10 @@ double
 AudioPulseAudioTarget::getCurrentTime() const
 {
     if (!m_stream) return 0.0;
-//!!!    else return Pa_GetStreamTime(m_stream);
-
-    return 0.0;//!!!
+    
+    pa_usec_t usec = 0;
+    pa_stream_get_time(m_stream, &usec);
+    return usec / 1000000.f;
 }
 
 void
@@ -156,6 +157,19 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
     if (m_done) return;
 
     QMutexLocker locker(&m_mutex);
+
+    if (m_source->getTargetPlayLatency() == 0) { //!!! need better test
+            //!!!
+            pa_usec_t latency = 0;
+            int negative = 0;
+            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
+                std::cerr << "AudioPulseAudioTarget::contextStateChanged: Failed to query latency" << std::endl;
+            }
+            std::cerr << "Latency = " << latency << " usec" << std::endl;
+            int latframes = (latency / 1000000.f) * float(m_sampleRate);
+            std::cerr << "that's " << latframes << " frames" << std::endl;
+            m_source->setTargetPlayLatency(latframes); //!!! buh
+    }
 
     if (nframes > m_bufferSize) {
         std::cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << std::endl;
@@ -311,6 +325,7 @@ AudioPulseAudioTarget::contextStateChanged()
             break;
 
         case PA_CONTEXT_READY:
+        {
             std::cerr << "AudioPulseAudioTarget::contextStateChanged: Ready"
                       << std::endl;
 
@@ -320,27 +335,40 @@ AudioPulseAudioTarget::contextStateChanged()
             pa_stream_set_state_callback(m_stream, streamStateChangedStatic, this);
             pa_stream_set_write_callback(m_stream, streamWriteStatic, this);
 
-            if (!pa_stream_connect_playback(m_stream, 0, 0, pa_stream_flags_t(0), 0, 0)) {
+            if (pa_stream_connect_playback
+                (m_stream, 0, 0,
+                 pa_stream_flags_t(PA_STREAM_INTERPOLATE_TIMING |
+                                   PA_STREAM_AUTO_TIMING_UPDATE),
+                 0, 0)) { //??? return value
                 std::cerr << "AudioPulseAudioTarget: Failed to connect playback stream" << std::endl;
-                break;
             }
+
+            pa_usec_t latency = 0;
+            int negative = 0;
+            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
+                std::cerr << "AudioPulseAudioTarget::contextStateChanged: Failed to query latency" << std::endl;
+            }
+            std::cerr << "Latency = " << latency << " usec" << std::endl;
+            int latframes = (latency / 1000000.f) * float(m_sampleRate);
+            std::cerr << "that's " << latframes << " frames" << std::endl;
 
             const pa_buffer_attr *attr;
             if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
                 std::cerr << "AudioPulseAudioTarget::contextStateChanged: Cannot query stream buffer attributes" << std::endl;
                 m_source->setTarget(this, 4096);
                 m_source->setTargetSampleRate(m_sampleRate);
-                m_source->setTargetPlayLatency(4096);
+                m_source->setTargetPlayLatency(latframes);
             } else {
                 std::cerr << "AudioPulseAudioTarget::contextStateChanged: stream max length = " << attr->maxlength << std::endl;
                 int latency = attr->tlength;
                 std::cerr << "latency = " << latency << std::endl;
                 m_source->setTarget(this, attr->maxlength);
                 m_source->setTargetSampleRate(m_sampleRate);
-                m_source->setTargetPlayLatency(latency);
+                m_source->setTargetPlayLatency(latframes);
             }
 
             break;
+        }
 
         case PA_CONTEXT_TERMINATED:
             std::cerr << "AudioPulseAudioTarget::contextStateChanged: Terminated" << std::endl;
