@@ -59,7 +59,7 @@ protected:
     class MainLoopThread : public Thread
     {
     public:
-        MainLoopThread(pa_mainloop *loop) : Thread(RTThread), m_loop(loop) { }
+        MainLoopThread(pa_mainloop *loop) : Thread(NonRTThread), m_loop(loop) { } //!!! or RTThread
         virtual void run() {
             int rv = 0;
             pa_mainloop_run(m_loop, &rv); //!!! check return value from this, and rv

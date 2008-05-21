@@ -211,6 +211,11 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
 	
     size_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
+    std::cerr << "requested " << nframes << ", received " << received << std::endl;
+    if (received < nframes) {
+        std::cerr << "*** WARNING: Wrong number of frames received" << std::endl;
+    }
+
     float peakLeft = 0.0, peakRight = 0.0;
 
     for (size_t ch = 0; ch < 2; ++ch) {
