@@ -52,6 +52,8 @@ protected:
 
     static void streamWriteStatic(pa_stream *, size_t, void *);
     static void streamStateChangedStatic(pa_stream *, void *);
+    static void streamOverflowStatic(pa_stream *, void *);
+    static void streamUnderflowStatic(pa_stream *, void *);
     static void contextStateChangedStatic(pa_context *, void *);
 
     QMutex m_mutex;

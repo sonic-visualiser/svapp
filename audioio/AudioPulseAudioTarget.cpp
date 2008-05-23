@@ -24,7 +24,7 @@
 #include <cassert>
 #include <cmath>
 
-#define DEBUG_AUDIO_PULSE_AUDIO_TARGET 1
+//#define DEBUG_AUDIO_PULSE_AUDIO_TARGET 1
 
 AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     AudioCallbackPlayTarget(source),
@@ -149,10 +149,10 @@ AudioPulseAudioTarget::streamWriteStatic(pa_stream *stream,
 }
 
 void
-AudioPulseAudioTarget::streamWrite(size_t nframes)
+AudioPulseAudioTarget::streamWrite(size_t requested)
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET    
-    std::cout << "AudioPulseAudioTarget::streamWrite(" << nframes << ")" << std::endl;
+    std::cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << std::endl;
 #endif
     if (m_done) return;
 
@@ -171,10 +171,6 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
             m_source->setTargetPlayLatency(latframes); //!!! buh
     }
 
-    if (nframes > m_bufferSize) {
-        std::cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << std::endl;
-    }
-
     static float *output = 0;
     static float **tmpbuf = 0;
     static size_t tmpbufch = 0;
@@ -184,6 +180,16 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
 
     // Because we offer pan, we always want at least 2 channels
     if (sourceChannels < 2) sourceChannels = 2;
+
+    size_t nframes = requested / (sourceChannels * sizeof(float));
+
+    if (nframes > m_bufferSize) {
+        std::cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << std::endl;
+    }
+
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+    std::cout << "AudioPulseAudioTarget::streamWrite: nframes = " << nframes << std::endl;
+#endif
 
     if (!tmpbuf || tmpbufch != sourceChannels || int(tmpbufsz) < nframes) {
 
@@ -211,10 +217,13 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
 	
     size_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
     std::cerr << "requested " << nframes << ", received " << received << std::endl;
+
     if (received < nframes) {
         std::cerr << "*** WARNING: Wrong number of frames received" << std::endl;
     }
+#endif
 
     float peakLeft = 0.0, peakRight = 0.0;
 
@@ -256,6 +265,11 @@ AudioPulseAudioTarget::streamWrite(size_t nframes)
 	if (ch == 0) peakLeft = peak;
 	if (ch > 0 || sourceChannels == 1) peakRight = peak;
     }
+
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+    std::cerr << "calling pa_stream_write with "
+              << nframes * tmpbufch * sizeof(float) << " bytes" << std::endl;
+#endif
 
     pa_stream_write(m_stream, output, nframes * tmpbufch * sizeof(float),
                     0, 0, PA_SEEK_RELATIVE);
@@ -339,6 +353,8 @@ AudioPulseAudioTarget::contextStateChanged()
             
             pa_stream_set_state_callback(m_stream, streamStateChangedStatic, this);
             pa_stream_set_write_callback(m_stream, streamWriteStatic, this);
+            pa_stream_set_overflow_callback(m_stream, streamOverflowStatic, this);
+            pa_stream_set_underflow_callback(m_stream, streamUnderflowStatic, this);
 
             if (pa_stream_connect_playback
                 (m_stream, 0, 0,
@@ -387,6 +403,18 @@ AudioPulseAudioTarget::contextStateChanged()
             //!!! do something...
             break;
     }
+}
+
+void
+AudioPulseAudioTarget::streamOverflowStatic(pa_stream *, void *)
+{
+    std::cerr << "AudioPulseAudioTarget::streamOverflowStatic: Overflow!" << std::endl;
+}
+
+void
+AudioPulseAudioTarget::streamUnderflowStatic(pa_stream *, void *)
+{
+    std::cerr << "AudioPulseAudioTarget::streamUnderflowStatic: Underflow!" << std::endl;
 }
 
 #endif /* HAVE_PULSEAUDIO */
