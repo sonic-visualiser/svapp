@@ -113,7 +113,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_documentModified(false),
     m_openingAudioFile(false),
     m_abandoning(false),
-    m_labeller(0)
+    m_labeller(0),
+    m_lastPlayStatusSec(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
