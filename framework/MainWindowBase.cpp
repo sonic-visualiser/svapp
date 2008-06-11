@@ -23,6 +23,7 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
 #include "data/model/Labeller.h"
+#include "data/model/TabularModel.h"
 #include "view/ViewManager.h"
 
 #include "layer/WaveformLayer.h"
@@ -1934,13 +1935,22 @@ MainWindowBase::editCurrentLayer()
     Model *model = layer->getModel();
     if (!model) return;
 
+    TabularModel *tabular = dynamic_cast<TabularModel *>(model);
+    if (!tabular) {
+        //!!! how to prevent this function from being active if not
+        //appropriate model type?  or will we ultimately support
+        //tabular display for all editable models?
+        std::cerr << "NOTE: Not a tabular model" << std::endl;
+        return;
+    }
+
     if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
         m_layerDataDialogMap[layer]->show();
         m_layerDataDialogMap[layer]->raise();
         return;
     }
 
-    ModelDataTableDialog *dialog = new ModelDataTableDialog(model);
+    ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular);
 //    dialog->setAttribute(Qt::WA_DeleteOnClose); //!!! how to manage this?
 
     connect(m_viewManager,
