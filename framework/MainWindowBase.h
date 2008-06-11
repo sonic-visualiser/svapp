@@ -57,6 +57,7 @@ class QPushButton;
 class OSCMessage;
 class KeyReference;
 class Labeller;
+class ModelDataTableDialog;
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -171,6 +172,7 @@ protected slots:
 
     virtual void deleteCurrentPane();
     virtual void deleteCurrentLayer();
+    virtual void editCurrentLayer();
 
     virtual void previousPane();
     virtual void nextPane();
@@ -297,6 +299,13 @@ protected:
 
     Pane *addPaneToStack();
     Layer *getSnapLayer() const;
+
+    typedef std::map<Layer *, ModelDataTableDialog *> LayerDataDialogMap;
+    typedef std::set<ModelDataTableDialog *> DataDialogSet;
+    typedef std::map<View *, DataDialogSet> ViewDataDialogMap;
+
+    LayerDataDialogMap m_layerDataDialogMap;
+    ViewDataDialogMap m_viewDataDialogMap;
 
     class PaneCallback : public SVFileReaderPaneCallback
     {

@@ -39,6 +39,7 @@
 #include "widgets/ProgressDialog.h"
 #include "widgets/MIDIFileImportDialog.h"
 #include "widgets/CSVFormatDialog.h"
+#include "widgets/ModelDataTableDialog.h"
 
 #include "audioio/AudioCallbackPlaySource.h"
 #include "audioio/AudioCallbackPlayTarget.h"
@@ -1923,6 +1924,47 @@ MainWindowBase::deleteCurrentLayer()
 }
 
 void
+MainWindowBase::editCurrentLayer()
+{
+    Layer *layer = 0;
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (pane) layer = pane->getSelectedLayer();
+    if (!layer) return;
+
+    Model *model = layer->getModel();
+    if (!model) return;
+
+    if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
+        m_layerDataDialogMap[layer]->show();
+        m_layerDataDialogMap[layer]->raise();
+        return;
+    }
+
+    ModelDataTableDialog *dialog = new ModelDataTableDialog(model);
+//    dialog->setAttribute(Qt::WA_DeleteOnClose); //!!! how to manage this?
+
+    connect(m_viewManager,
+            SIGNAL(globalCentreFrameChanged(unsigned long)),
+            dialog,
+            SLOT(scrollToFrameRequested(unsigned long)));
+/*
+  connect(m_viewManager,
+  SIGNAL(playbackFrameChanged(unsigned long)),
+  dialog,
+  SLOT(scrollToFrameRequested(unsigned long)));
+*/
+    connect(dialog,
+            SIGNAL(scrollToFrame(unsigned long)),
+            m_viewManager,
+            SLOT(setGlobalCentreFrame(unsigned long)));
+    
+    m_layerDataDialogMap[layer] = dialog;
+    m_viewDataDialogMap[pane].insert(dialog);
+
+    dialog->show();
+}
+
+void
 MainWindowBase::previousPane()
 {
     if (!m_paneStack) return;
@@ -2051,8 +2093,17 @@ MainWindowBase::globalCentreFrameChanged(unsigned long )
 }
 
 void
-MainWindowBase::viewCentreFrameChanged(View *v, unsigned long )
+MainWindowBase::viewCentreFrameChanged(View *v, unsigned long frame)
 {
+    std::cerr << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << std::endl;
+
+    if (m_viewDataDialogMap.find(v) != m_viewDataDialogMap.end()) {
+        for (DataDialogSet::iterator i = m_viewDataDialogMap[v].begin();
+             i != m_viewDataDialogMap[v].end(); ++i) {
+            std::cerr << "found dialog" << std::endl;
+            (*i)->scrollToFrameRequested(frame);
+        }
+    }
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
     Pane *p = 0;
     if (!m_paneStack || !(p = m_paneStack->getCurrentPane())) return;
@@ -2085,6 +2136,19 @@ MainWindowBase::layerRemoved(Layer *)
 void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
+    if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
+
+        ModelDataTableDialog *dialog = m_layerDataDialogMap[layer];
+
+        for (ViewDataDialogMap::iterator vi = m_viewDataDialogMap.begin();
+             vi != m_viewDataDialogMap.end(); ++vi) {
+            vi->second.erase(dialog);
+        }
+
+        m_layerDataDialogMap.erase(layer);
+        delete dialog;
+    }
+
 //    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
 //	std::cerr << "(this is the time ruler layer)" << std::endl;
