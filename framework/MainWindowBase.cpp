@@ -1950,8 +1950,9 @@ MainWindowBase::editCurrentLayer()
         return;
     }
 
-    ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular);
-//    dialog->setAttribute(Qt::WA_DeleteOnClose); //!!! how to manage this?
+    QString title = layer->getLayerPresentationName();
+
+    ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular, title, this);
 
     connect(m_viewManager,
             SIGNAL(globalCentreFrameChanged(unsigned long)),
