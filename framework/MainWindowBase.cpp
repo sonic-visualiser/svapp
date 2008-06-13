@@ -1337,13 +1337,30 @@ MainWindowBase::createPlayTarget()
 {
     if (m_playTarget) return;
 
-    m_playTarget = AudioTargetFactory::createCallbackTarget(m_playSource);
+    QSettings settings;
+    settings.beginGroup("Preferences");
+    QString targetName = settings.value("audio-target", "").toString();
+    settings.endGroup();
+
+    AudioTargetFactory *factory = AudioTargetFactory::getInstance();
+
+    factory->setDefaultCallbackTarget(targetName);
+    m_playTarget = factory->createCallbackTarget(m_playSource);
+
     if (!m_playTarget) {
         emit hideSplash();
-	QMessageBox::warning
+
+        if (factory->isAutoCallbackTarget(targetName)) {
 	    (this, tr("Couldn't open audio device"),
-	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Audio playback will not be available during this session."),
+	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
 	     QMessageBox::Ok);
+        } else {
+            QMessageBox::warning
+                (this, tr("Couldn't open audio device"),
+                 tr("<b>No audio available</b><p>Failed to open your preferred audio device (\"%1\").<p>Audio playback will not be available during this session.</p>")
+                 .arg(factory->getCallbackTargetDescription(targetName)),
+                 QMessageBox::Ok);
+        }
     }
 }
 
@@ -1945,14 +1962,17 @@ MainWindowBase::editCurrentLayer()
     }
 
     if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
-        m_layerDataDialogMap[layer]->show();
-        m_layerDataDialogMap[layer]->raise();
-        return;
+        if (!m_layerDataDialogMap[layer].isNull()) {
+            m_layerDataDialogMap[layer]->show();
+            m_layerDataDialogMap[layer]->raise();
+            return;
+        }
     }
 
     QString title = layer->getLayerPresentationName();
 
     ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular, title, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose); // see below
 
     connect(m_viewManager,
             SIGNAL(globalCentreFrameChanged(unsigned long)),

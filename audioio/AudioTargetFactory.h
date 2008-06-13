@@ -16,13 +16,29 @@
 #ifndef _AUDIO_TARGET_FACTORY_H_
 #define _AUDIO_TARGET_FACTORY_H_
 
+#include <vector>
+#include <QString>
+
 class AudioCallbackPlaySource;
 class AudioCallbackPlayTarget;
 
 class AudioTargetFactory 
 {
 public:
-    static AudioCallbackPlayTarget *createCallbackTarget(AudioCallbackPlaySource *);
+    static AudioTargetFactory *getInstance();
+
+    std::vector<QString> getCallbackTargetNames(bool includeAuto = true) const;
+    QString getCallbackTargetDescription(QString name) const;
+    QString getDefaultCallbackTarget() const;
+    bool isAutoCallbackTarget(QString name) const;
+    void setDefaultCallbackTarget(QString name);
+
+    AudioCallbackPlayTarget *createCallbackTarget(AudioCallbackPlaySource *);
+
+protected:
+    AudioTargetFactory();
+    static AudioTargetFactory *m_instance;
+    QString m_default;
 };
 
 #endif

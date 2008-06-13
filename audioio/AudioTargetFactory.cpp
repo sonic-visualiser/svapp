@@ -20,12 +20,126 @@
 #include "AudioPortAudioTarget.h"
 #include "AudioPulseAudioTarget.h"
 
+#include <QCoreApplication>
+
 #include <iostream>
+
+AudioTargetFactory *
+AudioTargetFactory::m_instance = 0;
+
+AudioTargetFactory *
+AudioTargetFactory::getInstance()
+{
+    if (!m_instance) m_instance = new AudioTargetFactory();
+    return m_instance;
+}
+
+AudioTargetFactory::AudioTargetFactory()
+{
+}
+
+std::vector<QString>
+AudioTargetFactory::getCallbackTargetNames(bool includeAuto) const
+{
+    std::vector<QString> names;
+    if (includeAuto) names.push_back("auto");
+
+#ifdef HAVE_JACK
+    names.push_back("jack");
+#endif
+
+#ifdef HAVE_LIBPULSE
+    names.push_back("pulse");
+#endif
+
+#ifdef HAVE_COREAUDIO
+    names.push_back("core");
+#endif
+
+#ifdef HAVE_PORTAUDIO_2_0
+    names.push_back("port");
+#endif
+
+    return names;
+}
+
+QString
+AudioTargetFactory::getCallbackTargetDescription(QString name) const
+{
+    if (name == "auto") {
+        return QCoreApplication::translate("AudioTargetFactory",
+                                           "(auto)");
+    }
+    if (name == "jack") {
+        return QCoreApplication::translate("AudioTargetFactory",
+                                           "JACK Audio Connection Kit");
+    }
+    if (name == "pulse") {
+        return QCoreApplication::translate("AudioTargetFactory",
+                                           "PulseAudio Server");
+    }
+    if (name == "core") {
+        return QCoreApplication::translate("AudioTargetFactory",
+                                           "Core Audio Device");
+    }
+    if (name == "port") {
+        return QCoreApplication::translate("AudioTargetFactory",
+                                           "Default Soundcard Device");
+    }
+
+    return "(unknown)";
+}
+
+QString
+AudioTargetFactory::getDefaultCallbackTarget() const
+{
+    if (m_default == "") return "auto";
+    return m_default;
+}
+
+bool
+AudioTargetFactory::isAutoCallbackTarget(QString name) const
+{
+    return (name == "auto" || name == "");
+}
+
+void
+AudioTargetFactory::setDefaultCallbackTarget(QString target)
+{
+    m_default = target;
+}
 
 AudioCallbackPlayTarget *
 AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
 {
     AudioCallbackPlayTarget *target = 0;
+
+    if (m_default != "" && m_default != "auto") {
+
+#ifdef HAVE_JACK
+        if (m_default == "jack") target = new AudioJACKTarget(source);
+#endif
+
+#ifdef HAVE_LIBPULSE
+        if (m_default == "pulse") target = new AudioPulseAudioTarget(source);
+#endif
+
+#ifdef HAVE_COREAUDIO
+        if (m_default == "core") target = new AudioCoreAudioTarget(source);
+#endif
+
+#ifdef HAVE_PORTAUDIO_2_0
+        if (m_default == "port") target = new AudioPortAudioTarget(source);
+#endif
+
+        if (!target || !target->isOK()) {
+            std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open the requested target (\"" << m_default.toStdString() << "\")" << std::endl;
+            delete target;
+            return 0;
+        } else {
+            return target;
+        }
+    }
 
 #ifdef HAVE_JACK
     target = new AudioJACKTarget(source);
@@ -50,15 +164,6 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     if (target->isOK()) return target;
     else {
 	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open CoreAudio target" << std::endl;
-	delete target;
-    }
-#endif
-
-#ifdef HAVE_DIRECTSOUND
-    target = new AudioDirectSoundTarget(source);
-    if (target->isOK()) return target;
-    else {
-	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open DirectSound target" << std::endl;
 	delete target;
     }
 #endif

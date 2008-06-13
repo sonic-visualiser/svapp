@@ -300,8 +300,8 @@ protected:
     Pane *addPaneToStack();
     Layer *getSnapLayer() const;
 
-    typedef std::map<Layer *, ModelDataTableDialog *> LayerDataDialogMap;
-    typedef std::set<ModelDataTableDialog *> DataDialogSet;
+    typedef std::map<Layer *, QPointer<ModelDataTableDialog> > LayerDataDialogMap;
+    typedef std::set<QPointer<ModelDataTableDialog> > DataDialogSet;
     typedef std::map<View *, DataDialogSet> ViewDataDialogMap;
 
     LayerDataDialogMap m_layerDataDialogMap;
