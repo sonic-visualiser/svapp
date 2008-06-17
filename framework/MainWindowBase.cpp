@@ -1977,13 +1977,13 @@ MainWindowBase::editCurrentLayer()
     connect(m_viewManager,
             SIGNAL(globalCentreFrameChanged(unsigned long)),
             dialog,
-            SLOT(scrollToFrameRequested(unsigned long)));
-/*
-  connect(m_viewManager,
-  SIGNAL(playbackFrameChanged(unsigned long)),
-  dialog,
-  SLOT(scrollToFrameRequested(unsigned long)));
-*/
+            SLOT(userScrolledToFrame(unsigned long)));
+
+    connect(m_viewManager,
+            SIGNAL(playbackFrameChanged(unsigned long)),
+            dialog,
+            SLOT(playbackScrolledToFrame(unsigned long)));
+
     connect(dialog,
             SIGNAL(scrollToFrame(unsigned long)),
             m_viewManager,
@@ -2131,8 +2131,7 @@ MainWindowBase::viewCentreFrameChanged(View *v, unsigned long frame)
     if (m_viewDataDialogMap.find(v) != m_viewDataDialogMap.end()) {
         for (DataDialogSet::iterator i = m_viewDataDialogMap[v].begin();
              i != m_viewDataDialogMap[v].end(); ++i) {
-            std::cerr << "found dialog" << std::endl;
-            (*i)->scrollToFrameRequested(frame);
+            (*i)->userScrolledToFrame(frame);
         }
     }
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
