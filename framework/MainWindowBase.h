@@ -307,6 +307,8 @@ protected:
     LayerDataDialogMap m_layerDataDialogMap;
     ViewDataDialogMap m_viewDataDialogMap;
 
+    void removeLayerEditDialog(Layer *);
+
     class PaneCallback : public SVFileReaderPaneCallback
     {
     public:
@@ -369,6 +371,8 @@ protected:
 
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
+
+    virtual void connectLayerEditDialog(ModelDataTableDialog *dialog);
 
     virtual void toXml(QTextStream &stream);
 };

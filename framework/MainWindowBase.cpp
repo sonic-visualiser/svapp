@@ -1351,6 +1351,7 @@ MainWindowBase::createPlayTarget()
         emit hideSplash();
 
         if (factory->isAutoCallbackTarget(targetName)) {
+            QMessageBox::warning
 	    (this, tr("Couldn't open audio device"),
 	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
 	     QMessageBox::Ok);
@@ -1972,8 +1973,19 @@ MainWindowBase::editCurrentLayer()
     QString title = layer->getLayerPresentationName();
 
     ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular, title, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose); // see below
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    
+    connectLayerEditDialog(dialog);
 
+    m_layerDataDialogMap[layer] = dialog;
+    m_viewDataDialogMap[pane].insert(dialog);
+
+    dialog->show();
+}
+
+void
+MainWindowBase::connectLayerEditDialog(ModelDataTableDialog *dialog)
+{
     connect(m_viewManager,
             SIGNAL(globalCentreFrameChanged(unsigned long)),
             dialog,
@@ -1988,12 +2000,7 @@ MainWindowBase::editCurrentLayer()
             SIGNAL(scrollToFrame(unsigned long)),
             m_viewManager,
             SLOT(setGlobalCentreFrame(unsigned long)));
-    
-    m_layerDataDialogMap[layer] = dialog;
-    m_viewDataDialogMap[pane].insert(dialog);
-
-    dialog->show();
-}
+}    
 
 void
 MainWindowBase::previousPane()
@@ -2166,20 +2173,10 @@ MainWindowBase::layerRemoved(Layer *)
 void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
-    if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
+    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
 
-        ModelDataTableDialog *dialog = m_layerDataDialogMap[layer];
+    removeLayerEditDialog(layer);
 
-        for (ViewDataDialogMap::iterator vi = m_viewDataDialogMap.begin();
-             vi != m_viewDataDialogMap.end(); ++vi) {
-            vi->second.erase(dialog);
-        }
-
-        m_layerDataDialogMap.erase(layer);
-        delete dialog;
-    }
-
-//    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
 //	std::cerr << "(this is the time ruler layer)" << std::endl;
 	m_timeRulerLayer = 0;
@@ -2189,7 +2186,9 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 void
 MainWindowBase::layerInAView(Layer *layer, bool inAView)
 {
-//    std::cerr << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << std::endl;
+    std::cerr << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << std::endl;
+
+    if (!inAView) removeLayerEditDialog(layer);
 
     // Check whether we need to add or remove model from play source
     Model *model = layer->getModel();
@@ -2215,6 +2214,23 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
     }
 
     updateMenuStates();
+}
+
+void
+MainWindowBase::removeLayerEditDialog(Layer *layer)
+{
+    if (m_layerDataDialogMap.find(layer) != m_layerDataDialogMap.end()) {
+
+        ModelDataTableDialog *dialog = m_layerDataDialogMap[layer];
+
+        for (ViewDataDialogMap::iterator vi = m_viewDataDialogMap.begin();
+             vi != m_viewDataDialogMap.end(); ++vi) {
+            vi->second.erase(dialog);
+        }
+
+        m_layerDataDialogMap.erase(layer);
+        delete dialog;
+    }
 }
 
 void
