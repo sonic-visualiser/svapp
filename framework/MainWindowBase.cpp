@@ -2000,6 +2000,11 @@ MainWindowBase::connectLayerEditDialog(ModelDataTableDialog *dialog)
             SIGNAL(scrollToFrame(unsigned long)),
             m_viewManager,
             SLOT(setGlobalCentreFrame(unsigned long)));
+
+    connect(dialog,
+            SIGNAL(scrollToFrame(unsigned long)),
+            m_viewManager,
+            SLOT(setPlaybackFrame(unsigned long)));
 }    
 
 void
