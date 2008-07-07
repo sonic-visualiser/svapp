@@ -1125,7 +1125,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 #endif
 
         for (size_t c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputSizes) continue;
+            if (c >= m_stretcherInputCount) continue;
             if (reqd > m_stretcherInputSizes[c]) {
                 if (c == 0) {
                     std::cerr << "WARNING: resizing stretcher input buffer from " << m_stretcherInputSizes[c] << " to " << (reqd * 2) << std::endl;
@@ -1137,7 +1137,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
         }
 
         for (size_t c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputSizes) continue;
+            if (c >= m_stretcherInputCount) continue;
             RingBuffer<float> *rb = getReadRingBuffer(c);
             if (rb) {
                 size_t gotHere;
