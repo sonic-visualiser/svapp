@@ -412,9 +412,13 @@ AudioPulseAudioTarget::streamOverflowStatic(pa_stream *, void *)
 }
 
 void
-AudioPulseAudioTarget::streamUnderflowStatic(pa_stream *, void *)
+AudioPulseAudioTarget::streamUnderflowStatic(pa_stream *, void *data)
 {
     std::cerr << "AudioPulseAudioTarget::streamUnderflowStatic: Underflow!" << std::endl;
+    AudioPulseAudioTarget *target = (AudioPulseAudioTarget *)data;
+    if (target && target->m_source) {
+        target->m_source->audioProcessingOverload();
+    }
 }
 
 #endif /* HAVE_PULSEAUDIO */

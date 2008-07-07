@@ -177,6 +177,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
 	    this,           SLOT(sampleRateMismatch(size_t, size_t, bool)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
+    connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
+            this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
     connect(m_viewManager, SIGNAL(outputLevelsChanged(float, float)),
 	    this, SLOT(outputLevelsChanged(float, float)));
@@ -2138,7 +2140,7 @@ MainWindowBase::globalCentreFrameChanged(unsigned long )
 void
 MainWindowBase::viewCentreFrameChanged(View *v, unsigned long frame)
 {
-    std::cerr << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << std::endl;
+//    std::cerr << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << std::endl;
 
     if (m_viewDataDialogMap.find(v) != m_viewDataDialogMap.end()) {
         for (DataDialogSet::iterator i = m_viewDataDialogMap[v].begin();

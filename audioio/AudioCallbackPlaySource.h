@@ -247,6 +247,7 @@ signals:
     void sampleRateMismatch(size_t requested, size_t available, bool willResample);
 
     void audioOverloadPluginDisabled();
+    void audioTimeStretchMultiChannelDisabled();
 
 public slots:
     void audioProcessingOverload();
@@ -324,7 +325,9 @@ protected:
     void unifyRingBuffers();
 
     RubberBand::RubberBandStretcher *m_timeStretcher;
+    RubberBand::RubberBandStretcher *m_monoStretcher;
     float m_stretchRatio;
+    bool m_stretchMono;
     
     size_t  m_stretcherInputCount;
     float **m_stretcherInputs;

@@ -262,6 +262,10 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
 
     m_source->setOutputLevels(peakLeft, peakRight);
 
+    if (Pa_GetStreamCpuLoad(m_stream) > 0.7) {
+        if (m_source) m_source->audioProcessingOverload();
+    }
+
     return 0;
 }
 

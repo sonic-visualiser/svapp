@@ -185,6 +185,7 @@ protected slots:
 
     virtual void sampleRateMismatch(size_t, size_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
+    virtual void audioTimeStretchMultiChannelDisabled() = 0;
 
     virtual void playbackFrameChanged(unsigned long);
     virtual void globalCentreFrameChanged(unsigned long);

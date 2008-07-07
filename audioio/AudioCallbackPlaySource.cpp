@@ -69,6 +69,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_playStartFrame(0),
     m_playStartFramePassed(false),
     m_timeStretcher(0),
+    m_monoStretcher(0),
     m_stretchRatio(1.0),
     m_stretcherInputCount(0),
     m_stretcherInputs(0),
@@ -121,6 +122,9 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     }
     delete[] m_stretcherInputSizes;
     delete[] m_stretcherInputs;
+
+    delete m_timeStretcher;
+    delete m_monoStretcher;
 
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
@@ -388,6 +392,9 @@ AudioCallbackPlaySource::play(size_t startFrame)
     if (m_timeStretcher) {
         m_timeStretcher->reset();
     }
+    if (m_monoStretcher) {
+        m_monoStretcher->reset();
+    }
 
     m_readBufferFill = m_writeBufferFill = startFrame;
     if (m_readBuffers) {
@@ -469,10 +476,24 @@ AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName n)
 void
 AudioCallbackPlaySource::audioProcessingOverload()
 {
+    std::cerr << "Audio processing overload!" << std::endl;
+
+    if (!m_playing) return;
+
     RealTimePluginInstance *ap = m_auditioningPlugin;
-    if (ap && m_playing && !m_auditioningPluginBypassed) {
+    if (ap && !m_auditioningPluginBypassed) {
         m_auditioningPluginBypassed = true;
         emit audioOverloadPluginDisabled();
+        return;
+    }
+
+    if (m_timeStretcher &&
+        m_timeStretcher->getTimeRatio() < 1.0 &&
+        m_stretcherInputCount > 1 &&
+        m_monoStretcher && !m_stretchMono) {
+        m_stretchMono = true;
+        emit audioTimeStretchMultiChannelDisabled();
+        return;
     }
 }
 
@@ -956,23 +977,31 @@ AudioCallbackPlaySource::setTimeStretch(float factor)
              m_stretcherInputCount,
              RubberBandStretcher::OptionProcessRealTime,
              factor);
+        RubberBandStretcher *monoStretcher = new RubberBandStretcher
+            (getTargetSampleRate(),
+             1,
+             RubberBandStretcher::OptionProcessRealTime,
+             factor);
         m_stretcherInputs = new float *[m_stretcherInputCount];
         m_stretcherInputSizes = new size_t[m_stretcherInputCount];
         for (size_t c = 0; c < m_stretcherInputCount; ++c) {
             m_stretcherInputSizes[c] = 16384;
             m_stretcherInputs[c] = new float[m_stretcherInputSizes[c]];
         }
+        m_monoStretcher = monoStretcher;
         m_timeStretcher = stretcher;
         return;
     }
 }
 
 size_t
-AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
+AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 {
+    int count = ucount;
+
     if (!m_playing) {
 	for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
-	    for (size_t i = 0; i < count; ++i) {
+	    for (int i = 0; i < count; ++i) {
 		buffer[ch][i] = 0.0;
 	    }
 	}
@@ -1009,6 +1038,8 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
     if (count == 0) return 0;
 
     RubberBandStretcher *ts = m_timeStretcher;
+    RubberBandStretcher *ms = m_monoStretcher;
+
     float ratio = ts ? ts->getTimeRatio() : 1.f;
 
     if (ratio != m_stretchRatio) {
@@ -1017,6 +1048,18 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
             m_stretchRatio = 1.f;
         } else {
             ts->setTimeRatio(m_stretchRatio);
+            if (ms) ms->setTimeRatio(m_stretchRatio);
+            if (m_stretchRatio >= 1.0) m_stretchMono = false;
+        }
+    }
+
+    int stretchChannels = m_stretcherInputCount;
+    if (m_stretchMono) {
+        if (ms) {
+            ts = ms;
+            stretchChannels = 1;
+        } else {
+            m_stretchMono = false;
         }
     }
 
@@ -1027,7 +1070,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 
     if (!ts || ratio == 1.f) {
 
-	size_t got = 0;
+	int got = 0;
 
 	for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
 
@@ -1048,7 +1091,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 	    }
 
 	    for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
-		for (size_t i = got; i < count; ++i) {
+		for (int i = got; i < count; ++i) {
 		    buffer[ch][i] = 0.0;
 		}
 	    }
@@ -1082,7 +1125,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
 #endif
 
         for (size_t c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputCount) continue;
+            if (c >= m_stretcherInputSizes) continue;
             if (reqd > m_stretcherInputSizes[c]) {
                 if (c == 0) {
                     std::cerr << "WARNING: resizing stretcher input buffer from " << m_stretcherInputSizes[c] << " to " << (reqd * 2) << std::endl;
@@ -1094,10 +1137,15 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
         }
 
         for (size_t c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputCount) continue;
+            if (c >= m_stretcherInputSizes) continue;
             RingBuffer<float> *rb = getReadRingBuffer(c);
             if (rb) {
-                size_t gotHere = rb->read(m_stretcherInputs[c], got);
+                size_t gotHere;
+                if (stretchChannels == 1 && c > 0) {
+                    gotHere = rb->readAdding(m_stretcherInputs[0], got);
+                } else {
+                    gotHere = rb->read(m_stretcherInputs[c], got);
+                }
                 if (gotHere < got) got = gotHere;
                 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1130,6 +1178,12 @@ AudioCallbackPlaySource::getSourceSamples(size_t count, float **buffer)
     }
 
     ts->retrieve(buffer, count);
+
+    for (int c = stretchChannels; c < getTargetChannelCount(); ++c) {
+        for (int i = 0; i < count; ++i) {
+            buffer[c][i] = buffer[0][i];
+        }
+    }
 
     applyAuditioningEffect(count, buffer);
 
