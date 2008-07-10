@@ -376,7 +376,9 @@ AudioCallbackPlaySource::play(size_t startFrame)
 	}
     }
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cerr << "play(" << startFrame << ") -> playback model ";
+#endif
 
     startFrame = m_viewManager->alignReferenceToPlaybackFrame(startFrame);
 
@@ -400,7 +402,9 @@ AudioCallbackPlaySource::play(size_t startFrame)
     if (m_readBuffers) {
         for (size_t c = 0; c < getTargetChannelCount(); ++c) {
             RingBuffer<float> *rb = getReadRingBuffer(c);
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
             std::cerr << "reset ring buffer for channel " << c << std::endl;
+#endif
             if (rb) rb->reset();
         }
     }
@@ -693,8 +697,8 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         RealTime playstart_t = RealTime::frame2RealTime(m_playStartFrame,
                                                         sourceRate);
         if (playing_t < playstart_t) {
-            std::cerr << "playing_t " << playing_t << " < playstart_t " 
-                      << playstart_t << std::endl;
+//            std::cerr << "playing_t " << playing_t << " < playstart_t " 
+//                      << playstart_t << std::endl;
             if (/*!!! sincerequest_t > RealTime::zeroTime && */
                 m_playStartedAt + latency_t + stretchlat_t <
                 RealTime::fromSeconds(currentTime)) {

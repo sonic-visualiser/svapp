@@ -873,7 +873,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 {
-    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
+//    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -894,7 +894,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 	return FileOpenFailed;
     }
 
-    std::cerr << "mode = " << mode << std::endl;
+//    std::cerr << "mode = " << mode << std::endl;
 
     if (mode == AskUser) {
         if (getMainModel()) {
@@ -2180,7 +2180,7 @@ MainWindowBase::layerRemoved(Layer *)
 void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
-    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
+//    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
 
     removeLayerEditDialog(layer);
 
@@ -2193,7 +2193,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 void
 MainWindowBase::layerInAView(Layer *layer, bool inAView)
 {
-    std::cerr << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << std::endl;
+//    std::cerr << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << std::endl;
 
     if (!inAView) removeLayerEditDialog(layer);
 

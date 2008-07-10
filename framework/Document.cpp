@@ -581,8 +581,10 @@ Document::deleteLayer(Layer *layer, bool force)
 
     m_layers.erase(layer);
 
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::deleteLayer: Removing, now have "
               << m_layers.size() << " layers" << std::endl;
+#endif
 
     releaseModel(layer->getModel());
     emit layerRemoved(layer);
@@ -607,7 +609,7 @@ Document::setModel(Layer *layer, Model *model)
     Model *previousModel = layer->getModel();
 
     if (previousModel == model) {
-        std::cerr << "WARNING: Document::setModel: Layer " << layer << " (\""
+        std::cerr << "NOTE: Document::setModel: Layer " << layer << " (\""
                   << layer->objectName().toStdString()
                   << "\") is already set to model "
                   << model << " (\""
