@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-SV_UNIT_PACKAGES = 
+SV_UNIT_PACKAGES = vamp vamp-hostsdk # required because we use transform headers
 load(../sv.prf)
 
 CONFIG += sv staticlib qt thread warn_on stl rtti exceptions
