@@ -53,6 +53,7 @@
 #include "data/fileio/MIDIFileWriter.h"
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
+#include "rdf/RDFImporter.h"
 
 #include "data/fft/FFTDataServer.h"
 
@@ -837,7 +838,8 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    ProgressDialog dialog(tr("Opening file or URL..."), true, 2000);
+    ProgressDialog dialog(tr("Opening file or URL..."), true, 2000, this);
+    connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
     return open(FileSource(fileOrUrl, &dialog), mode);
 }
 
@@ -1080,7 +1082,8 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
     for (PlaylistFileReader::Playlist::const_iterator i = playlist.begin();
          i != playlist.end(); ++i) {
 
-        ProgressDialog dialog(tr("Opening playlist..."), true, 2000);
+        ProgressDialog dialog(tr("Opening playlist..."), true, 2000, this);
+        connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
         FileOpenStatus status = openAudio(FileSource(*i, &dialog), mode);
 
         if (status == FileOpenCancelled) {
@@ -1119,7 +1122,30 @@ MainWindowBase::openLayer(FileSource source)
 
     QString path = source.getLocalFilename();
 
-    if (source.getExtension() == "svl" || source.getExtension() == "xml") {
+    if (source.getExtension() == "rdf" || source.getExtension() == "n3" ||
+        source.getExtension() == "ttl") {
+
+        RDFImporter importer("file://" + path, getMainModel()->getSampleRate());
+        if (importer.isOK()) {
+
+            ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
+            connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
+            std::vector<Model *> models = importer.getDataModels(&dialog);
+
+            for (int i = 0; i < models.size(); ++i) {
+                Layer *newLayer = m_document->createImportedLayer(models[i]);
+                if (newLayer) {
+                    m_document->addLayerToView(pane, newLayer);
+                }
+            }
+
+            m_recentFiles.addFile(source.getLocation());
+            return FileOpenSucceeded;
+        }
+
+        return FileOpenFailed;
+
+    } else if (source.getExtension() == "svl" || source.getExtension() == "xml") {
 
         PaneCallback callback(this);
         QFile file(path);
@@ -1263,7 +1289,8 @@ MainWindowBase::openImage(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFile(QString fileOrUrl)
 {
-    ProgressDialog dialog(tr("Opening session..."), true, 2000);
+    ProgressDialog dialog(tr("Opening session..."), true, 2000, this);
+    connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
     return openSession(FileSource(fileOrUrl, &dialog));
 }
 
