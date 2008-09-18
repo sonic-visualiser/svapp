@@ -1064,6 +1064,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 {
+    std::cerr << "MainWindowBase::openPlaylist(" << source.getLocation().toStdString() << ")" << std::endl;
+
     std::set<QString> extensions;
     PlaylistFileReader::getSupportedExtensions(extensions);
     QString extension = source.getExtension();
@@ -1103,6 +1105,8 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openLayer(FileSource source)
 {
+    std::cerr << "MainWindowBase::openLayer(" << source.getLocation().toStdString() << ")" << std::endl;
+
     Pane *pane = m_paneStack->getCurrentPane();
     
     if (!pane) {
@@ -1128,9 +1132,17 @@ MainWindowBase::openLayer(FileSource source)
         RDFImporter importer("file://" + path, getMainModel()->getSampleRate());
         if (importer.isOK()) {
 
-            ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
-            connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
-            std::vector<Model *> models = importer.getDataModels(&dialog);
+            std::vector<Model *> models;
+
+            {
+                ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
+                connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
+                models = importer.getDataModels(&dialog);
+            }
+
+            if (models.empty()) {
+                return FileOpenFailed;
+            }
 
             for (int i = 0; i < models.size(); ++i) {
                 Layer *newLayer = m_document->createImportedLayer(models[i]);
@@ -1239,6 +1251,8 @@ MainWindowBase::openLayer(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openImage(FileSource source)
 {
+    std::cerr << "MainWindowBase::openImage(" << source.getLocation().toStdString() << ")" << std::endl;
+
     Pane *pane = m_paneStack->getCurrentPane();
     
     if (!pane) {
@@ -1297,6 +1311,8 @@ MainWindowBase::openSessionFile(QString fileOrUrl)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSession(FileSource source)
 {
+    std::cerr << "MainWindowBase::openSession(" << source.getLocation().toStdString() << ")" << std::endl;
+
     if (!source.isAvailable()) return FileOpenFailed;
     if (source.getExtension() != "sv") return FileOpenFailed;
     source.waitForData();
