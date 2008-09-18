@@ -220,6 +220,9 @@ Document::createDerivedLayer(const Transform &transform,
 
     if (types.empty()) {
 	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier().toStdString() << std::endl;
+        newModel->aboutToDelete();
+        emit modelAboutToBeDeleted(newModel);
+        m_models.erase(newModel);
 	delete newModel;
 	return 0;
     }
