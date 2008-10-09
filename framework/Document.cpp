@@ -37,7 +37,7 @@
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
 
-//#define DEBUG_DOCUMENT 1
+#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
 
@@ -278,6 +278,11 @@ Document::setMainModel(WaveFileModel *model)
 #ifdef DEBUG_DOCUMENT
     std::cerr << "Document::setMainModel: Have "
               << m_layers.size() << " layers" << std::endl;
+    std::cerr << "Models now: ";
+    for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        std::cerr << i->first << " ";
+    } 
+    std::cerr << std::endl;
 #endif
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
@@ -299,10 +304,18 @@ Document::setMainModel(WaveFileModel *model)
 	    continue;
 	}
 
-	if (model && (m_models.find(model) == m_models.end())) {
+        if (!model) {
+            std::cerr << "WARNING: Document::setMainModel: Null model in layer "
+                      << layer << std::endl;
+	    // get rid of this hideous degenerate
+	    obsoleteLayers.push_back(layer);
+	    continue;
+	}
+
+	if (m_models.find(model) == m_models.end()) {
 	    std::cerr << "WARNING: Document::setMainModel: Unknown model "
 		      << model << " in layer " << layer << std::endl;
-	    // get rid of this hideous degenerate
+	    // and this one
 	    obsoleteLayers.push_back(layer);
 	    continue;
 	}
@@ -361,7 +374,7 @@ Document::setMainModel(WaveFileModel *model)
                 if (rm) {
                     std::cerr << "new model has " << rm->getChannelCount() << " channels " << std::endl;
                 } else {
-                    std::cerr << "new model is not a RangeSummarisableTimeValueModel!" << std::endl;
+                    std::cerr << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel!" << std::endl;
                 }
 #endif
 		setModel(layer, replacementModel);
@@ -375,14 +388,21 @@ Document::setMainModel(WaveFileModel *model)
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
 
+        Model *m = i->first;
+
+#ifdef DEBUG_DOCUMENT
+        std::cerr << "considering alignment for model " << m << " (name \""
+                  << m->objectName().toStdString() << "\")" << std::endl;
+#endif
+
         if (m_autoAlignment) {
 
-            alignModel(i->first);
+            alignModel(m);
 
         } else if (oldMainModel &&
-                   (i->first->getAlignmentReference() == oldMainModel)) {
+                   (m->getAlignmentReference() == oldMainModel)) {
 
-            alignModel(i->first);
+            alignModel(m);
         }
     }
 
@@ -425,6 +445,15 @@ Document::addDerivedModel(const Transform &transform,
 
     m_models[outputModelToAdd] = rec;
 
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::addDerivedModel: Added model " << outputModelToAdd << std::endl;
+    std::cerr << "Models now: ";
+    for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        std::cerr << i->first << " ";
+    } 
+    std::cerr << std::endl;
+#endif
+
     emit modelAdded(outputModelToAdd);
 }
 
@@ -443,6 +472,15 @@ Document::addImportedModel(Model *model)
     rec.refcount = 0;
 
     m_models[model] = rec;
+
+#ifdef DEBUG_DOCUMENT
+    std::cerr << "Document::addImportedModel: Added model " << model << std::endl;
+    std::cerr << "Models now: ";
+    for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        std::cerr << i->first << " ";
+    } 
+    std::cerr << std::endl;
+#endif
 
     if (m_autoAlignment) alignModel(model);
 
@@ -540,6 +578,16 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
         model->aboutToDelete();
 	emit modelAboutToBeDeleted(model);
 	m_models.erase(model);
+
+#ifdef DEBUG_DOCUMENT
+        std::cerr << "Document::releaseModel: Deleted model " << model << std::endl;
+        std::cerr << "Models now: ";
+        for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
+            std::cerr << i->first << " ";
+        } 
+        std::cerr << std::endl;
+#endif
+
 	delete model;
     }
 }

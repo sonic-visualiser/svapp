@@ -31,6 +31,7 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/NoteModel.h"
+#include "data/model/RegionModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
 #include "data/model/AlignmentModel.h"
@@ -593,19 +594,36 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 		    m_models[id] = model;
 		}
 	    } else {
-		NoteModel *model;
-                if (haveMinMax) {
-                    model = new NoteModel
-                        (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                if (attributes.value("subtype") == "region") {
+                    RegionModel *model;
+                    if (haveMinMax) {
+                        model = new RegionModel
+                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                    } else {
+                        model = new RegionModel
+                            (sampleRate, resolution, notifyOnAdd);
+                    }
+                    model->setValueQuantization(valueQuantization);
+                    model->setScaleUnits(units);
+                    model->setObjectName(name);
+                    m_models[id] = model;
                 } else {
-                    model = new NoteModel
-                        (sampleRate, resolution, notifyOnAdd);
+                    // note models written out by SV 1.3 and earlier
+                    // have no subtype, so we can't test that
+                    NoteModel *model;
+                    if (haveMinMax) {
+                        model = new NoteModel
+                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                    } else {
+                        model = new NoteModel
+                            (sampleRate, resolution, notifyOnAdd);
+                    }
+                    model->setValueQuantization(valueQuantization);
+                    model->setScaleUnits(units);
+                    model->setObjectName(name);
+                    m_models[id] = model;
                 }
-		model->setValueQuantization(valueQuantization);
-                model->setScaleUnits(units);
-                model->setObjectName(name);
-		m_models[id] = model;
-	    }
+            }
 
 	    int dataset = attributes.value("dataset").trimmed().toInt(&ok);
 	    if (ok) m_awaitingDatasets[dataset] = id;
@@ -897,6 +915,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 
     case 3:
 	if (dynamic_cast<NoteModel *>(model)) good = true;
+	else if (dynamic_cast<RegionModel *>(model)) good = true;
 	else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
 	    m_datasetSeparator = attributes.value("separator");
 	    good = true;
@@ -960,6 +979,19 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
             ok = true;
         }
 	nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
+	return ok;
+    }
+
+    RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
+
+    if (rm) {
+//        std::cerr << "Current dataset is a note model" << std::endl;
+	float value = 0.0;
+	value = attributes.value("value").trimmed().toFloat(&ok);
+	size_t duration = 0;
+	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	QString label = attributes.value("label");
+	rm->addPoint(RegionModel::Point(frame, value, duration, label));
 	return ok;
     }
 
