@@ -37,7 +37,7 @@
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
 
-#define DEBUG_DOCUMENT 1
+//#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
 
