@@ -1751,6 +1751,12 @@ MainWindowBase::ffwdEnd()
 {
     if (!getMainModel()) return;
 
+    if (m_playSource &&
+        m_playSource->isPlaying() &&
+        !m_viewManager->getPlayLoopMode()) {
+        stop();
+    }
+
     size_t frame = getMainModel()->getEndFrame();
 
     if (m_viewManager->getPlaySelectionMode()) {
