@@ -1157,7 +1157,10 @@ MainWindowBase::openLayer(FileSource source)
 
         return FileOpenFailed;
 
-    } else if (source.getExtension() == "svl" || source.getExtension() == "xml") {
+    } else if (source.getExtension() == "svl" ||
+               (source.getExtension() == "xml" &&
+                (SVFileReader::identifyXmlFile(source.getLocalFilename())
+                 == SVFileReader::SVLayerFile))) {
 
         PaneCallback callback(this);
         QFile file(path);
@@ -1314,13 +1317,45 @@ MainWindowBase::openSession(FileSource source)
     std::cerr << "MainWindowBase::openSession(" << source.getLocation().toStdString() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
-    if (source.getExtension() != "sv") return FileOpenFailed;
+
+    if (source.getExtension() != "sv") {
+        if (source.getExtension() == "xml") {
+            source.waitForData();
+            if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
+                SVFileReader::SVSessionFile) {
+                std::cerr << "This XML file looks like a session file, attempting to open it as a session" << std::endl;
+            } else {
+                return FileOpenFailed;
+            }
+        } else {
+            return FileOpenFailed;
+        }
+    }
     source.waitForData();
 
-    BZipFileDevice bzFile(source.getLocalFilename());
-    if (!bzFile.open(QIODevice::ReadOnly)) return FileOpenFailed;
+    QXmlInputSource *inputSource = 0;
+    BZipFileDevice *bzFile = 0;
+    QFile *rawFile = 0;
 
-    if (!checkSaveModified()) return FileOpenCancelled;
+    if (source.getExtension() == "sv") {
+        bzFile = new BZipFileDevice(source.getLocalFilename());
+        if (!bzFile->open(QIODevice::ReadOnly)) {
+            delete bzFile;
+            return FileOpenFailed;
+        }
+        inputSource = new QXmlInputSource(bzFile);
+    } else {
+        rawFile = new QFile(source.getLocalFilename());
+        inputSource = new QXmlInputSource(rawFile);
+    }
+
+    if (!checkSaveModified()) {
+        if (bzFile) bzFile->close();
+        delete inputSource;
+        delete bzFile;
+        delete rawFile;
+        return FileOpenCancelled;
+    }
 
     QString error;
     closeSession();
@@ -1336,14 +1371,18 @@ MainWindowBase::openSession(FileSource source)
     connect
         (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
          this, SLOT(modelRegenerationWarning(QString, QString, QString)));
-    QXmlInputSource inputSource(&bzFile);
-    reader.parse(inputSource);
+
+    reader.parse(*inputSource);
     
     if (!reader.isOK()) {
         error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
     }
     
-    bzFile.close();
+    if (bzFile) bzFile->close();
+
+    delete inputSource;
+    delete bzFile;
+    delete rawFile;
 
     bool ok = (error == "");
 

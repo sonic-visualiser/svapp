@@ -194,6 +194,15 @@ public:
     bool error(const QXmlParseException &exception);
     bool fatalError(const QXmlParseException &exception);
 
+    enum FileType
+    {
+        SVSessionFile,
+        SVLayerFile,
+        UnknownFileType
+    };
+
+    static FileType identifyXmlFile(QString path);
+
 signals:
     void modelRegenerationFailed(QString layerName, QString transformName,
                                  QString message);

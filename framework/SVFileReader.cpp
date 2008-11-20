@@ -1370,3 +1370,99 @@ SVFileReaderPaneCallback::~SVFileReaderPaneCallback()
 {
 }
 
+
+class SVFileIdentifier : public QXmlDefaultHandler
+{
+public:
+    SVFileIdentifier() :
+        m_inSv(false),
+        m_inData(false),
+        m_type(SVFileReader::UnknownFileType)
+    { }
+    virtual ~SVFileIdentifier() { }
+
+    void parse(QXmlInputSource &source) {
+        QXmlSimpleReader reader;
+        reader.setContentHandler(this);
+        reader.setErrorHandler(this);
+        reader.parse(source);
+    }
+
+    SVFileReader::FileType getType() const { return m_type; }
+
+    virtual bool startElement(const QString &,
+			      const QString &,
+			      const QString &qName,
+			      const QXmlAttributes& atts)
+    {
+        QString name = qName.toLower();
+
+        // SV session files have an sv element containing a data
+        // element containing a model element with mainModel="true".
+
+        // If the sv element is present but the rest does not satisfy,
+        // then it's (probably) an SV layer file.
+
+        // Otherwise, it's of unknown type.
+
+        if (name == "sv") {
+            m_inSv = true;
+            if (m_type == SVFileReader::UnknownFileType) {
+                m_type = SVFileReader::SVLayerFile;
+            }
+            return true;
+        } else if (name == "data") {
+            if (!m_inSv) return true;
+            m_inData = true;
+        } else if (name == "model") {
+            if (!m_inData) return true;
+            if (atts.value("mainModel").trimmed() == "true") {
+                if (m_type == SVFileReader::SVLayerFile) {
+                    m_type = SVFileReader::SVSessionFile;
+                    return false; // done
+                }
+            }
+        }
+        return true;
+    }
+
+    virtual bool endElement(const QString &,
+			    const QString &,
+			    const QString &qName)
+    {
+        QString name = qName.toLower();
+
+        if (name == "sv") {
+            if (m_inSv) {
+                m_inSv = false;
+                return false; // done
+            }
+        } else if (name == "data") {
+            if (m_inData) {
+                m_inData = false;
+                return false; // also done, nothing after the first
+                              // data element is of use here
+            }
+        }
+        return true;
+    }
+
+private:
+    bool m_inSv;
+    bool m_inData;
+    SVFileReader::FileType m_type;
+};
+
+
+SVFileReader::FileType
+SVFileReader::identifyXmlFile(QString path)
+{
+    QFile file(path);
+    SVFileIdentifier identifier;
+    QXmlInputSource source(&file);
+    identifier.parse(source);
+    return identifier.getType();
+}
+
+    
+    
