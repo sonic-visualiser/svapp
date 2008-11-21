@@ -249,6 +249,8 @@ protected slots:
     virtual void contextHelpChanged(const QString &);
     virtual void inProgressSelectionChanged();
 
+    virtual FileOpenStatus openSessionFromRDF(FileSource source);
+
     virtual void closeSession() = 0;
 
 protected:

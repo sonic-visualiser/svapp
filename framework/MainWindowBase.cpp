@@ -1129,7 +1129,8 @@ MainWindowBase::openLayer(FileSource source)
     if (source.getExtension() == "rdf" || source.getExtension() == "n3" ||
         source.getExtension() == "ttl") {
 
-        RDFImporter importer("file://" + path, getMainModel()->getSampleRate());
+        RDFImporter importer(QUrl::fromLocalFile(path).toString(),
+                             getMainModel()->getSampleRate());
         if (importer.isOK()) {
 
             std::vector<Model *> models;
@@ -1318,6 +1319,11 @@ MainWindowBase::openSession(FileSource source)
 
     if (!source.isAvailable()) return FileOpenFailed;
 
+    if (source.getExtension() == "rdf" || source.getExtension() == "n3" ||
+        source.getExtension() == "ttl") {
+        return openSessionFromRDF(source);
+    }
+
     if (source.getExtension() != "sv") {
         if (source.getExtension() == "xml") {
             source.waitForData();
@@ -1414,6 +1420,79 @@ MainWindowBase::openSession(FileSource source)
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openSessionFromRDF(FileSource source)
+{
+    std::cerr << "MainWindowBase::openSessionFromRDF(" << source.getLocation().toStdString() << ")" << std::endl;
+
+    if (!source.isAvailable()) return FileOpenFailed;
+
+    source.waitForData();
+
+    RDFImporter importer
+        (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+
+    QString audioUrl = importer.getAudioAvailableUrl();
+    if (audioUrl == "") {
+        std::cerr << "MainWindowBase::openSessionFromRDF: No audio URL in RDF, can't open a session without audio" << std::endl;
+        return FileOpenFailed;
+    }
+
+    size_t rate = 0;
+
+    if (Preferences::getInstance()->getResampleOnLoad()) {
+        rate = m_playSource->getSourceSampleRate();
+    }
+
+    WaveFileModel *newModel = new WaveFileModel(audioUrl, rate);
+
+    if (!newModel->isOK()) {
+        delete newModel;
+        std::cerr << "MainWindowBase::openSessionFromRDF: Cannot open audio URL \"" << audioUrl.toStdString() << "\" referred to in RDF, can't open a session without audio" << std::endl;
+        return FileOpenFailed;
+    }
+
+    if (!checkSaveModified()) {
+        delete newModel;
+        return FileOpenCancelled;
+    }
+
+    closeSession();
+    createDocument();
+
+    m_viewManager->clearSelections();
+
+    m_document->setMainModel(newModel);
+
+    AddPaneCommand *command = new AddPaneCommand(this);
+    CommandHistory::getInstance()->addCommand(command);
+    
+    Pane *pane = command->getPane();
+        
+    if (m_timeRulerLayer) {
+        m_document->addLayerToView(pane, m_timeRulerLayer);
+    }
+    
+    Layer *newLayer = m_document->createImportedLayer(newModel);
+
+    if (newLayer) {
+        m_document->addLayerToView(pane, newLayer);
+    }
+
+    FileOpenStatus layerStatus = openLayer(source);
+
+    setupMenus();
+    
+    setWindowTitle(tr("%1: %2")
+                   .arg(QApplication::applicationName())
+                   .arg(source.getLocation()));
+    CommandHistory::getInstance()->clear();
+    CommandHistory::getInstance()->documentSaved();
+    m_documentModified = false;
+    
+    return layerStatus;
 }
 
 void
