@@ -1464,8 +1464,6 @@ MainWindowBase::openSessionFromRDF(FileSource source)
 
     m_viewManager->clearSelections();
 
-    m_document->setMainModel(newModel);
-
     AddPaneCommand *command = new AddPaneCommand(this);
     CommandHistory::getInstance()->addCommand(command);
     
@@ -1475,11 +1473,10 @@ MainWindowBase::openSessionFromRDF(FileSource source)
         m_document->addLayerToView(pane, m_timeRulerLayer);
     }
     
-    Layer *newLayer = m_document->createImportedLayer(newModel);
+    Layer *newLayer = m_document->createMainModelLayer(LayerFactory::Waveform);
+    m_document->addLayerToView(pane, newLayer);
 
-    if (newLayer) {
-        m_document->addLayerToView(pane, newLayer);
-    }
+    m_document->setMainModel(newModel);
 
     FileOpenStatus layerStatus = openLayer(source);
 
