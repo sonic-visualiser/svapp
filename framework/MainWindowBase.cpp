@@ -1148,6 +1148,16 @@ MainWindowBase::openLayer(FileSource source)
             for (int i = 0; i < models.size(); ++i) {
                 Layer *newLayer = m_document->createImportedLayer(models[i]);
                 if (newLayer) {
+                    if (newLayer->isLayerOpaque() ||
+                        dynamic_cast<Colour3DPlotLayer *>(newLayer)) {
+                        //!!! general garbage.  we should be using
+                        // a separate loader class that uses callbacks
+                        // and directly calls on the document, much
+                        // more like SVFileReader
+                        AddPaneCommand *command = new AddPaneCommand(this);
+                        CommandHistory::getInstance()->addCommand(command);
+                        pane = command->getPane();
+                    }
                     m_document->addLayerToView(pane, newLayer);
                 }
             }
@@ -1446,37 +1456,43 @@ MainWindowBase::openSessionFromRDF(FileSource source)
         rate = m_playSource->getSourceSampleRate();
     }
 
-    WaveFileModel *newModel = new WaveFileModel(audioUrl, rate);
+    {
+        ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
+        connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
 
-    if (!newModel->isOK()) {
-        delete newModel;
-        std::cerr << "MainWindowBase::openSessionFromRDF: Cannot open audio URL \"" << audioUrl.toStdString() << "\" referred to in RDF, can't open a session without audio" << std::endl;
-        return FileOpenFailed;
-    }
+        FileSource audioSource(audioUrl, &dialog);
+        if (!audioSource.isAvailable()) {
+            std::cerr << "MainWindowBase::openSessionFromRDF: Cannot open audio URL \"" << audioUrl.toStdString() << "\" referred to in RDF, can't open a session without audio" << std::endl;
+            return FileOpenFailed;
+        }
 
-    if (!checkSaveModified()) {
-        delete newModel;
-        return FileOpenCancelled;
-    }
+        if (!checkSaveModified()) {
+            return FileOpenCancelled;
+        }
 
-    closeSession();
-    createDocument();
+        closeSession();
+        createDocument();
 
-    m_viewManager->clearSelections();
+        audioSource.waitForData();
 
-    AddPaneCommand *command = new AddPaneCommand(this);
-    CommandHistory::getInstance()->addCommand(command);
+        WaveFileModel *newModel = new WaveFileModel(audioSource); 
+
+        m_viewManager->clearSelections();
     
-    Pane *pane = command->getPane();
-        
-    if (m_timeRulerLayer) {
-        m_document->addLayerToView(pane, m_timeRulerLayer);
-    }
+        AddPaneCommand *command = new AddPaneCommand(this);
+        CommandHistory::getInstance()->addCommand(command);
     
-    Layer *newLayer = m_document->createMainModelLayer(LayerFactory::Waveform);
-    m_document->addLayerToView(pane, newLayer);
+        Pane *pane = command->getPane();
+      
+        if (m_timeRulerLayer) {
+            m_document->addLayerToView(pane, m_timeRulerLayer);
+        }
+    
+        Layer *newLayer = m_document->createMainModelLayer(LayerFactory::Waveform);
+        m_document->addLayerToView(pane, newLayer);
 
-    m_document->setMainModel(newModel);
+        m_document->setMainModel(newModel);
+    }
 
     FileOpenStatus layerStatus = openLayer(source);
 
