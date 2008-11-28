@@ -855,6 +855,43 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
                            m_paneStack != 0 &&
                            m_paneStack->getCurrentPane() != 0);
 
+    bool rdf = (source.getExtension() == "rdf" ||
+                source.getExtension() == "n3" ||
+                source.getExtension() == "ttl");
+
+    bool rdfSession = false;
+    if (rdf) {
+        RDFImporter::RDFDocumentType rdfType = 
+            RDFImporter::identifyDocumentType
+            (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+        if (rdfType == RDFImporter::AudioRefAndAnnotations ||
+            rdfType == RDFImporter::AudioRef) {
+            rdfSession = true;
+        } else if (rdfType == RDFImporter::NotRDF) {
+            rdf = false;
+        }
+    }
+
+    if (rdf) {
+        if (rdfSession) {
+            if (!canImportLayer || shouldCreateNewSessionForRDFAudio()) {
+                return openSession(source);
+            } else {
+                return openLayer(source);
+            }
+        } else {
+            if ((status = openSession(source)) != FileOpenFailed) {
+                return status;
+            } else if (!canImportLayer) {
+                return FileOpenWrongMode;
+            } else if ((status = openLayer(source)) != FileOpenFailed) {
+                return status;
+            } else {
+                return FileOpenFailed;
+            }
+        }
+    }
+
     if ((status = openAudio(source, mode)) != FileOpenFailed) {
         return status;
     } else if ((status = openSession(source)) != FileOpenFailed) {
@@ -1126,47 +1163,12 @@ MainWindowBase::openLayer(FileSource source)
 
     QString path = source.getLocalFilename();
 
-    if (source.getExtension() == "rdf" || source.getExtension() == "n3" ||
-        source.getExtension() == "ttl") {
+    RDFImporter::RDFDocumentType rdfType = 
+        RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path).toString());
 
-        RDFImporter importer(QUrl::fromLocalFile(path).toString(),
-                             getMainModel()->getSampleRate());
-        if (importer.isOK()) {
+    if (rdfType != RDFImporter::NotRDF) {
 
-            std::vector<Model *> models;
-
-            {
-                ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
-                connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
-                models = importer.getDataModels(&dialog);
-            }
-
-            if (models.empty()) {
-                return FileOpenFailed;
-            }
-
-            for (int i = 0; i < models.size(); ++i) {
-                Layer *newLayer = m_document->createImportedLayer(models[i]);
-                if (newLayer) {
-                    if (newLayer->isLayerOpaque() ||
-                        dynamic_cast<Colour3DPlotLayer *>(newLayer)) {
-                        //!!! general garbage.  we should be using
-                        // a separate loader class that uses callbacks
-                        // and directly calls on the document, much
-                        // more like SVFileReader
-                        AddPaneCommand *command = new AddPaneCommand(this);
-                        CommandHistory::getInstance()->addCommand(command);
-                        pane = command->getPane();
-                    }
-                    m_document->addLayerToView(pane, newLayer);
-                }
-            }
-
-            m_recentFiles.addFile(source.getLocation());
-            return FileOpenSucceeded;
-        }
-
-        return FileOpenFailed;
+        return openLayersFromRDF(source);
 
     } else if (source.getExtension() == "svl" ||
                (source.getExtension() == "xml" &&
@@ -1328,15 +1330,22 @@ MainWindowBase::openSession(FileSource source)
     std::cerr << "MainWindowBase::openSession(" << source.getLocation().toStdString() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
-
-    if (source.getExtension() == "rdf" || source.getExtension() == "n3" ||
-        source.getExtension() == "ttl") {
-        return openSessionFromRDF(source);
-    }
+    source.waitForData();
 
     if (source.getExtension() != "sv") {
+
+        RDFImporter::RDFDocumentType rdfType = 
+            RDFImporter::identifyDocumentType
+            (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+
+        if (rdfType == RDFImporter::AudioRefAndAnnotations ||
+            rdfType == RDFImporter::AudioRef) {
+            return openSessionFromRDF(source);
+        } else if (rdfType != RDFImporter::NotRDF) {
+            return FileOpenFailed;
+        }
+
         if (source.getExtension() == "xml") {
-            source.waitForData();
             if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
                 SVFileReader::SVSessionFile) {
                 std::cerr << "This XML file looks like a session file, attempting to open it as a session" << std::endl;
@@ -1347,7 +1356,6 @@ MainWindowBase::openSession(FileSource source)
             return FileOpenFailed;
         }
     }
-    source.waitForData();
 
     QXmlInputSource *inputSource = 0;
     BZipFileDevice *bzFile = 0;
@@ -1438,64 +1446,16 @@ MainWindowBase::openSessionFromRDF(FileSource source)
     std::cerr << "MainWindowBase::openSessionFromRDF(" << source.getLocation().toStdString() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
-
     source.waitForData();
 
-    RDFImporter importer
-        (QUrl::fromLocalFile(source.getLocalFilename()).toString());
-
-    QString audioUrl = importer.getAudioAvailableUrl();
-    if (audioUrl == "") {
-        std::cerr << "MainWindowBase::openSessionFromRDF: No audio URL in RDF, can't open a session without audio" << std::endl;
-        return FileOpenFailed;
+    if (!checkSaveModified()) {
+        return FileOpenCancelled;
     }
-
-    size_t rate = 0;
-
-    if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
-    }
-
-    {
-        ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
-        connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
-
-        FileSource audioSource(audioUrl, &dialog);
-
-        if (!audioSource.isAvailable()) {
-            std::cerr << "MainWindowBase::openSessionFromRDF: Cannot open audio URL \"" << audioUrl.toStdString() << "\" referred to in RDF, can't open a session without audio" << std::endl;
-            return FileOpenFailed;
-        }
-
-        if (!checkSaveModified()) {
-            return FileOpenCancelled;
-        }
-
-        closeSession();
-        createDocument();
-
-        audioSource.waitForData();
-
-        WaveFileModel *newModel = new WaveFileModel(audioSource); 
-
-        m_viewManager->clearSelections();
     
-        AddPaneCommand *command = new AddPaneCommand(this);
-        CommandHistory::getInstance()->addCommand(command);
-    
-        Pane *pane = command->getPane();
-      
-        if (m_timeRulerLayer) {
-            m_document->addLayerToView(pane, m_timeRulerLayer);
-        }
-    
-        Layer *newLayer = m_document->createMainModelLayer(LayerFactory::Waveform);
-        m_document->addLayerToView(pane, newLayer);
+    closeSession();
+    createDocument();
 
-        m_document->setMainModel(newModel);
-    }
-
-    FileOpenStatus layerStatus = openLayer(source);
+    FileOpenStatus status = openLayersFromRDF(source);
 
     setupMenus();
     
@@ -1505,8 +1465,117 @@ MainWindowBase::openSessionFromRDF(FileSource source)
     CommandHistory::getInstance()->clear();
     CommandHistory::getInstance()->documentSaved();
     m_documentModified = false;
-    
-    return layerStatus;
+
+    return status;
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openLayersFromRDF(FileSource source)
+{
+    size_t rate = 0;
+
+    ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
+    connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
+
+    if (getMainModel()) {
+        rate = getMainModel()->getSampleRate();
+    } else if (Preferences::getInstance()->getResampleOnLoad()) {
+        rate = m_playSource->getSourceSampleRate();
+    }
+
+    RDFImporter importer
+        (QUrl::fromLocalFile(source.getLocalFilename()).toString(), rate);
+
+    if (!importer.isOK()) {
+        return FileOpenFailed;
+    }
+
+    std::vector<Model *> models = importer.getDataModels(&dialog);
+
+    dialog.setMessage(tr("Importing from RDF..."));
+
+    if (models.empty()) {
+        return FileOpenFailed;
+    }
+
+    std::set<Model *> added;
+
+    for (int i = 0; i < models.size(); ++i) {
+
+        Model *m = models[i];
+        WaveFileModel *w = dynamic_cast<WaveFileModel *>(m);
+
+        if (w) {
+
+            Pane *pane = addPaneToStack();
+            Layer *layer = 0;
+
+            if (m_timeRulerLayer) {
+                m_document->addLayerToView(pane, m_timeRulerLayer);
+            }
+
+            if (!getMainModel()) {
+                m_document->setMainModel(w);
+                layer = m_document->createMainModelLayer(LayerFactory::Waveform);
+            } else {
+                layer = m_document->createImportedLayer(w);
+            }
+
+            m_document->addLayerToView(pane, layer);
+
+            added.insert(w);
+            
+            for (int j = 0; j < models.size(); ++j) {
+
+                Model *dm = models[j];
+
+                if (dm == m) continue;
+                if (dm->getSourceModel() != m) continue;
+
+                layer = m_document->createImportedLayer(dm);
+
+                if (layer->isLayerOpaque() ||
+                    dynamic_cast<Colour3DPlotLayer *>(layer)) {
+
+                    Pane *singleLayerPane = addPaneToStack();
+                    if (m_timeRulerLayer) {
+                        m_document->addLayerToView(singleLayerPane, m_timeRulerLayer);
+                    }
+                    m_document->addLayerToView(singleLayerPane, layer);
+
+                } else {
+
+                    if (pane->getLayerCount() > 4) {
+                        pane = addPaneToStack();
+                    }
+
+                    m_document->addLayerToView(pane, layer);
+                }
+
+                added.insert(dm);
+            }
+        }
+    }
+
+    for (int i = 0; i < models.size(); ++i) {
+
+        Model *m = models[i];
+
+        if (added.find(m) == added.end()) {
+            
+            Layer *layer = m_document->createImportedLayer(m);
+            if (!layer) return FileOpenFailed;
+
+            Pane *singleLayerPane = addPaneToStack();
+            if (m_timeRulerLayer) {
+                m_document->addLayerToView(singleLayerPane, m_timeRulerLayer);
+            }
+            m_document->addLayerToView(singleLayerPane, layer);
+        }
+    }
+            
+    m_recentFiles.addFile(source.getLocation());
+    return FileOpenSucceeded;
 }
 
 void

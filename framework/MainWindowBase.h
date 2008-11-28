@@ -250,6 +250,7 @@ protected slots:
     virtual void inProgressSelectionChanged();
 
     virtual FileOpenStatus openSessionFromRDF(FileSource source);
+    virtual FileOpenStatus openLayersFromRDF(FileSource source);
 
     virtual void closeSession() = 0;
 
@@ -374,6 +375,8 @@ protected:
 
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
+
+    virtual bool shouldCreateNewSessionForRDFAudio() { return true; }
 
     virtual void connectLayerEditDialog(ModelDataTableDialog *dialog);
 
