@@ -1461,6 +1461,7 @@ MainWindowBase::openSessionFromRDF(FileSource source)
         connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
 
         FileSource audioSource(audioUrl, &dialog);
+
         if (!audioSource.isAvailable()) {
             std::cerr << "MainWindowBase::openSessionFromRDF: Cannot open audio URL \"" << audioUrl.toStdString() << "\" referred to in RDF, can't open a session without audio" << std::endl;
             return FileOpenFailed;
