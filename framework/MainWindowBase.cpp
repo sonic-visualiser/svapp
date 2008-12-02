@@ -355,6 +355,9 @@ MainWindowBase::updateMenuStates()
     bool haveClipboardContents =
         (m_viewManager &&
          !m_viewManager->getClipboard().empty());
+    bool haveTabularLayer =
+        (haveCurrentLayer &&
+         dynamic_cast<TabularModel *>(currentLayer->getModel()));
 
     emit canAddPane(haveMainModel);
     emit canDeleteCurrentPane(haveCurrentPane);
@@ -370,6 +373,7 @@ MainWindowBase::updateMenuStates()
     emit canDeleteCurrentLayer(haveCurrentLayer);
     emit canRenameLayer(haveCurrentLayer);
     emit canEditLayer(haveCurrentEditableLayer);
+    emit canEditLayerTabular(haveCurrentEditableLayer || haveTabularLayer);
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(havePlayTarget);
