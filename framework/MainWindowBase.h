@@ -377,7 +377,7 @@ protected:
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
 
-    virtual bool shouldCreateNewSessionForRDFAudio() { return true; }
+    virtual bool shouldCreateNewSessionForRDFAudio(bool *) { return true; }
 
     virtual void connectLayerEditDialog(ModelDataTableDialog *dialog);
 

@@ -878,8 +878,11 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 
     if (rdf) {
         if (rdfSession) {
-            if (!canImportLayer || shouldCreateNewSessionForRDFAudio()) {
+            bool cancel = false;
+            if (!canImportLayer || shouldCreateNewSessionForRDFAudio(&cancel)) {
                 return openSession(source);
+            } else if (cancel) {
+                return FileOpenCancelled;
             } else {
                 return openLayer(source);
             }
@@ -942,7 +945,10 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
     if (mode == AskUser) {
         if (getMainModel()) {
 
-            static bool prevSetAsMain = true;
+            QSettings settings;
+            settings.beginGroup("MainWindow");
+            bool prevSetAsMain = settings.value("newsessionforaudio", true).toBool();
+            settings.endGroup();
             bool setAsMain = true;
             
             QStringList items;
@@ -952,7 +958,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
             bool ok = false;
             QString item = ListInputDialog::getItem
                 (this, tr("Select target for import"),
-                 tr("You already have an audio waveform loaded.\nWhat would you like to do with the new audio file?"),
+                 tr("<b>Select a target for import</b><p>You already have an audio waveform loaded.\nWhat would you like to do with the new audio file?"),
                  items, prevSetAsMain ? 0 : 1, &ok);
             
             if (!ok || item.isEmpty()) {
@@ -962,7 +968,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
             }
             
             setAsMain = (item == items[0]);
-            prevSetAsMain = setAsMain;
+            settings.beginGroup("MainWindow");
+            settings.setValue("newsessionforaudio", setAsMain);
+            settings.endGroup();
 
             if (setAsMain) mode = ReplaceMainModel;
             else mode = CreateAdditionalModel;
@@ -1491,6 +1499,12 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         (QUrl::fromLocalFile(source.getLocalFilename()).toString(), rate);
 
     if (!importer.isOK()) {
+        if (importer.getErrorString() != "") {
+            QMessageBox::critical
+                (this, tr("Failed to import RDF"),
+                 tr("<b>Failed to import RDF</b><p>Importing data from RDF document at \"%1\" failed: %2</p>")
+                 .arg(source.getLocation()).arg(importer.getErrorString()));
+        }
         return FileOpenFailed;
     }
 
