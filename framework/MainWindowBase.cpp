@@ -868,6 +868,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+//        std::cerr << "RDF type: " << (int)rdfType << std::endl;
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1178,6 +1179,8 @@ MainWindowBase::openLayer(FileSource source)
     RDFImporter::RDFDocumentType rdfType = 
         RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path).toString());
 
+//    std::cerr << "RDF type:  (in layer) " << (int) rdfType << std::endl;
+
     if (rdfType != RDFImporter::NotRDF) {
 
         return openLayersFromRDF(source);
@@ -1349,6 +1352,8 @@ MainWindowBase::openSession(FileSource source)
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+
+//        std::cerr << "RDF type: " << (int)rdfType << std::endl;
 
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
