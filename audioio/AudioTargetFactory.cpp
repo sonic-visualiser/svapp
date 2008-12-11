@@ -20,6 +20,8 @@
 #include "AudioPortAudioTarget.h"
 #include "AudioPulseAudioTarget.h"
 
+#include "AudioCallbackPlayTarget.h"
+
 #include <QCoreApplication>
 
 #include <iostream>
