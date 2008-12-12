@@ -88,12 +88,18 @@ AudioGenerator::initialiseSampleDir()
 
         QString fileName(sampleResourceDir[i]);
         QFile file(sampleResourceDir.filePath(fileName));
+        QString target = QDir(m_sampleDir).filePath(fileName);
 
-        if (!file.copy(QDir(m_sampleDir).filePath(fileName))) {
+        if (!file.copy(target)) {
             std::cerr << "WARNING: AudioGenerator::getSampleDir: "
                       << "Unable to copy " << fileName.toStdString()
                       << " into temporary directory \""
                       << m_sampleDir.toStdString() << "\"" << std::endl;
+        } else {
+            QFile tf(target);
+            tf.setPermissions(tf.permissions() |
+                              QFile::WriteOwner |
+                              QFile::WriteUser);
         }
     }
 }
