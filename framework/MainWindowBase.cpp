@@ -1787,6 +1787,7 @@ MainWindowBase::zoomToFit()
     if (pixels > 4) pixels -= 4;
 
     size_t zoomLevel = (end - start) / pixels;
+    if (zoomLevel < 1) zoomLevel = 1;
 
     currentPane->setZoomLevel(zoomLevel);
     currentPane->setCentreFrame((start + end) / 2);
