@@ -53,6 +53,7 @@
 #include "data/fileio/MIDIFileWriter.h"
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
+#include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
 
 #include "data/fft/FFTDataServer.h"
@@ -859,9 +860,12 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
                            m_paneStack != 0 &&
                            m_paneStack->getCurrentPane() != 0);
 
-    bool rdf = (source.getExtension() == "rdf" ||
-                source.getExtension() == "n3" ||
-                source.getExtension() == "ttl");
+    bool rdf = (source.getExtension().toLower() == "rdf" ||
+                source.getExtension().toLower() == "n3" ||
+                source.getExtension().toLower() == "ttl");
+
+    bool audio = AudioFileReaderFactory::getKnownExtensions().contains
+        (source.getExtension().toLower());
 
     bool rdfSession = false;
     if (rdf) {
@@ -900,7 +904,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         }
     }
 
-    if ((status = openAudio(source, mode)) != FileOpenFailed) {
+    if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
         return status;
     } else if ((status = openSession(source)) != FileOpenFailed) {
 	return status;
@@ -1118,7 +1122,7 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 
     std::set<QString> extensions;
     PlaylistFileReader::getSupportedExtensions(extensions);
-    QString extension = source.getExtension();
+    QString extension = source.getExtension().toLower();
     if (extensions.find(extension) == extensions.end()) return FileOpenFailed;
 
     if (!source.isAvailable()) return FileOpenFailed;
@@ -1185,8 +1189,8 @@ MainWindowBase::openLayer(FileSource source)
 
         return openLayersFromRDF(source);
 
-    } else if (source.getExtension() == "svl" ||
-               (source.getExtension() == "xml" &&
+    } else if (source.getExtension().toLower() == "svl" ||
+               (source.getExtension().toLower() == "xml" &&
                 (SVFileReader::identifyXmlFile(source.getLocalFilename())
                  == SVFileReader::SVLayerFile))) {
 
@@ -1347,7 +1351,7 @@ MainWindowBase::openSession(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    if (source.getExtension() != "sv") {
+    if (source.getExtension().toLower() != "sv") {
 
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
@@ -1362,7 +1366,7 @@ MainWindowBase::openSession(FileSource source)
             return FileOpenFailed;
         }
 
-        if (source.getExtension() == "xml") {
+        if (source.getExtension().toLower() == "xml") {
             if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
                 SVFileReader::SVSessionFile) {
                 std::cerr << "This XML file looks like a session file, attempting to open it as a session" << std::endl;
@@ -1378,7 +1382,7 @@ MainWindowBase::openSession(FileSource source)
     BZipFileDevice *bzFile = 0;
     QFile *rawFile = 0;
 
-    if (source.getExtension() == "sv") {
+    if (source.getExtension().toLower() == "sv") {
         bzFile = new BZipFileDevice(source.getLocalFilename());
         if (!bzFile->open(QIODevice::ReadOnly)) {
             delete bzFile;
