@@ -503,7 +503,8 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 	    
             EditableDenseThreeDimensionalModel *model =
 		new EditableDenseThreeDimensionalModel
-                (sampleRate, windowSize, yBinCount);
+                (sampleRate, windowSize, yBinCount,
+                 EditableDenseThreeDimensionalModel::NoCompression);
 	    
 	    float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
 	    if (ok) model->setMinimumLevel(minimum);
