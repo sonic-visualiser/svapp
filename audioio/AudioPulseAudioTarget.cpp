@@ -165,9 +165,9 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
             if (pa_stream_get_latency(m_stream, &latency, &negative)) {
                 std::cerr << "AudioPulseAudioTarget::contextStateChanged: Failed to query latency" << std::endl;
             }
-            std::cerr << "Latency = " << latency << " usec" << std::endl;
+//            std::cerr << "Latency = " << latency << " usec" << std::endl;
             int latframes = (latency / 1000000.f) * float(m_sampleRate);
-            std::cerr << "that's " << latframes << " frames" << std::endl;
+//            std::cerr << "that's " << latframes << " frames" << std::endl;
             m_source->setTargetPlayLatency(latframes); //!!! buh
     }
 
