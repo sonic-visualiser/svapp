@@ -963,7 +963,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
             bool ok = false;
             QString item = ListInputDialog::getItem
                 (this, tr("Select target for import"),
-                 tr("<b>Select a target for import</b><p>You already have an audio waveform loaded.\nWhat would you like to do with the new audio file?"),
+                 tr("<b>Select a target for import</b><p>You already have an audio waveform loaded.<br>What would you like to do with the new audio file?"),
                  items, prevSetAsMain ? 0 : 1, &ok);
             
             if (!ok || item.isEmpty()) {
