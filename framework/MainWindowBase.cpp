@@ -1564,11 +1564,37 @@ MainWindowBase::openLayersFromRDF(FileSource source)
                 if (layer->isLayerOpaque() ||
                     dynamic_cast<Colour3DPlotLayer *>(layer)) {
 
+                    // these always go in a new pane, with nothing
+                    // else going in the same pane
+
                     Pane *singleLayerPane = addPaneToStack();
                     if (m_timeRulerLayer) {
                         m_document->addLayerToView(singleLayerPane, m_timeRulerLayer);
                     }
                     m_document->addLayerToView(singleLayerPane, layer);
+
+                } else if (layer->getLayerColourSignificance() ==
+                           Layer::ColourHasMeaningfulValue) {
+
+                    // these can go in a pane with something else, but
+                    // only if none of the something elses also have
+                    // this quality
+
+                    bool needNewPane = false;
+                    for (int i = 0; i < pane->getLayerCount(); ++i) {
+                        Layer *otherLayer = pane->getLayer(i);
+                        if (otherLayer &&
+                            (otherLayer->getLayerColourSignificance() ==
+                             Layer::ColourHasMeaningfulValue)) {
+                            needNewPane = true;
+                            break;
+                        }
+                    }
+                    if (needNewPane) {
+                        pane = addPaneToStack();
+                    }
+
+                    m_document->addLayerToView(pane, layer);
 
                 } else {
 
