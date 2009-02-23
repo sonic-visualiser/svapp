@@ -55,6 +55,7 @@ class PreferencesDialog;
 class QTreeView;
 class QPushButton;
 class OSCMessage;
+class MIDIInput;
 class KeyReference;
 class Labeller;
 class ModelDataTableDialog;
@@ -283,6 +284,8 @@ protected:
 
     OSCQueue                *m_oscQueue;
     OSCQueueStarter         *m_oscQueueStarter;
+
+    MIDIInput               *m_midiInput;
 
     RecentFiles              m_recentFiles;
     RecentFiles              m_recentTransforms;

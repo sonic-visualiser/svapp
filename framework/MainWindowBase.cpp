@@ -66,6 +66,7 @@
 #include "base/Preferences.h"
 
 #include "data/osc/OSCQueue.h"
+#include "data/midi/MIDIInput.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -112,6 +113,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_playTarget(0),
     m_oscQueue(0),
     m_oscQueueStarter(0),
+    m_midiInput(0),
     m_recentFiles("RecentFiles", 20),
     m_recentTransforms("RecentTransforms", 20),
     m_documentModified(false),
@@ -212,6 +214,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
 
+    m_midiInput = new MIDIInput(QApplication::applicationName());
+
     if (withOSCSupport) {
         m_oscQueueStarter = new OSCQueueStarter(this);
         connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
@@ -226,6 +230,7 @@ MainWindowBase::~MainWindowBase()
     delete m_playSource;
     delete m_viewManager;
     delete m_oscQueue;
+    delete m_midiInput;
     Profiles::getInstance()->dump();
 }
 
