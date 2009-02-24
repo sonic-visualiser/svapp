@@ -713,8 +713,11 @@ MainWindowBase::deleteSelected()
 void
 MainWindowBase::insertInstant()
 {
-    int frame = m_viewManager->getPlaybackFrame();
-    insertInstantAt(frame);
+    if (m_playSource && m_playSource->isPlaying()) {
+        insertInstantAt(m_playSource->getCurrentPlayingFrame());
+    } else {
+        insertInstantAt(m_viewManager->getPlaybackFrame());
+    }
 }
 
 void
@@ -1714,6 +1717,8 @@ MainWindowBase::createDocument()
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
     connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
             this, SLOT(alignmentFailed(QString, QString)));
+
+    emit replacedDocument();
 }
 
 bool

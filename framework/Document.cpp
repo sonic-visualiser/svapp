@@ -263,8 +263,13 @@ Document::setMainModel(WaveFileModel *model)
 {
     Model *oldMainModel = m_mainModel;
     m_mainModel = model;
-
+    
     emit modelAdded(m_mainModel);
+    if (model) {
+        emit activity(tr("Set main model to %1").arg(model->objectName()));
+    } else {
+        emit activity(tr("Clear main model"));
+    }
 
     std::vector<Layer *> obsoleteLayers;
     std::set<QString> failedTransformers;

@@ -236,6 +236,8 @@ signals:
                                   QString message);
     void alignmentFailed(QString transformName, QString message);
 
+    void activity(QString);
+
 protected:
     void releaseModel(Model *model);
 
