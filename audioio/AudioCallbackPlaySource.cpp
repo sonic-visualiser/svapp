@@ -427,7 +427,12 @@ AudioCallbackPlaySource::play(size_t startFrame)
     m_lastCurrentFrame = 0;
     m_playing = true;
     m_condition.wakeAll();
-    if (changed) emit playStatusChanged(m_playing);
+    if (changed) {
+        emit playStatusChanged(m_playing);
+        emit activity(tr("Play from %1").arg
+                      (RealTime::frame2RealTime
+                       (m_playStartFrame, m_sourceSampleRate).toText().c_str()));
+    }
 }
 
 void
@@ -437,8 +442,13 @@ AudioCallbackPlaySource::stop()
     m_playing = false;
     m_condition.wakeAll();
     m_lastRetrievalTimestamp = 0;
+    if (changed) {
+        emit playStatusChanged(m_playing);
+        emit activity(tr("Stop at %1").arg
+                      (RealTime::frame2RealTime
+                       (m_lastCurrentFrame, m_sourceSampleRate).toText().c_str()));
+    }
     m_lastCurrentFrame = 0;
-    if (changed) emit playStatusChanged(m_playing);
 }
 
 void
@@ -973,7 +983,6 @@ AudioCallbackPlaySource::setTimeStretch(float factor)
 
     if (m_timeStretcher || (factor == 1.f)) {
         // stretch ratio will be set in next process call if appropriate
-        return;
     } else {
         m_stretcherInputCount = getTargetChannelCount();
         RubberBandStretcher *stretcher = new RubberBandStretcher
@@ -994,8 +1003,9 @@ AudioCallbackPlaySource::setTimeStretch(float factor)
         }
         m_monoStretcher = monoStretcher;
         m_timeStretcher = stretcher;
-        return;
     }
+
+    emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
 size_t

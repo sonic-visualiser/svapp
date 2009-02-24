@@ -249,6 +249,8 @@ signals:
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
 
+    void activity(QString);
+
 public slots:
     void audioProcessingOverload();
 
