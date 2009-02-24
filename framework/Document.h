@@ -292,7 +292,7 @@ protected:
 	
 	virtual void execute();
 	virtual void unexecute();
-	virtual QString getName() const { return m_name; }
+	virtual QString getName() const;
 
     protected:
 	Document *m_d;
@@ -310,7 +310,7 @@ protected:
 	
 	virtual void execute();
 	virtual void unexecute();
-	virtual QString getName() const { return m_name; }
+	virtual QString getName() const;
 
     protected:
 	Document *m_d;

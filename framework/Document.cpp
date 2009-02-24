@@ -958,6 +958,14 @@ Document::AddLayerCommand::~AddLayerCommand()
     }
 }
 
+QString
+Document::AddLayerCommand::getName() const
+{
+    std::cerr << "Document::AddLayerCommand::getName(): Name is "
+              << m_name.toStdString() << std::endl;
+    return m_name;
+}
+
 void
 Document::AddLayerCommand::execute()
 {
@@ -1006,6 +1014,14 @@ Document::RemoveLayerCommand::~RemoveLayerCommand()
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
     }
+}
+
+QString
+Document::RemoveLayerCommand::getName() const
+{
+    std::cerr << "Document::RemoveLayerCommand::getName(): Name is "
+              << m_name.toStdString() << std::endl;
+    return m_name;
 }
 
 void
