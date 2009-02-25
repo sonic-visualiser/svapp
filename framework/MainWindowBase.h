@@ -27,6 +27,7 @@
 #include "view/ViewManager.h"
 #include "base/PropertyContainer.h"
 #include "base/RecentFiles.h"
+#include "base/FrameTimer.h"
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 #include "SVFileReader.h"
@@ -69,12 +70,12 @@ class ModelDataTableDialog;
  * to use different subclasses retaining the same general structure.
  */
 
-class MainWindowBase : public QMainWindow
+class MainWindowBase : public QMainWindow, public FrameTimer
 {
     Q_OBJECT
 
 public:
-    MainWindowBase(bool withAudioOutput, bool withOSCSupport);
+    MainWindowBase(bool withAudioOutput, bool withOSCSupport, bool withMIDIInput);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
@@ -103,6 +104,9 @@ public:
     virtual FileOpenStatus openSession(FileSource source);
 
     virtual bool saveSessionFile(QString path);
+
+    /// Implementation of FrameTimer interface method
+    virtual unsigned long getFrame() const;
 
 signals:
     // Used to toggle the availability of menu actions

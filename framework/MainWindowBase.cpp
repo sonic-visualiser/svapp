@@ -103,7 +103,9 @@ using std::map;
 using std::set;
 
 
-MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
+MainWindowBase::MainWindowBase(bool withAudioOutput,
+                               bool withOSCSupport,
+                               bool withMIDIInput) :
     m_document(0),
     m_paneStack(0),
     m_viewManager(0),
@@ -214,7 +216,9 @@ MainWindowBase::MainWindowBase(bool withAudioOutput, bool withOSCSupport) :
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
 
-    m_midiInput = new MIDIInput(QApplication::applicationName());
+    if (withMIDIInput) {
+        m_midiInput = new MIDIInput(QApplication::applicationName(), this);
+    }
 
     if (withOSCSupport) {
         m_oscQueueStarter = new OSCQueueStarter(this);
@@ -710,14 +714,22 @@ MainWindowBase::deleteSelected()
     }
 }
 
+// FrameTimer method
+
+unsigned long
+MainWindowBase::getFrame() const
+{
+    if (m_playSource && m_playSource->isPlaying()) {
+        return m_playSource->getCurrentPlayingFrame();
+    } else {
+        return m_viewManager->getPlaybackFrame();
+    }
+}    
+
 void
 MainWindowBase::insertInstant()
 {
-    if (m_playSource && m_playSource->isPlaying()) {
-        insertInstantAt(m_playSource->getCurrentPlayingFrame());
-    } else {
-        insertInstantAt(m_viewManager->getPlaybackFrame());
-    }
+    insertInstantAt(getFrame());
 }
 
 void
