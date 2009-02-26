@@ -1867,6 +1867,13 @@ MainWindowBase::jumpLeft()
 }
 
 void
+MainWindowBase::peekLeft()
+{
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (currentPane) currentPane->scroll(false, false, false);
+}
+
+void
 MainWindowBase::scrollRight()
 {
     Pane *currentPane = m_paneStack->getCurrentPane();
@@ -1878,6 +1885,13 @@ MainWindowBase::jumpRight()
 {
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (currentPane) currentPane->scroll(true, true);
+}
+
+void
+MainWindowBase::peekRight()
+{
+    Pane *currentPane = m_paneStack->getCurrentPane();
+    if (currentPane) currentPane->scroll(true, false, false);
 }
 
 void

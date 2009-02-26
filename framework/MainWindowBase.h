@@ -160,6 +160,8 @@ protected slots:
     virtual void scrollRight();
     virtual void jumpLeft();
     virtual void jumpRight();
+    virtual void peekLeft();
+    virtual void peekRight();
 
     virtual void showNoOverlays();
     virtual void showMinimalOverlays();
