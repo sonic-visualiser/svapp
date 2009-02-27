@@ -223,6 +223,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 	}
     }
 
+    rebuildRangeLists();
+
     m_mutex.unlock();
 
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
@@ -285,9 +287,13 @@ AudioCallbackPlaySource::removeModel(Model *model)
     size_t lastEnd = 0;
     for (std::set<Model *>::const_iterator i = m_models.begin();
 	 i != m_models.end(); ++i) {
-//	std::cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << std::endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	std::cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << std::endl;
+#endif
 	if ((*i)->getEndFrame() > lastEnd) lastEnd = (*i)->getEndFrame();
-//	std::cout << "(done, lastEnd now " << lastEnd << ")" << std::endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	std::cout << "(done, lastEnd now " << lastEnd << ")" << std::endl;
+#endif
     }
     m_lastModelEndFrame = lastEnd;
 

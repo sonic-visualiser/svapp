@@ -147,6 +147,7 @@ signals:
     void canSave(bool);
     void hideSplash();
     void replacedDocument();
+    void activity(QString);
 
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);

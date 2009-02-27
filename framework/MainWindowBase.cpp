@@ -1026,6 +1026,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
         mode = ReplaceMainModel;
     }
 
+    emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
+
     if (mode == ReplaceMainModel) {
 
         Model *prevMain = getMainModel();
@@ -1244,6 +1246,8 @@ MainWindowBase::openLayer(FileSource source)
             return FileOpenFailed;
         }
 
+        emit activity(tr("Import layer XML file \"%1\"").arg(source.getLocation()));
+
         m_recentFiles.addFile(source.getLocation());
 
         if (!source.isRemote()) {
@@ -1274,6 +1278,8 @@ MainWindowBase::openLayer(FileSource source)
             if (model) {
 
                 std::cerr << "MainWindowBase::openLayer: Have model" << std::endl;
+
+                emit activity(tr("Import MIDI file \"%1\"").arg(source.getLocation()));
 
                 Layer *newLayer = m_document->createImportedLayer(model);
 
@@ -1453,6 +1459,8 @@ MainWindowBase::openSession(FileSource source)
 
     if (ok) {
 
+        emit activity(tr("Import session file \"%1\"").arg(source.getLocation()));
+
 	setWindowTitle(tr("%1: %2")
                        .arg(QApplication::applicationName())
 		       .arg(source.getLocation()));
@@ -1544,6 +1552,8 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     if (models.empty()) {
         return FileOpenFailed;
     }
+
+    emit activity(tr("Import RDF document \"%1\"").arg(source.getLocation()));
 
     std::set<Model *> added;
 
