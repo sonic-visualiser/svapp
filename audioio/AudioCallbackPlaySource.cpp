@@ -648,10 +648,11 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     if (timeRatio != 1.0) {
         lastretrieved_t = lastretrieved_t / timeRatio;
         sincerequest_t = sincerequest_t / timeRatio;
+        latency_t = latency_t / timeRatio;
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    std::cerr << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", time ratio " << timeRatio << "\n  stretcher latency: " << stretchlat_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved: " << lastretrieved_t << std::endl;
+    std::cerr << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", time ratio " << timeRatio << "\n  stretcher latency: " << stretchlat_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved quantity: " << lastretrieved_t << std::endl;
 #endif
 
     RealTime end = RealTime::frame2RealTime(m_lastModelEndFrame, sourceRate);
@@ -721,11 +722,15 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
             m_playStartFramePassed = true;
         }
     }
+ 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "playing_t " << playing_t;
+#endif
 
     playing_t = playing_t - m_rangeStarts[inRange];
  
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    std::cerr << "playing_t as offset into range " << inRange << " (with start = " << m_rangeStarts[inRange] << ") = " << playing_t << std::endl;
+    std::cerr << " as offset into range " << inRange << " (start =" << m_rangeStarts[inRange] << " duration =" << m_rangeDurations[inRange] << ") = " << playing_t << std::endl;
 #endif
 
     while (playing_t < RealTime::zeroTime) {
@@ -1358,7 +1363,7 @@ AudioCallbackPlaySource::fillBuffers()
 	    bufferPtrs[c] = nonintlv + c * orig;
 	}
 
-	got = mixModels(f, orig, bufferPtrs);
+	got = mixModels(f, orig, bufferPtrs); // also modifies f
 
 	// and interleave into first half
 	for (size_t c = 0; c < channels; ++c) {
@@ -1440,7 +1445,7 @@ AudioCallbackPlaySource::fillBuffers()
 	    }
 	}
 
-	size_t got = mixModels(f, space, bufferPtrs);
+	size_t got = mixModels(f, space, bufferPtrs); // also modifies f
 
 	for (size_t c = 0; c < channels; ++c) {
 
@@ -1462,6 +1467,10 @@ AudioCallbackPlaySource::fillBuffers()
 
 	m_writeBufferFill = f;
 	if (readWriteEqual) m_readBufferFill = f;
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        std::cout << "Read buffer fill is now " << m_readBufferFill << std::endl;
+#endif
 
 	//!!! how do we know when ended? need to mark up a fully-buffered flag and check this if we find the buffers empty in getSourceSamples
     }
