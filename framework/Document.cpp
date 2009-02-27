@@ -966,8 +966,10 @@ Document::AddLayerCommand::~AddLayerCommand()
 QString
 Document::AddLayerCommand::getName() const
 {
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::AddLayerCommand::getName(): Name is "
               << m_name.toStdString() << std::endl;
+#endif
     return m_name;
 }
 
