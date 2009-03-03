@@ -2030,6 +2030,7 @@ MainWindowBase::ffwd()
     } else {
 
         size_t resolution = 0;
+        if (pane) frame = pane->alignFromReference(frame);
         if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
                                       frame, resolution, Layer::SnapRight)) {
             if (pane) frame = pane->alignToReference(frame);
@@ -2045,6 +2046,13 @@ MainWindowBase::ffwd()
     }
     
     m_viewManager->setPlaybackFrame(frame);
+
+    if (frame == getMainModel()->getEndFrame() &&
+        m_playSource &&
+        m_playSource->isPlaying() &&
+        !m_viewManager->getPlayLoopMode()) {
+        stop();
+    }
 }
 
 void
@@ -2068,6 +2076,44 @@ MainWindowBase::ffwdEnd()
 }
 
 void
+MainWindowBase::ffwdSimilar()
+{
+    if (!getMainModel()) return;
+
+    Layer *layer = getSnapLayer();
+    if (!layer) { ffwd(); return; }
+
+    Pane *pane = m_paneStack->getCurrentPane();
+    size_t sr = getMainModel()->getSampleRate();
+
+    int frame = m_viewManager->getPlaybackFrame();
+
+    size_t resolution = 0;
+    if (pane) frame = pane->alignFromReference(frame);
+    if (layer->snapToSimilarFeature(m_paneStack->getCurrentPane(),
+                                    frame, resolution, Layer::SnapRight)) {
+        if (pane) frame = pane->alignToReference(frame);
+    } else {
+        frame = getMainModel()->getEndFrame();
+    }
+        
+    if (frame < 0) frame = 0;
+
+    if (m_viewManager->getPlaySelectionMode()) {
+        frame = m_viewManager->constrainFrameToSelection(size_t(frame));
+    }
+    
+    m_viewManager->setPlaybackFrame(frame);
+
+    if (frame == getMainModel()->getEndFrame() &&
+        m_playSource &&
+        m_playSource->isPlaying() &&
+        !m_viewManager->getPlayLoopMode()) {
+        stop();
+    }
+}
+
+void
 MainWindowBase::rewind()
 {
     if (!getMainModel()) return;
@@ -2086,9 +2132,7 @@ MainWindowBase::rewind()
         RealTime ct = RealTime::frame2RealTime(frame, sr);
         ct = ct - RealTime::fromSeconds(0.25);
         if (ct < RealTime::zeroTime) ct = RealTime::zeroTime;
-//        std::cerr << "rewind: frame " << frame << " -> ";
         frame = RealTime::realTime2Frame(ct, sr);
-//        std::cerr << frame << std::endl;
     }
 
     if (!layer) {
@@ -2102,9 +2146,9 @@ MainWindowBase::rewind()
     } else {
 
         size_t resolution = 0;
+        if (pane) frame = pane->alignFromReference(frame);
         if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
                                       frame, resolution, Layer::SnapLeft)) {
-            
             if (pane) frame = pane->alignToReference(frame);
         } else {
             frame = getMainModel()->getStartFrame();
@@ -2131,6 +2175,37 @@ MainWindowBase::rewindStart()
         frame = m_viewManager->constrainFrameToSelection(frame);
     }
 
+    m_viewManager->setPlaybackFrame(frame);
+}
+
+void
+MainWindowBase::rewindSimilar()
+{
+    if (!getMainModel()) return;
+
+    Layer *layer = getSnapLayer();
+    if (!layer) { rewind(); return; }
+
+    Pane *pane = m_paneStack->getCurrentPane();
+    size_t sr = getMainModel()->getSampleRate();
+
+    int frame = m_viewManager->getPlaybackFrame();
+
+    size_t resolution = 0;
+    if (pane) frame = pane->alignFromReference(frame);
+    if (layer->snapToSimilarFeature(m_paneStack->getCurrentPane(),
+                                    frame, resolution, Layer::SnapLeft)) {
+        if (pane) frame = pane->alignToReference(frame);
+    } else {
+        frame = getMainModel()->getStartFrame();
+    }
+        
+    if (frame < 0) frame = 0;
+
+    if (m_viewManager->getPlaySelectionMode()) {
+        frame = m_viewManager->constrainFrameToSelection(size_t(frame));
+    }
+    
     m_viewManager->setPlaybackFrame(frame);
 }
 

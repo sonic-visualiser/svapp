@@ -180,6 +180,9 @@ protected slots:
     virtual void rewindStart();
     virtual void stop();
 
+    virtual void ffwdSimilar();
+    virtual void rewindSimilar();
+
     virtual void deleteCurrentPane();
     virtual void deleteCurrentLayer();
     virtual void editCurrentLayer();
