@@ -32,7 +32,7 @@
 #include "plugin/api/alsa/seq_event.h"
 
 #include <iostream>
-#include <math.h>
+#include <cmath>
 
 #include <QDir>
 #include <QFile>
