@@ -151,6 +151,7 @@ signals:
 
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);
+    virtual void resizeConstrained(QSize);
 
 protected slots:
     virtual void zoomIn();
@@ -334,7 +335,7 @@ protected:
 	PaneCallback(MainWindowBase *mw) : m_mw(mw) { }
 	virtual Pane *addPane() { return m_mw->addPaneToStack(); }
 	virtual void setWindowSize(int width, int height) {
-	    m_mw->resize(width, height);
+	    m_mw->resizeConstrained(QSize(width, height));
 	}
 	virtual void addSelection(int start, int end) {
 	    m_mw->m_viewManager->addSelection(Selection(start, end));

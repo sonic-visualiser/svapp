@@ -90,6 +90,7 @@
 #include <QCheckBox>
 #include <QRegExp>
 #include <QScrollArea>
+#include <QDesktopWidget>
 
 #include <iostream>
 #include <cstdio>
@@ -236,6 +237,16 @@ MainWindowBase::~MainWindowBase()
     delete m_oscQueue;
     delete m_midiInput;
     Profiles::getInstance()->dump();
+}
+
+void
+MainWindowBase::resizeConstrained(QSize size)
+{
+    QDesktopWidget *desktop = QApplication::desktop();
+    QRect available = desktop->availableGeometry();
+    QSize actual(std::min(size.width(), available.width()),
+                 std::min(size.height(), available.height()));
+    resize(actual);
 }
 
 void
