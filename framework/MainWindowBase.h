@@ -31,7 +31,7 @@
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 #include "SVFileReader.h"
-#include "widgets/FileFinder.h"
+#include "data/fileio/FileFinder.h"
 #include "data/fileio/FileSource.h"
 #include "data/osc/OSCQueue.h"
 #include <map>

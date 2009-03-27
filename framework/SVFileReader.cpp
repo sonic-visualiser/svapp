@@ -24,7 +24,7 @@
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "data/fileio/FileSource.h"
 
-#include "widgets/FileFinder.h"
+#include "data/fileio/FileFinder.h"
 
 #include "data/model/WaveFileModel.h"
 #include "data/model/EditableDenseThreeDimensionalModel.h"
