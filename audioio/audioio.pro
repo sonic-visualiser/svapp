@@ -1,7 +1,7 @@
 TEMPLATE = lib
 
 SV_UNIT_PACKAGES = fftw3f samplerate jack portaudio-2.0 libpulse rubberband
-load(../sv.prf)
+load(../prf/sv.prf)
 
 CONFIG += sv staticlib qt thread warn_on stl rtti exceptions
 QT -= gui
