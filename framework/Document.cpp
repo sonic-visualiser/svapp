@@ -1026,8 +1026,10 @@ Document::RemoveLayerCommand::~RemoveLayerCommand()
 QString
 Document::RemoveLayerCommand::getName() const
 {
+#ifdef DEBUG_DOCUMENT
     std::cerr << "Document::RemoveLayerCommand::getName(): Name is "
               << m_name.toStdString() << std::endl;
+#endif
     return m_name;
 }
 
