@@ -2636,12 +2636,8 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
     // Check whether we need to add or remove model from play source
     Model *model = layer->getModel();
     if (model) {
-        Model *source = model->getSourceModel();
         if (inAView) {
             m_playSource->addModel(model);
-            if (source && source != model) {
-                m_playSource->addModel(source);
-            }
         } else {
             bool found = false;
             for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
@@ -2649,8 +2645,7 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
                 if (!pane) continue;
                 for (int j = 0; j < pane->getLayerCount(); ++j) {
                     Layer *pl = pane->getLayer(j);
-                    if (pl && (pl->getModel() == model ||
-                               pl->getModel() == source)) {
+                    if (pl && (pl->getModel() == model)) {
                         found = true;
                         break;
                     }
@@ -2659,9 +2654,6 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
             }
             if (!found) {
                 m_playSource->removeModel(model);
-                if (source && source != model) {
-                    m_playSource->removeModel(source);
-                }
             }
         }
     }
