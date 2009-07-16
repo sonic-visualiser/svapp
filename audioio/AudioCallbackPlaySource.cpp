@@ -719,7 +719,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
             if (/*!!! sincerequest_t > RealTime::zeroTime && */
                 m_playStartedAt + latency_t + stretchlat_t <
                 RealTime::fromSeconds(currentTime)) {
-                std::cerr << "but we've been playing for long enough that I think we should disregard it (it probably results from loop wrapping)" << std::endl;
+//                std::cerr << "but we've been playing for long enough that I think we should disregard it (it probably results from loop wrapping)" << std::endl;
                 m_playStartFramePassed = true;
             } else {
                 playing_t = playstart_t;
