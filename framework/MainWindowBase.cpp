@@ -230,6 +230,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
 MainWindowBase::~MainWindowBase()
 {
+    std::cerr << "MainWindowBase::~MainWindowBase" << std::endl;
     if (m_playTarget) m_playTarget->shutdown();
 //    delete m_playTarget;
     delete m_playSource;

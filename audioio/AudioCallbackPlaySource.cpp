@@ -99,6 +99,9 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
 
 AudioCallbackPlaySource::~AudioCallbackPlaySource()
 {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "AudioCallbackPlaySource::~AudioCallbackPlaySource entering" << std::endl;
+#endif
     m_exiting = true;
 
     if (m_fillThread) {
@@ -128,6 +131,9 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "AudioCallbackPlaySource::~AudioCallbackPlaySource finishing" << std::endl;
+#endif
 }
 
 void

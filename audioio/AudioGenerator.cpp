@@ -65,6 +65,9 @@ AudioGenerator::AudioGenerator() :
 
 AudioGenerator::~AudioGenerator()
 {
+#ifdef DEBUG_AUDIO_GENERATOR
+    std::cerr << "AudioGenerator::~AudioGenerator" << std::endl;
+#endif
 }
 
 void

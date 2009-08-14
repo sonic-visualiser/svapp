@@ -141,6 +141,9 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 void 
 AudioPortAudioTarget::shutdown()
 {
+#ifdef DEBUG_PORT_AUDIO_TARGET
+    std::cerr << "AudioPortAudioTarget::shutdown" << std::endl;
+#endif
     m_done = true;
 }
 
@@ -181,10 +184,15 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
                               PaStreamCallbackFlags)
 {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET    
-    std::cout << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;
+    std::cerr << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;
 #endif
 
-    if (!m_source || m_done) return 0;
+    if (!m_source || m_done) {
+#ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET
+        std::cerr << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << std::endl;
+#endif
+        return 0;
+    }
 
     float *output = (float *)outputBuffer;
 
