@@ -115,7 +115,7 @@ protected:
 
     typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
 
-    typedef std::set<NoteOff, NoteOff::Comparator> NoteOffSet;
+    typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
     QMutex m_mutex;
