@@ -211,6 +211,7 @@ AudioGenerator::loadPluginFor(const Model *model)
 
     if (configurationXml != "") {
         PluginXml(plugin).setParametersFromXml(configurationXml);
+        setSampleDir(plugin);
     }
 
     configurationXml = PluginXml(plugin).toXmlString();
@@ -570,7 +571,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [sparse]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+		std::cerr << "mixModel [sparse]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 		plugin->sendEvent(eventTime, &offEv);
@@ -603,7 +604,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	    offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [sparse]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+            std::cerr << "mixModel [sparse]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 	    plugin->sendEvent(eventTime, &offEv);
@@ -667,8 +668,11 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
     size_t got = blocks * m_pluginBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    std::cout << "mixModel [note]: frames " << frames
-	      << ", blocks " << blocks << std::endl;
+    Vamp::RealTime startTime = Vamp::RealTime::frame2RealTime
+        (startFrame, m_sourceSampleRate);
+
+    std::cout << "mixModel [note]: frames " << frames << " from " << startFrame
+	      << " (time " << startTime << "), blocks " << blocks << std::endl;
 #endif
 
     snd_seq_event_t onEv;
@@ -714,7 +718,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 		offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [note]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+		std::cerr << "mixModel [note]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 		plugin->sendEvent(eventTime, &offEv);
@@ -739,7 +743,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	    plugin->sendEvent(eventTime, &onEv);
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [note]: point at frame " << pliFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
+	    std::cout << "mixModel [note]: point at frame " << pliFrame << ", pitch " << (int)onEv.data.note.note << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
 #endif
 	    
 	    size_t duration = pli->duration;
@@ -750,6 +754,10 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	    noff.pitch = onEv.data.note.note;
 	    noff.frame = pliFrame + duration;
 	    noteOffs.insert(noff);
+
+#ifdef DEBUG_AUDIO_GENERATOR
+            std::cout << "mixModel [note]: recording note off at " << noff.frame << std::endl;
+#endif
 	}
 
 	while (noteOffs.begin() != noteOffs.end() &&
@@ -762,7 +770,7 @@ AudioGenerator::mixNoteModel(NoteModel *nm,
 	    offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [note]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << std::endl;
+            std::cerr << "mixModel [note]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 	    plugin->sendEvent(eventTime, &offEv);
