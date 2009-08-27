@@ -4,7 +4,7 @@ SV_UNIT_PACKAGES = vamp vamp-hostsdk # required because we use transform headers
 load(../prf/sv.prf)
 
 CONFIG += sv staticlib qt thread warn_on stl rtti exceptions
-QT += xml
+QT += xml network
 
 TARGET = svframework
 
@@ -15,9 +15,11 @@ MOC_DIR = tmp_moc
 
 HEADERS += Document.h \
            MainWindowBase.h \
-           SVFileReader.h
+           SVFileReader.h \
+           VersionTester.h
 
 SOURCES += Document.cpp \
            MainWindowBase.cpp \
-           SVFileReader.cpp
+           SVFileReader.cpp \
+           VersionTester.cpp
 

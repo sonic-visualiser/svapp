@@ -268,6 +268,8 @@ protected slots:
 
     virtual void closeSession() = 0;
 
+    virtual void newerVersionAvailable(QString) { }
+
 protected:
     QString                  m_sessionFile;
     QString                  m_audioFile;

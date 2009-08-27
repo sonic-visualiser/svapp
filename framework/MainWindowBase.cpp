@@ -2817,3 +2817,4 @@ MainWindowBase::openHelpUrl(QString url)
 #endif
 }
 
+    
