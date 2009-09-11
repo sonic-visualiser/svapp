@@ -515,6 +515,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 	    int dataset = attributes.value("dataset").trimmed().toInt(&ok);
 	    if (ok) m_awaitingDatasets[dataset] = id;
 
+            int startFrame = attributes.value("startFrame").trimmed().toInt(&ok);
+            if (ok) model->setStartFrame(startFrame);
+
             model->setObjectName(name);
 	    m_models[id] = model;
 	    return true;
