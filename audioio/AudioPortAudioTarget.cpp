@@ -22,6 +22,10 @@
 #include <cassert>
 #include <cmath>
 
+#ifndef _WIN32
+#include <pthread.h>
+#endif
+
 //#define DEBUG_AUDIO_PORT_AUDIO_TARGET 1
 
 AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
@@ -30,6 +34,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     m_bufferSize(0),
     m_sampleRate(0),
     m_latency(0),
+    m_prioritySet(false),
     m_done(false)
 {
     PaError err;
@@ -54,7 +59,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     op.device = Pa_GetDefaultOutputDevice();
     op.channelCount = 2;
     op.sampleFormat = paFloat32;
-    op.suggestedLatency = 0.2;
+    op.suggestedLatency = 1.0;
     op.hostApiSpecificStreamInfo = 0;
     err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                         paFramesPerBufferUnspecified,
@@ -192,6 +197,19 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
         std::cerr << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << std::endl;
 #endif
         return 0;
+    }
+
+    if (!m_prioritySet) {
+#ifndef _WIN32
+        sched_param param;
+        param.sched_priority = 20;
+        if (pthread_setschedparam(pthread_self(), SCHED_RR, &param)) {
+            std::cerr << "AudioPortAudioTarget: NOTE: couldn't set RT scheduling class" << std::endl;
+        } else {
+            std::cerr << "AudioPortAudioTarget: NOTE: successfully set RT scheduling class" << std::endl;
+        }
+#endif
+        m_prioritySet = true;
     }
 
     float *output = (float *)outputBuffer;

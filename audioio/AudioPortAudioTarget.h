@@ -59,6 +59,7 @@ protected:
     int m_bufferSize;
     int m_sampleRate;
     int m_latency;
+    bool m_prioritySet;
     bool m_done;
 };
 
