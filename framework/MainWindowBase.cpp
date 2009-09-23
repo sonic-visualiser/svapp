@@ -2646,7 +2646,9 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
                 if (!pane) continue;
                 for (int j = 0; j < pane->getLayerCount(); ++j) {
                     Layer *pl = pane->getLayer(j);
-                    if (pl && (pl->getModel() == model)) {
+                    if (pl &&
+                        !dynamic_cast<TimeRulerLayer *>(pl) &&
+                        (pl->getModel() == model)) {
                         found = true;
                         break;
                     }
