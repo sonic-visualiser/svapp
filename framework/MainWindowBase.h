@@ -129,6 +129,7 @@ signals:
     void canPaste(bool);
     void canInsertInstant(bool);
     void canInsertInstantsAtBoundaries(bool);
+    void canInsertItemAtSelection(bool);
     void canRenumberInstants(bool);
     void canDeleteCurrentLayer(bool);
     void canZoom(bool);
@@ -224,6 +225,8 @@ protected slots:
     virtual void insertInstant();
     virtual void insertInstantAt(size_t);
     virtual void insertInstantsAtBoundaries();
+    virtual void insertItemAtSelection();
+    virtual void insertItemAt(size_t, size_t);
     virtual void renumberInstants();
 
     virtual void documentModified();

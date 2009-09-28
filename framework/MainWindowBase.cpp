@@ -34,6 +34,8 @@
 #include "layer/SliceLayer.h"
 #include "layer/SliceableLayer.h"
 #include "layer/ImageLayer.h"
+#include "layer/NoteLayer.h"
+#include "layer/RegionLayer.h"
 
 #include "widgets/ListInputDialog.h"
 #include "widgets/CommandHistory.h"
@@ -371,6 +373,10 @@ MainWindowBase::updateMenuStates()
     bool haveCurrentTimeInstantsLayer = 
 	(haveCurrentLayer &&
 	 dynamic_cast<TimeInstantLayer *>(currentLayer));
+    bool haveCurrentDurationLayer = 
+	(haveCurrentLayer &&
+	 (dynamic_cast<NoteLayer *>(currentLayer) ||
+          dynamic_cast<RegionLayer *>(currentLayer)));
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
          dynamic_cast<Colour3DPlotLayer *>(currentLayer));
@@ -404,6 +410,7 @@ MainWindowBase::updateMenuStates()
     emit canPaste(haveClipboardContents);
     emit canInsertInstant(haveCurrentPane);
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
+    emit canInsertItemAtSelection(haveCurrentPane && haveSelection && haveCurrentDurationLayer);
     emit canRenumberInstants(haveCurrentTimeInstantsLayer && haveSelection);
     emit canPlaySelection(haveMainModel && havePlayTarget && haveSelection);
     emit canClearSelection(haveSelection);
@@ -753,8 +760,8 @@ MainWindowBase::insertInstantsAtBoundaries()
         size_t start = i->getStartFrame();
         size_t end = i->getEndFrame();
         if (start != end) {
-            insertInstantAt(i->getStartFrame());
-            insertInstantAt(i->getEndFrame());
+            insertInstantAt(start);
+            insertInstantAt(end);
         }
     }
 }
@@ -843,6 +850,84 @@ MainWindowBase::insertInstantAt(size_t frame)
             Command *c = command->finish();
             if (c) CommandHistory::getInstance()->addCommand(c, false);
         }
+    }
+}
+
+void
+MainWindowBase::insertItemAtSelection()
+{
+    MultiSelection::SelectionList selections = m_viewManager->getSelections();
+    for (MultiSelection::SelectionList::iterator i = selections.begin();
+         i != selections.end(); ++i) {
+        size_t start = i->getStartFrame();
+        size_t end = i->getEndFrame();
+        if (start < end) {
+            insertItemAt(start, end - start);
+        }
+    }
+}
+
+void
+MainWindowBase::insertItemAt(size_t frame, size_t duration)
+{
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (!pane) {
+        return;
+    }
+
+    // ugh!
+
+    size_t alignedStart = pane->alignFromReference(frame);
+    size_t alignedEnd = pane->alignFromReference(frame + duration);
+    if (alignedStart >= alignedEnd) return;
+    size_t alignedDuration = alignedEnd - alignedStart;
+
+    Command *c = 0;
+
+    QString name = tr("Add Item at %1 s")
+        .arg(RealTime::frame2RealTime
+             (alignedStart,
+              getMainModel()->getSampleRate())
+             .toText(false).c_str());
+
+    Layer *layer = pane->getSelectedLayer();
+    if (!layer) return;
+
+    RegionModel *rm = dynamic_cast<RegionModel *>(layer->getModel());
+    if (rm) {
+        RegionModel::Point point(alignedStart,
+                                 rm->getValueMinimum(), 
+                                 alignedDuration,
+                                 "");
+        RegionModel::EditCommand *command =
+            new RegionModel::EditCommand(rm, tr("Add Point"));
+        command->addPoint(point);
+        command->setName(name);
+        c = command->finish();
+    }
+
+    if (c) {
+        CommandHistory::getInstance()->addCommand(c, false);
+        return;
+    }
+
+    NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
+    if (nm) {
+        NoteModel::Point point(alignedStart,
+                               rm->getValueMinimum(),
+                               alignedDuration,
+                               1.f,
+                               "");
+        NoteModel::EditCommand *command =
+            new NoteModel::EditCommand(nm, tr("Add Point"));
+        command->addPoint(point);
+        command->setName(name);
+        c = command->finish();
+    }
+
+    if (c) {
+        CommandHistory::getInstance()->addCommand(c, false);
+        return;
     }
 }
 
