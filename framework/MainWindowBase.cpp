@@ -896,7 +896,7 @@ MainWindowBase::insertItemAt(size_t frame, size_t duration)
     RegionModel *rm = dynamic_cast<RegionModel *>(layer->getModel());
     if (rm) {
         RegionModel::Point point(alignedStart,
-                                 rm->getValueMinimum(), 
+                                 rm->getValueMaximum() + 1,
                                  alignedDuration,
                                  "");
         RegionModel::EditCommand *command =
