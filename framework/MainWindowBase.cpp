@@ -1620,6 +1620,8 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 {
     size_t rate = 0;
 
+    std::cerr << "MainWindowBase::openLayersFromRDF" << std::endl;
+
     ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
 
@@ -1647,6 +1649,9 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     dialog.setMessage(tr("Importing from RDF..."));
 
     if (models.empty()) {
+        QMessageBox::critical
+            (this, tr("Failed to import RDF"),
+             tr("<b>Failed to import RDF</b><p>No suitable data models found for import from RDF document at \"%1\"</p>").arg(source.getLocation()));
         return FileOpenFailed;
     }
 
