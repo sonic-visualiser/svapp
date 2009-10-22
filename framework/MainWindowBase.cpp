@@ -2625,6 +2625,8 @@ MainWindowBase::playbackFrameChanged(unsigned long frame)
 {
     if (!(m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
 
+    updatePositionStatusDisplays();
+
     RealTime now = RealTime::frame2RealTime
         (frame, getMainModel()->getSampleRate());
 

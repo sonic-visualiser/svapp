@@ -396,6 +396,7 @@ protected:
 
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
+    virtual void updatePositionStatusDisplays() const = 0;
 
     virtual bool shouldCreateNewSessionForRDFAudio(bool *) { return true; }
 
