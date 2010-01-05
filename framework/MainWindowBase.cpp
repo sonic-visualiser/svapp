@@ -404,7 +404,7 @@ MainWindowBase::updateMenuStates()
     emit canEditLayerTabular(haveCurrentEditableLayer || haveTabularLayer);
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
-    emit canPlay(havePlayTarget);
+    emit canPlay(haveMainModel && havePlayTarget);
     emit canFfwd(true);
     emit canRewind(true);
     emit canPaste(haveClipboardContents);
