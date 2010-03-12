@@ -394,7 +394,9 @@ AudioCallbackPlaySource::play(size_t startFrame)
 
     startFrame = m_viewManager->alignReferenceToPlaybackFrame(startFrame);
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
     std::cerr << startFrame << std::endl;
+#endif
 
     // The fill thread will automatically empty its buffers before
     // starting again if we have not so far been playing, but not if
