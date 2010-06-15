@@ -305,7 +305,33 @@ AudioPulseAudioTarget::streamStateChanged()
             break;
 
         case PA_STREAM_READY:
+        {
             std::cerr << "AudioPulseAudioTarget::streamStateChanged: Ready" << std::endl;
+
+            pa_usec_t latency = 0;
+            int negative = 0;
+            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
+                std::cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << std::endl;
+            }
+            std::cerr << "Latency = " << latency << " usec" << std::endl;
+            int latframes = (latency / 1000000.f) * float(m_sampleRate);
+            std::cerr << "that's " << latframes << " frames" << std::endl;
+
+            const pa_buffer_attr *attr;
+            if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
+                std::cerr << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << std::endl;
+                m_source->setTarget(this, m_bufferSize);
+                m_source->setTargetSampleRate(m_sampleRate);
+                m_source->setTargetPlayLatency(latframes);
+            } else {
+                std::cerr << "AudioPulseAudioTarget::streamStateChanged: stream max length = " << attr->maxlength << std::endl;
+                int latency = attr->tlength;
+                std::cerr << "latency = " << latency << std::endl;
+                m_source->setTarget(this, attr->maxlength);
+                m_source->setTargetSampleRate(m_sampleRate);
+                m_source->setTargetPlayLatency(latframes);
+            }
+        }
             break;
 
         case PA_STREAM_FAILED:
@@ -344,7 +370,6 @@ AudioPulseAudioTarget::contextStateChanged()
             break;
 
         case PA_CONTEXT_READY:
-        {
             std::cerr << "AudioPulseAudioTarget::contextStateChanged: Ready"
                       << std::endl;
 
@@ -355,7 +380,6 @@ AudioPulseAudioTarget::contextStateChanged()
             pa_stream_set_write_callback(m_stream, streamWriteStatic, this);
             pa_stream_set_overflow_callback(m_stream, streamOverflowStatic, this);
             pa_stream_set_underflow_callback(m_stream, streamUnderflowStatic, this);
-
             if (pa_stream_connect_playback
                 (m_stream, 0, 0,
                  pa_stream_flags_t(PA_STREAM_INTERPOLATE_TIMING |
@@ -364,32 +388,7 @@ AudioPulseAudioTarget::contextStateChanged()
                 std::cerr << "AudioPulseAudioTarget: Failed to connect playback stream" << std::endl;
             }
 
-            pa_usec_t latency = 0;
-            int negative = 0;
-            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
-                std::cerr << "AudioPulseAudioTarget::contextStateChanged: Failed to query latency" << std::endl;
-            }
-            std::cerr << "Latency = " << latency << " usec" << std::endl;
-            int latframes = (latency / 1000000.f) * float(m_sampleRate);
-            std::cerr << "that's " << latframes << " frames" << std::endl;
-
-            const pa_buffer_attr *attr;
-            if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
-                std::cerr << "AudioPulseAudioTarget::contextStateChanged: Cannot query stream buffer attributes" << std::endl;
-                m_source->setTarget(this, 4096);
-                m_source->setTargetSampleRate(m_sampleRate);
-                m_source->setTargetPlayLatency(latframes);
-            } else {
-                std::cerr << "AudioPulseAudioTarget::contextStateChanged: stream max length = " << attr->maxlength << std::endl;
-                int latency = attr->tlength;
-                std::cerr << "latency = " << latency << std::endl;
-                m_source->setTarget(this, attr->maxlength);
-                m_source->setTargetSampleRate(m_sampleRate);
-                m_source->setTargetPlayLatency(latframes);
-            }
-
             break;
-        }
 
         case PA_CONTEXT_TERMINATED:
             std::cerr << "AudioPulseAudioTarget::contextStateChanged: Terminated" << std::endl;
