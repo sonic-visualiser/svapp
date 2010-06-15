@@ -531,7 +531,13 @@ MainWindowBase::currentPaneChanged(Pane *p)
     View::ModelSet sources;
     for (View::ModelSet::iterator mi = soloModels.begin();
          mi != soloModels.end(); ++mi) {
-        if (*mi && (*mi)->getSourceModel()) {
+        // If a model in this pane is derived from something else,
+        // then we want to play that model as well -- if the model
+        // that's derived from it is not something that is itself
+        // individually playable (e.g. a waveform)
+        if (*mi &&
+            !dynamic_cast<RangeSummarisableTimeValueModel *>(*mi) &&
+            (*mi)->getSourceModel()) {
             sources.insert((*mi)->getSourceModel());
         }
     }
