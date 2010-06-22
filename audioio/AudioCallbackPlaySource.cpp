@@ -37,7 +37,7 @@ using namespace RubberBand;
 //#define DEBUG_AUDIO_PLAY_SOURCE 1
 //#define DEBUG_AUDIO_PLAY_SOURCE_PLAYING 1
 
-const size_t AudioCallbackPlaySource::m_ringBufferSize = 131071;
+static const size_t DEFAULT_RING_BUFFER_SIZE = 131071;
 
 AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
                                                  QString clientName) :
@@ -62,6 +62,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_playing(false),
     m_exiting(false),
     m_lastModelEndFrame(0),
+    m_ringBufferSize(DEFAULT_RING_BUFFER_SIZE),
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_auditioningPlugin(0),
@@ -529,9 +530,20 @@ void
 AudioCallbackPlaySource::setTarget(AudioCallbackPlayTarget *target, size_t size)
 {
     m_target = target;
-//    std::cout << "AudioCallbackPlaySource::setTargetBlockSize() -> " << size << std::endl;
-    assert(size < m_ringBufferSize);
-    m_blockSize = size;
+    std::cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << std::endl;
+    if (size != 0) {
+        m_blockSize = size;
+    }
+    if (size * 4 > m_ringBufferSize) {
+        std::cerr << "AudioCallbackPlaySource::setTarget: Buffer size "
+                  << size << " > a quarter of ring buffer size "
+                  << m_ringBufferSize << ", calling for more ring buffer"
+                  << std::endl;
+        m_ringBufferSize = size * 4;
+        if (m_writeBuffers && !m_writeBuffers->empty()) {
+            clearRingBuffers();
+        }
+    }
 }
 
 size_t
@@ -684,6 +696,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         RealTime playing_t = bufferedto_t
             - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
             + sincerequest_t;
+        if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
         size_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
         return m_viewManager->alignPlaybackFrameToReference(frame);
     }
@@ -1033,6 +1046,9 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
     int count = ucount;
 
     if (!m_playing) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+        std::cerr << "AudioCallbackPlaySource::getSourceSamples: Not playing" << std::endl;
+#endif
 	for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
 	    for (int i = 0; i < count; ++i) {
 		buffer[ch][i] = 0.0;
@@ -1061,7 +1077,9 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
             std::cerr << "WARNING: AudioCallbackPlaySource::getSourceSamples: "
                       << "Ring buffer for channel " << ch << " has only "
-                      << rs << " (of " << count << ") samples available, "
+                      << rs << " (of " << count << ") samples available ("
+                      << "ring buffer size is " << rb->getSize() << ", write "
+                      << "space " << rb->getWriteSpace() << "), "
                       << "reducing request size" << std::endl;
 #endif
             count = rs;
@@ -1297,6 +1315,9 @@ AudioCallbackPlaySource::fillBuffers()
     bool readWriteEqual = (m_readBuffers == m_writeBuffers);
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
+    if (!readWriteEqual) {
+        std::cout << "AudioCallbackPlaySourceFillThread: note read buffers != write buffers" << std::endl;
+    }
     std::cout << "AudioCallbackPlaySourceFillThread: filling " << space << " frames" << std::endl;
 #endif
 
@@ -1665,6 +1686,9 @@ AudioCallbackPlaySource::unifyRingBuffers()
 		    m_lastModelEndFrame) {
 		    // OK, we don't have enough and there's more to
 		    // read -- don't unify until we can do better
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+                    std::cerr << "AudioCallbackPlaySource::unifyRingBuffers: Not unifying: write buffer has less (" << wb->getReadSpace() << ") than " << m_blockSize*2 << " to read and write buffer fill (" << m_writeBufferFill << ") is not close to end frame (" << m_lastModelEndFrame << ")" << std::endl;
+#endif
 		    return;
 		}
 	    }
@@ -1682,7 +1706,9 @@ AudioCallbackPlaySource::unifyRingBuffers()
 	else rf = 0;
     }
     
-    //std::cout << "m_readBufferFill = " << m_readBufferFill << ", rf = " << rf << ", m_writeBufferFill = " << m_writeBufferFill << std::endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "AudioCallbackPlaySource::unifyRingBuffers: m_readBufferFill = " << m_readBufferFill << ", rf = " << rf << ", m_writeBufferFill = " << m_writeBufferFill << std::endl;
+#endif
 
     size_t wf = m_writeBufferFill;
     size_t skip = 0;
@@ -1710,7 +1736,9 @@ AudioCallbackPlaySource::unifyRingBuffers()
     m_bufferScavenger.claim(m_readBuffers);
     m_readBuffers = m_writeBuffers;
     m_readBufferFill = m_writeBufferFill;
-//    std::cout << "unified" << std::endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "unified" << std::endl;
+#endif
 }
 
 void
@@ -1746,7 +1774,8 @@ AudioCallbackPlaySource::FillThread::run()
 	    
 	    float ms = 100;
 	    if (s.getSourceSampleRate() > 0) {
-		ms = float(m_ringBufferSize) / float(s.getSourceSampleRate()) * 1000.0;
+		ms = float(s.m_ringBufferSize) /
+                    float(s.getSourceSampleRate()) * 1000.0;
 	    }
 	    
 	    if (s.m_playing) ms /= 10;

@@ -296,7 +296,7 @@ protected:
     bool                              m_playing;
     bool                              m_exiting;
     size_t                            m_lastModelEndFrame;
-    static const size_t               m_ringBufferSize;
+    size_t                            m_ringBufferSize;
     float                             m_outputLeft;
     float                             m_outputRight;
     RealTimePluginInstance           *m_auditioningPlugin;

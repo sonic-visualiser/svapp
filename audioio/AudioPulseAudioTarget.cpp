@@ -158,19 +158,11 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 
     QMutexLocker locker(&m_mutex);
 
-    if (m_source->getTargetPlayLatency() == 0) { //!!! need better test
-            //!!!
-            pa_usec_t latency = 0;
-            int negative = 0;
-            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
-                std::cerr << "AudioPulseAudioTarget::streamWrite: Failed to query latency" << std::endl;
-            }
-//            std::cerr << "Latency = " << latency << " usec" << std::endl;
-            int latframes = (latency / 1000000.f) * float(m_sampleRate);
-//            std::cerr << "that's " << latframes << " frames" << std::endl;
-            if (latframes > 0) {
-                m_source->setTargetPlayLatency(latframes); //!!! buh
-            }
+    pa_usec_t latency = 0;
+    int negative = 0;
+    if (!pa_stream_get_latency(m_stream, &latency, &negative)) {
+        int latframes = (latency / 1000000.f) * float(m_sampleRate);
+        if (latframes > 0) m_source->setTargetPlayLatency(latframes);
     }
 
     static float *output = 0;
@@ -324,13 +316,14 @@ AudioPulseAudioTarget::streamStateChanged()
                 std::cerr << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << std::endl;
                 m_source->setTarget(this, m_bufferSize);
                 m_source->setTargetSampleRate(m_sampleRate);
-                m_source->setTargetPlayLatency(latframes);
+                if (latframes != 0) m_source->setTargetPlayLatency(latframes);
             } else {
-                std::cerr << "AudioPulseAudioTarget::streamStateChanged: stream max length = " << attr->maxlength << std::endl;
-                int latency = attr->tlength;
-                std::cerr << "latency = " << latency << std::endl;
-                m_source->setTarget(this, attr->maxlength);
+                int targetLength = attr->tlength;
+                std::cerr << "AudioPulseAudioTarget::streamStateChanged: stream target length = " << targetLength << std::endl;
+                m_source->setTarget(this, targetLength);
                 m_source->setTargetSampleRate(m_sampleRate);
+                if (latframes == 0) latframes = targetLength;
+                std::cerr << "latency = " << latframes << std::endl;
                 m_source->setTargetPlayLatency(latframes);
             }
         }
