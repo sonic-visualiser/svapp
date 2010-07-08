@@ -2327,6 +2327,7 @@ MainWindowBase::getSnapLayer() const
 
     if (!dynamic_cast<TimeInstantLayer *>(layer) &&
         !dynamic_cast<TimeValueLayer *>(layer) &&
+        !dynamic_cast<RegionLayer *>(layer) &&
         !dynamic_cast<TimeRulerLayer *>(layer)) {
 
         layer = 0;
