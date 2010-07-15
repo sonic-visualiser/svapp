@@ -24,7 +24,8 @@
 #include <cassert>
 #include <cmath>
 
-//#define DEBUG_AUDIO_PULSE_AUDIO_TARGET 1
+#define DEBUG_AUDIO_PULSE_AUDIO_TARGET 1
+//#define DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY 1
 
 AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     AudioCallbackPlayTarget(source),
@@ -62,6 +63,10 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     m_spec.channels = 2;
     m_spec.format = PA_SAMPLE_FLOAT32NE;
 
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+    std::cerr << "AudioPulseAudioTarget: Creating context" << std::endl;
+#endif
+
     m_context = pa_context_new(m_api, source->getClientName().toLocal8Bit().data());
     if (!m_context) {
         std::cerr << "ERROR: AudioPulseAudioTarget: Failed to create context object" << std::endl;
@@ -70,7 +75,16 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
 
     pa_context_set_state_callback(m_context, contextStateChangedStatic, this);
 
-    pa_context_connect(m_context, 0, (pa_context_flags_t)0, 0); // default server
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+    std::cerr << "AudioPulseAudioTarget: Connecting to default server..." << std::endl;
+#endif
+
+    pa_context_connect(m_context, 0, // default server
+                       (pa_context_flags_t)PA_CONTEXT_NOAUTOSPAWN, 0);
+
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+    std::cerr << "AudioPulseAudioTarget: Starting main loop" << std::endl;
+#endif
 
     m_loopThread = new MainLoopThread(m_loop);
     m_loopThread->start();
@@ -151,7 +165,7 @@ AudioPulseAudioTarget::streamWriteStatic(pa_stream *stream,
 void
 AudioPulseAudioTarget::streamWrite(size_t requested)
 {
-#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET    
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     std::cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << std::endl;
 #endif
     if (m_done) return;
@@ -181,7 +195,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
         std::cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << std::endl;
     }
 
-#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     std::cout << "AudioPulseAudioTarget::streamWrite: nframes = " << nframes << std::endl;
 #endif
 
@@ -211,7 +225,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 	
     size_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
-#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     std::cerr << "requested " << nframes << ", received " << received << std::endl;
 
     if (received < nframes) {
@@ -260,7 +274,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 	if (ch > 0 || sourceChannels == 1) peakRight = peak;
     }
 
-#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
+#ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     std::cerr << "calling pa_stream_write with "
               << nframes * tmpbufch * sizeof(float) << " bytes" << std::endl;
 #endif

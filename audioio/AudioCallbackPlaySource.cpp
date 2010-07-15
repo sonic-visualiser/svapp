@@ -1456,10 +1456,12 @@ AudioCallbackPlaySource::fillBuffers()
     } else {
 
 	// space must be a multiple of generatorBlockSize
-	space = (space / generatorBlockSize) * generatorBlockSize;
+        size_t reqSpace = space;
+	space = (reqSpace / generatorBlockSize) * generatorBlockSize;
 	if (space == 0) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-            std::cout << "requested fill is less than generator block size of "
+            std::cout << "requested fill of " << reqSpace
+                      << " is less than generator block size of "
                       << generatorBlockSize << ", leaving it" << std::endl;
 #endif
             return false;

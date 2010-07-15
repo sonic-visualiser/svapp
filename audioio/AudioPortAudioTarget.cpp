@@ -77,6 +77,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
     if (err != paNoError) {
 	std::cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
+        std::cerr << "Note: device ID was " << op.device << std::endl;
 	m_stream = 0;
 	Pa_Terminate();
 	return;
