@@ -1369,8 +1369,9 @@ MainWindowBase::openLayer(FileSource source)
                 (path, &midiDlg, getMainModel()->getSampleRate());
         
             if (!model) {
-                CSVFormatDialog *dialog = new CSVFormatDialog
-                    (this, CSVFormat(path), getMainModel()->getSampleRate());
+                CSVFormat format(path);
+                format.setSampleRate(getMainModel()->getSampleRate());
+                CSVFormatDialog *dialog = new CSVFormatDialog(this, format);
                 if (dialog->exec() == QDialog::Accepted) {
                     model = DataFileReaderFactory::loadCSV
                         (path, dialog->getFormat(),
