@@ -35,10 +35,12 @@ SOURCES += audioio/AudioCallbackPlaySource.cpp \
 HEADERS += framework/Document.h \
            framework/MainWindowBase.h \
            framework/SVFileReader.h \
+           framework/TransformUserConfigurator.h \
            framework/VersionTester.h
 
 SOURCES += framework/Document.cpp \
            framework/MainWindowBase.cpp \
            framework/SVFileReader.cpp \
+           framework/TransformUserConfigurator.cpp \
            framework/VersionTester.cpp
 
