@@ -962,10 +962,11 @@ AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
     if (a && !plugin) {
         std::cerr << "WARNING: AudioCallbackPlaySource::setAuditioningEffect: auditionable object " << a << " is not a real-time plugin instance" << std::endl;
     }
-    RealTimePluginInstance *formerPlugin = m_auditioningPlugin;
+
+    m_mutex.lock();
     m_auditioningPlugin = plugin;
     m_auditioningPluginBypassed = false;
-    if (formerPlugin) m_pluginScavenger.claim(formerPlugin);
+    m_mutex.unlock();
 }
 
 void
@@ -1249,7 +1250,7 @@ AudioCallbackPlaySource::applyAuditioningEffect(size_t count, float **buffers)
     if (m_auditioningPluginBypassed) return;
     RealTimePluginInstance *plugin = m_auditioningPlugin;
     if (!plugin) return;
-
+    
     if (plugin->getAudioInputCount() != getTargetChannelCount()) {
 //        std::cerr << "plugin input count " << plugin->getAudioInputCount() 
 //                  << " != our channel count " << getTargetChannelCount()
