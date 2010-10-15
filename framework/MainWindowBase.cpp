@@ -1045,7 +1045,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
+MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
 {
 //    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
@@ -1129,6 +1129,17 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
         mode = ReplaceMainModel;
     }
 
+    bool loadedTemplate = false;
+    if ((mode == ReplaceMainModel) && (templateName.length() != 0)) {
+        QString tplPath = "file::templates/" + templateName + ".xml";
+        std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
+        FileOpenStatus tplStatus = openSessionFile(tplPath);
+        if(tplStatus != FileOpenFailed) {
+            loadedTemplate = true;
+            mode = ReplaceMainModel;
+        }
+    }
+
     emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
 
     if (mode == ReplaceMainModel) {
@@ -1144,7 +1155,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode)
 
 	setupMenus();
 
-	if (m_sessionFile == "") {
+	if (loadedTemplate || (m_sessionFile == "")) {
             //!!! shouldn't be dealing directly with title from here -- call a method
 	    setWindowTitle(tr("%1: %2")
                            .arg(QApplication::applicationName())
