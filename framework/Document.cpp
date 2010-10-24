@@ -31,6 +31,7 @@
 #include <QTextStream>
 #include <QSettings>
 #include <iostream>
+#include <typeinfo>
 
 // For alignment:
 #include "data/model/AggregateWaveModel.h"
@@ -630,7 +631,8 @@ Document::deleteLayer(Layer *layer, bool force)
 
     if (m_layers.find(layer) == m_layers.end()) {
 	std::cerr << "Document::deleteLayer: Layer "
-		  << layer << " does not exist, or has already been deleted "
+                  << layer << " (" << typeid(layer).name() <<
+                  ") does not exist, or has already been deleted "
 		  << "(this may not be as serious as it sounds)" << std::endl;
 	return;
     }
