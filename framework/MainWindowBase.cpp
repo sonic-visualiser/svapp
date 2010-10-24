@@ -2038,6 +2038,47 @@ MainWindowBase::showAllOverlays()
 }
 
 void
+MainWindowBase::toggleTimeRulers()
+{
+    bool haveRulers = false;
+    bool someHidden = false;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+
+        Pane *pane = m_paneStack->getPane(i);
+        if (!pane) continue;
+
+        for (int j = 0; j < pane->getLayerCount(); ++j) {
+
+            Layer *layer = pane->getLayer(j);
+            if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+
+            haveRulers = true;
+            if (layer->isLayerDormant(pane)) someHidden = true;
+        }
+    }
+
+    if (haveRulers) {
+
+        bool show = someHidden;
+
+        for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+
+            Pane *pane = m_paneStack->getPane(i);
+            if (!pane) continue;
+
+            for (int j = 0; j < pane->getLayerCount(); ++j) {
+
+                Layer *layer = pane->getLayer(j);
+                if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+
+                layer->showLayer(pane, show);
+            }
+        }
+    }
+}
+
+void
 MainWindowBase::toggleZoomWheels()
 {
     if (m_viewManager->getZoomWheelsEnabled()) {
