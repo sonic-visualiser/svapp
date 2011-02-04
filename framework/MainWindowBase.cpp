@@ -676,13 +676,37 @@ MainWindowBase::copy()
 void
 MainWindowBase::paste()
 {
+    pasteRelative(0);
+}
+
+void
+MainWindowBase::pasteAtPlaybackPosition()
+{
+    unsigned long pos = getFrame();
+    Clipboard &clipboard = m_viewManager->getClipboard();
+    if (!clipboard.empty()) {
+        long firstEventFrame = clipboard.getPoints()[0].getFrame();
+        long offset = 0;
+        if (firstEventFrame < 0) {
+            offset = long(pos) - firstEventFrame;
+        } else if (firstEventFrame < pos) {
+            offset = pos - firstEventFrame;
+        } else {
+            offset = -(firstEventFrame - pos);
+        }
+        pasteRelative(offset);
+    }
+}
+
+void
+MainWindowBase::pasteRelative(int offset)
+{
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
     Layer *layer = currentPane->getSelectedLayer();
 
     Clipboard &clipboard = m_viewManager->getClipboard();
-//    Clipboard::PointList contents = clipboard.getPoints();
 
     bool inCompound = false;
 
@@ -708,7 +732,7 @@ MainWindowBase::paste()
         inCompound = true;
     }
 
-    layer->paste(currentPane, clipboard, 0, true);
+    layer->paste(currentPane, clipboard, offset, true);
 
     if (inCompound) CommandHistory::getInstance()->endCompoundOperation();
 }

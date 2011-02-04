@@ -221,6 +221,8 @@ protected slots:
     virtual void cut();
     virtual void copy();
     virtual void paste();
+    virtual void pasteAtPlaybackPosition();
+    virtual void pasteRelative(int offset);
     virtual void deleteSelected();
 
     virtual void insertInstant();
