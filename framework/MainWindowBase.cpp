@@ -66,6 +66,8 @@
 #include "base/XmlExportable.h"
 #include "base/Profiler.h"
 #include "base/Preferences.h"
+#include "base/TempWriteFile.h"
+#include "base/Exceptions.h"
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
@@ -1890,32 +1892,46 @@ MainWindowBase::createDocument()
 bool
 MainWindowBase::saveSessionFile(QString path)
 {
-    BZipFileDevice bzFile(path);
-    if (!bzFile.open(QIODevice::WriteOnly)) {
-        std::cerr << "Failed to open session file \"" << path.toStdString()
-                  << "\" for writing: "
-                  << bzFile.errorString().toStdString() << std::endl;
+    try {
+
+        TempWriteFile temp(path);
+
+        BZipFileDevice bzFile(temp.getTemporaryFilename());
+        if (!bzFile.open(QIODevice::WriteOnly)) {
+            std::cerr << "Failed to open session file \""
+                      << temp.getTemporaryFilename().toStdString()
+                      << "\" for writing: "
+                      << bzFile.errorString().toStdString() << std::endl;
+            return false;
+        }
+
+        QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+
+        QTextStream out(&bzFile);
+        toXml(out);
+        out.flush();
+
+        QApplication::restoreOverrideCursor();
+
+        if (!bzFile.isOK()) {
+            QMessageBox::critical(this, tr("Failed to write file"),
+                                  tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                                  .arg(path).arg(bzFile.errorString()));
+            bzFile.close();
+            return false;
+        }
+
+        bzFile.close();
+        temp.moveToTarget();
+        return true;
+
+    } catch (FileOperationFailed &f) {
+        
+        QMessageBox::critical(this, tr("Failed to write file"),
+                              tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                              .arg(path).arg(f.what()));
         return false;
     }
-
-    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
-
-    QTextStream out(&bzFile);
-    toXml(out);
-    out.flush();
-
-    QApplication::restoreOverrideCursor();
-
-    if (!bzFile.isOK()) {
-	QMessageBox::critical(this, tr("Failed to write file"),
-			      tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
-			      .arg(path).arg(bzFile.errorString()));
-        bzFile.close();
-	return false;
-    }
-
-    bzFile.close();
-    return true;
 }
 
 void
