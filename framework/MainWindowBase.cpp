@@ -1205,7 +1205,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
     } else if (mode == CreateAdditionalModel) {
 
 	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getLocation()), true);
+	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
 	m_document->addImportedModel(newModel);
 
@@ -1246,7 +1246,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
         }
 
 	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getLocation()), true);
+	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
 	m_document->addImportedModel(newModel);
 
