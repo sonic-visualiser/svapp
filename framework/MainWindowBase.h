@@ -79,6 +79,7 @@ public:
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
+        ReplaceSession,
         ReplaceMainModel,
         CreateAdditionalModel,
         ReplaceCurrentPane,

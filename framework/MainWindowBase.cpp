@@ -690,11 +690,11 @@ MainWindowBase::pasteAtPlaybackPosition()
         long firstEventFrame = clipboard.getPoints()[0].getFrame();
         long offset = 0;
         if (firstEventFrame < 0) {
-            offset = long(pos) - firstEventFrame;
+            offset = (long)pos - firstEventFrame;
         } else if (firstEventFrame < pos) {
-            offset = pos - firstEventFrame;
+            offset = pos - (unsigned long)firstEventFrame;
         } else {
-            offset = -(firstEventFrame - pos);
+            offset = -((unsigned long)firstEventFrame - pos);
         }
         pasteRelative(offset);
     }
@@ -1103,19 +1103,20 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 
             QSettings settings;
             settings.beginGroup("MainWindow");
-            bool prevSetAsMain = settings.value("newsessionforaudio", true).toBool();
+            int lastMode = settings.value("lastaudioopenmode", 0).toBool();
             settings.endGroup();
-            bool setAsMain = true;
+            int imode = 0;
             
             QStringList items;
-            items << tr("Replace the existing main waveform")
-                  << tr("Load this file into a new waveform pane");
+            items << tr("Close the current session and start a new one")
+                  << tr("Replace the main audio file in this session")
+                  << tr("Add the audio file to this session");
 
             bool ok = false;
             QString item = ListInputDialog::getItem
                 (this, tr("Select target for import"),
-                 tr("<b>Select a target for import</b><p>You already have an audio waveform loaded.<br>What would you like to do with the new audio file?"),
-                 items, prevSetAsMain ? 0 : 1, &ok);
+                 tr("<b>Select a target for import</b><p>You already have an audio file loaded.<br>What would you like to do with the new audio file?"),
+                 items, lastMode, &ok);
             
             if (!ok || item.isEmpty()) {
                 delete newModel;
@@ -1123,16 +1124,19 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
                 return FileOpenCancelled;
             }
             
-            setAsMain = (item == items[0]);
+            for (int i = 0; i < items.size(); ++i) {
+                if (item == items[i]) imode = i;
+            }
+
             settings.beginGroup("MainWindow");
-            settings.setValue("newsessionforaudio", setAsMain);
+            settings.setValue("lastaudioopenmode", imode);
             settings.endGroup();
 
-            if (setAsMain) mode = ReplaceMainModel;
-            else mode = CreateAdditionalModel;
+            mode = (AudioFileOpenMode)imode;
 
         } else {
-            mode = ReplaceMainModel;
+            // no main model: make a new session
+            mode = ReplaceSession;
         }
     }
 
@@ -1143,29 +1147,45 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
             if (getMainModel()) {
                 View::ModelSet models(pane->getModels());
                 if (models.find(getMainModel()) != models.end()) {
+                    // Current pane contains main model: replace that
                     mode = ReplaceMainModel;
                 }
+                // Otherwise the current pane has a non-default model,
+                // which we will deal with later
             } else {
-                mode = ReplaceMainModel;
+                // We have no main model, so start a new session with
+                // optional template
+                mode = ReplaceSession;
             }
         } else {
+            // We seem to have no current pane!  Oh well
             mode = CreateAdditionalModel;
         }
     }
 
     if (mode == CreateAdditionalModel && !getMainModel()) {
-        mode = ReplaceMainModel;
+        mode = ReplaceSession;
     }
 
     bool loadedTemplate = false;
-    if ((mode == ReplaceMainModel) && (templateName.length() != 0)) {
-        QString tplPath = "file::templates/" + templateName + ".xml";
-        std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
-        FileOpenStatus tplStatus = openSessionFile(tplPath);
-        if(tplStatus != FileOpenFailed) {
-            loadedTemplate = true;
-            mode = ReplaceMainModel;
+
+    if (mode == ReplaceSession) {
+
+        if (templateName.length() != 0) {
+            QString tplPath = "file::templates/" + templateName + ".xml";
+            std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
+            FileOpenStatus tplStatus = openSessionFile(tplPath);
+            if (tplStatus != FileOpenFailed) {
+                loadedTemplate = true;
+            }
         }
+
+        if (!loadedTemplate) {
+            closeSession();
+            createDocument();
+        }
+
+        mode = ReplaceMainModel;
     }
 
     emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
@@ -1705,7 +1725,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 
     std::set<Model *> added;
 
-    for (int i = 0; i < models.size(); ++i) {
+    for (int i = 0; i < (int)models.size(); ++i) {
 
         Model *m = models[i];
         WaveFileModel *w = dynamic_cast<WaveFileModel *>(m);
@@ -1730,7 +1750,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 
             added.insert(w);
             
-            for (int j = 0; j < models.size(); ++j) {
+            for (int j = 0; j < (int)models.size(); ++j) {
 
                 Model *dm = models[j];
 
@@ -1788,7 +1808,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         }
     }
 
-    for (int i = 0; i < models.size(); ++i) {
+    for (int i = 0; i < (int)models.size(); ++i) {
 
         Model *m = models[i];
 
