@@ -171,6 +171,7 @@ protected slots:
     virtual void showStandardOverlays();
     virtual void showAllOverlays();
 
+    virtual void toggleTimeRulers();
     virtual void toggleZoomWheels();
     virtual void togglePropertyBoxes();
     virtual void toggleStatusBar();
@@ -220,6 +221,8 @@ protected slots:
     virtual void cut();
     virtual void copy();
     virtual void paste();
+    virtual void pasteAtPlaybackPosition();
+    virtual void pasteRelative(int offset);
     virtual void deleteSelected();
 
     virtual void insertInstant();

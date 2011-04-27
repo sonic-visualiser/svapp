@@ -106,7 +106,10 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     m_exiting = true;
 
     if (m_fillThread) {
-	m_condition.wakeAll();
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource dtor: awakening thread" << std::endl;
+#endif
+        m_condition.wakeAll();
 	m_fillThread->wait();
 	delete m_fillThread;
     }
@@ -252,6 +255,10 @@ AudioCallbackPlaySource::addModel(Model *model)
     connect(model, SIGNAL(modelChanged(size_t, size_t)),
             this, SLOT(modelChanged(size_t, size_t)));
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource::addModel: awakening thread" << std::endl;
+#endif
+
     m_condition.wakeAll();
 }
 
@@ -304,9 +311,9 @@ AudioCallbackPlaySource::removeModel(Model *model)
     }
     m_lastModelEndFrame = lastEnd;
 
-    m_mutex.unlock();
-
     m_audioGenerator->removeModel(model);
+
+    m_mutex.unlock();
 
     clearRingBuffers();
 }
@@ -441,6 +448,11 @@ AudioCallbackPlaySource::play(size_t startFrame)
     m_lastRetrievalTimestamp = 0;
     m_lastCurrentFrame = 0;
     m_playing = true;
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource::play: awakening thread" << std::endl;
+#endif
+
     m_condition.wakeAll();
     if (changed) {
         emit playStatusChanged(m_playing);
@@ -453,8 +465,16 @@ AudioCallbackPlaySource::play(size_t startFrame)
 void
 AudioCallbackPlaySource::stop()
 {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cerr << "AudioCallbackPlaySource::stop()" << std::endl;
+#endif
     bool changed = m_playing;
     m_playing = false;
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource::stop: awakening thread" << std::endl;
+#endif
+
     m_condition.wakeAll();
     m_lastRetrievalTimestamp = 0;
     if (changed) {
@@ -1058,6 +1078,10 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 	return 0;
     }
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    std::cerr << "AudioCallbackPlaySource::getSourceSamples: Playing" << std::endl;
+#endif
+
     // Ensure that all buffers have at least the amount of data we
     // need -- else reduce the size of our requests correspondingly
 
@@ -1151,6 +1175,10 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 
         applyAuditioningEffect(count, buffer);
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource::getSamples: awakening thread" << std::endl;
+#endif
+
         m_condition.wakeAll();
 
 	return got;
@@ -1238,6 +1266,10 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
     }
 
     applyAuditioningEffect(count, buffer);
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    std::cout << "AudioCallbackPlaySource::getSamples [stretched]: awakening thread" << std::endl;
+#endif
 
     m_condition.wakeAll();
 

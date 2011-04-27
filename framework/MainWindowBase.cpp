@@ -66,6 +66,8 @@
 #include "base/XmlExportable.h"
 #include "base/Profiler.h"
 #include "base/Preferences.h"
+#include "base/TempWriteFile.h"
+#include "base/Exceptions.h"
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
@@ -676,13 +678,37 @@ MainWindowBase::copy()
 void
 MainWindowBase::paste()
 {
+    pasteRelative(0);
+}
+
+void
+MainWindowBase::pasteAtPlaybackPosition()
+{
+    unsigned long pos = getFrame();
+    Clipboard &clipboard = m_viewManager->getClipboard();
+    if (!clipboard.empty()) {
+        long firstEventFrame = clipboard.getPoints()[0].getFrame();
+        long offset = 0;
+        if (firstEventFrame < 0) {
+            offset = long(pos) - firstEventFrame;
+        } else if (firstEventFrame < pos) {
+            offset = pos - firstEventFrame;
+        } else {
+            offset = -(firstEventFrame - pos);
+        }
+        pasteRelative(offset);
+    }
+}
+
+void
+MainWindowBase::pasteRelative(int offset)
+{
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
     Layer *layer = currentPane->getSelectedLayer();
 
     Clipboard &clipboard = m_viewManager->getClipboard();
-//    Clipboard::PointList contents = clipboard.getPoints();
 
     bool inCompound = false;
 
@@ -708,7 +734,7 @@ MainWindowBase::paste()
         inCompound = true;
     }
 
-    layer->paste(currentPane, clipboard, 0, true);
+    layer->paste(currentPane, clipboard, offset, true);
 
     if (inCompound) CommandHistory::getInstance()->endCompoundOperation();
 }
@@ -1049,6 +1075,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 {
 //    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
+    if (templateName == "") templateName = "testtemplate";
+
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
@@ -1179,7 +1207,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
     } else if (mode == CreateAdditionalModel) {
 
 	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getLocation()), true);
+	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
 	m_document->addImportedModel(newModel);
 
@@ -1220,7 +1248,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
         }
 
 	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getLocation()), true);
+	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
 	m_document->addImportedModel(newModel);
 
@@ -1866,32 +1894,46 @@ MainWindowBase::createDocument()
 bool
 MainWindowBase::saveSessionFile(QString path)
 {
-    BZipFileDevice bzFile(path);
-    if (!bzFile.open(QIODevice::WriteOnly)) {
-        std::cerr << "Failed to open session file \"" << path.toStdString()
-                  << "\" for writing: "
-                  << bzFile.errorString().toStdString() << std::endl;
+    try {
+
+        TempWriteFile temp(path);
+
+        BZipFileDevice bzFile(temp.getTemporaryFilename());
+        if (!bzFile.open(QIODevice::WriteOnly)) {
+            std::cerr << "Failed to open session file \""
+                      << temp.getTemporaryFilename().toStdString()
+                      << "\" for writing: "
+                      << bzFile.errorString().toStdString() << std::endl;
+            return false;
+        }
+
+        QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+
+        QTextStream out(&bzFile);
+        toXml(out);
+        out.flush();
+
+        QApplication::restoreOverrideCursor();
+
+        if (!bzFile.isOK()) {
+            QMessageBox::critical(this, tr("Failed to write file"),
+                                  tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                                  .arg(path).arg(bzFile.errorString()));
+            bzFile.close();
+            return false;
+        }
+
+        bzFile.close();
+        temp.moveToTarget();
+        return true;
+
+    } catch (FileOperationFailed &f) {
+        
+        QMessageBox::critical(this, tr("Failed to write file"),
+                              tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                              .arg(path).arg(f.what()));
         return false;
     }
-
-    QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
-
-    QTextStream out(&bzFile);
-    toXml(out);
-    out.flush();
-
-    QApplication::restoreOverrideCursor();
-
-    if (!bzFile.isOK()) {
-	QMessageBox::critical(this, tr("Failed to write file"),
-			      tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
-			      .arg(path).arg(bzFile.errorString()));
-        bzFile.close();
-	return false;
-    }
-
-    bzFile.close();
-    return true;
 }
 
 void
@@ -2046,6 +2088,47 @@ void
 MainWindowBase::showAllOverlays()
 {
     m_viewManager->setOverlayMode(ViewManager::AllOverlays);
+}
+
+void
+MainWindowBase::toggleTimeRulers()
+{
+    bool haveRulers = false;
+    bool someHidden = false;
+
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+
+        Pane *pane = m_paneStack->getPane(i);
+        if (!pane) continue;
+
+        for (int j = 0; j < pane->getLayerCount(); ++j) {
+
+            Layer *layer = pane->getLayer(j);
+            if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+
+            haveRulers = true;
+            if (layer->isLayerDormant(pane)) someHidden = true;
+        }
+    }
+
+    if (haveRulers) {
+
+        bool show = someHidden;
+
+        for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+
+            Pane *pane = m_paneStack->getPane(i);
+            if (!pane) continue;
+
+            for (int j = 0; j < pane->getLayerCount(); ++j) {
+
+                Layer *layer = pane->getLayer(j);
+                if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+
+                layer->showLayer(pane, show);
+            }
+        }
+    }
 }
 
 void

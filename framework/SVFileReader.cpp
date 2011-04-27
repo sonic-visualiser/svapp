@@ -412,8 +412,18 @@ SVFileReader::addUnaddedModels()
     
     for (std::set<Model *>::iterator i = unaddedModels.begin();
          i != unaddedModels.end(); ++i) {
-        m_document->addImportedModel(*i);
-        m_addedModels.insert(*i);
+        Model *model = *i;
+        // don't want to add these models, because their lifespans
+        // are entirely dictated by the models that "own" them even
+        // though they were read independently from the .sv file.
+        // (pity we don't have a nicer way)
+        if (!dynamic_cast<PathModel *>(model) &&
+            !dynamic_cast<AlignmentModel *>(model)) {
+            m_document->addImportedModel(model);
+        }
+        // but we add all models here, so they don't get deleted
+        // when the file loader is destroyed
+        m_addedModels.insert(model);
     }
 }
 
