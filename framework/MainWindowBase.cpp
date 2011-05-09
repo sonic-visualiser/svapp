@@ -327,6 +327,18 @@ MainWindowBase::registerLastOpenedFilePath(FileFinder::FileType type, QString pa
 }
 
 void
+MainWindowBase::setDefaultSessionTemplate(QString name)
+{
+    m_defaultSessionTemplate = name;
+}
+
+QString
+MainWindowBase::getDefaultSessionTemplate() const
+{
+    return m_defaultSessionTemplate;
+}
+
+void
 MainWindowBase::updateMenuStates()
 {
     Pane *currentPane = 0;
@@ -1075,7 +1087,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 {
 //    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
-    if (templateName == "") templateName = "testtemplate";
+    if (templateName == "") {
+        templateName = m_defaultSessionTemplate;
+    }
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
