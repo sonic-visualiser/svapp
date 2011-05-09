@@ -68,6 +68,7 @@
 #include "base/Preferences.h"
 #include "base/TempWriteFile.h"
 #include "base/Exceptions.h"
+#include "base/ResourceFinder.h"
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
@@ -1091,6 +1092,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
         templateName = m_defaultSessionTemplate;
     }
 
+    std::cerr << "template is: \"" << templateName.toStdString() << "\"" << std::endl;
+
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
@@ -1186,11 +1189,18 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
     if (mode == ReplaceSession) {
 
         if (templateName.length() != 0) {
-            QString tplPath = "file::templates/" + templateName + ".xml";
-            std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
-            FileOpenStatus tplStatus = openSessionFile(tplPath);
-            if (tplStatus != FileOpenFailed) {
-                loadedTemplate = true;
+            // Template in the user's template directory takes
+            // priority over a bundled one; we don't unbundle, but
+            // open directly from the bundled file (where applicable)
+            ResourceFinder rf;
+            QString tfile = rf.getResourcePath("templates", templateName + ".svt");
+            if (tfile != "") {
+                std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
+                FileOpenStatus tplStatus = openSessionFile("file:" + tfile);
+                if (tplStatus != FileOpenFailed) {
+                    std::cerr << "Template load succeeded" << std::endl;
+                    loadedTemplate = true;
+                }
             }
         }
 
@@ -1554,7 +1564,8 @@ MainWindowBase::openSession(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    if (source.getExtension().toLower() != "sv") {
+    if (source.getExtension().toLower() != "sv" &&
+        source.getExtension().toLower() != "svt") {
 
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
