@@ -105,6 +105,7 @@ public:
     virtual FileOpenStatus openSession(FileSource source);
 
     virtual bool saveSessionFile(QString path);
+    virtual bool saveSessionTemplate(QString path);
 
     /// Implementation of FrameTimer interface method
     virtual unsigned long getFrame() const;

@@ -1981,6 +1981,43 @@ MainWindowBase::saveSessionFile(QString path)
     }
 }
 
+bool
+MainWindowBase::saveSessionTemplate(QString path)
+{
+    try {
+
+        TempWriteFile temp(path);
+
+        QFile file(temp.getTemporaryFilename());
+        if (!file.open(QIODevice::WriteOnly)) {
+            std::cerr << "Failed to open session template file \""
+                      << temp.getTemporaryFilename().toStdString()
+                      << "\" for writing: "
+                      << file.errorString().toStdString() << std::endl;
+            return false;
+        }
+        
+        QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+
+        QTextStream out(&file);
+        toXml(out);
+        out.flush();
+
+        QApplication::restoreOverrideCursor();
+
+        file.close();
+        temp.moveToTarget();
+        return true;
+
+    } catch (FileOperationFailed &f) {
+        
+        QMessageBox::critical(this, tr("Failed to write file"),
+                              tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                              .arg(path).arg(f.what()));
+        return false;
+    }
+}
+
 void
 MainWindowBase::toXml(QTextStream &out)
 {
