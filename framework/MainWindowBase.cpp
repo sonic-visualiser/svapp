@@ -1595,6 +1595,7 @@ MainWindowBase::openSession(FileSource source)
     QXmlInputSource *inputSource = 0;
     BZipFileDevice *bzFile = 0;
     QFile *rawFile = 0;
+    bool isTemplate = false;
 
     if (source.getExtension().toLower() == "sv") {
         bzFile = new BZipFileDevice(source.getLocalFilename());
@@ -1604,6 +1605,9 @@ MainWindowBase::openSession(FileSource source)
         }
         inputSource = new QXmlInputSource(bzFile);
     } else {
+        if (source.getExtension().toLower() == "svt") {
+            isTemplate = true;
+        }
         rawFile = new QFile(source.getLocalFilename());
         inputSource = new QXmlInputSource(rawFile);
     }
@@ -1662,7 +1666,9 @@ MainWindowBase::openSession(FileSource source)
 	m_documentModified = false;
 	updateMenuStates();
 
-        m_recentFiles.addFile(source.getLocation());
+        if (!isTemplate) {
+            m_recentFiles.addFile(source.getLocation());
+        }
 
         if (!source.isRemote()) {
             // for file dialog
