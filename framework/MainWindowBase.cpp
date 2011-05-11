@@ -1084,7 +1084,8 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
+MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
+                          QString templateName)
 {
 //    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
@@ -1196,7 +1197,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
             QString tfile = rf.getResourcePath("templates", templateName + ".svt");
             if (tfile != "") {
                 std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
-                FileOpenStatus tplStatus = openSessionFile("file:" + tfile);
+                FileOpenStatus tplStatus = openSessionTemplate("file:" + tfile);
                 if (tplStatus != FileOpenFailed) {
                     std::cerr << "Template load succeeded" << std::endl;
                     loadedTemplate = true;
@@ -1564,8 +1565,7 @@ MainWindowBase::openSession(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    if (source.getExtension().toLower() != "sv" &&
-        source.getExtension().toLower() != "svt") {
+    if (source.getExtension().toLower() != "sv") {
 
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
@@ -1595,7 +1595,6 @@ MainWindowBase::openSession(FileSource source)
     QXmlInputSource *inputSource = 0;
     BZipFileDevice *bzFile = 0;
     QFile *rawFile = 0;
-    bool isTemplate = false;
 
     if (source.getExtension().toLower() == "sv") {
         bzFile = new BZipFileDevice(source.getLocalFilename());
@@ -1605,9 +1604,6 @@ MainWindowBase::openSession(FileSource source)
         }
         inputSource = new QXmlInputSource(bzFile);
     } else {
-        if (source.getExtension().toLower() == "svt") {
-            isTemplate = true;
-        }
         rawFile = new QFile(source.getLocalFilename());
         inputSource = new QXmlInputSource(rawFile);
     }
@@ -1666,18 +1662,80 @@ MainWindowBase::openSession(FileSource source)
 	m_documentModified = false;
 	updateMenuStates();
 
-        if (!isTemplate) {
-            m_recentFiles.addFile(source.getLocation());
-        }
+        m_recentFiles.addFile(source.getLocation());
 
         if (!source.isRemote()) {
             // for file dialog
             registerLastOpenedFilePath(FileFinder::SessionFile,
-                                        source.getLocalFilename());
+                                       source.getLocalFilename());
         }
 
     } else {
 	setWindowTitle(QApplication::applicationName());
+    }
+
+    return ok ? FileOpenSucceeded : FileOpenFailed;
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openSessionTemplate(FileSource source)
+{
+    std::cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation().toStdString() << ")" << std::endl;
+
+    if (!source.isAvailable()) return FileOpenFailed;
+    source.waitForData();
+
+    QXmlInputSource *inputSource = 0;
+    QFile *file = 0;
+    bool isTemplate = false;
+
+    file = new QFile(source.getLocalFilename());
+    inputSource = new QXmlInputSource(file);
+
+    if (!checkSaveModified()) {
+        delete inputSource;
+        delete file;
+        return FileOpenCancelled;
+    }
+
+    QString error;
+    closeSession();
+    createDocument();
+
+    PaneCallback callback(this);
+    m_viewManager->clearSelections();
+
+    SVFileReader reader(m_document, callback, source.getLocation());
+    connect
+        (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+    connect
+        (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+
+    reader.parse(*inputSource);
+    
+    if (!reader.isOK()) {
+        error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
+    }
+    
+    delete inputSource;
+    delete file;
+
+    bool ok = (error == "");
+
+    setWindowTitle(QApplication::applicationName());
+
+    if (ok) {
+
+        emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
+
+	setupMenus();
+
+	CommandHistory::getInstance()->clear();
+	CommandHistory::getInstance()->documentSaved();
+	m_documentModified = false;
+	updateMenuStates();
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;

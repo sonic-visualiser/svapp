@@ -103,6 +103,7 @@ public:
 
     virtual FileOpenStatus openSessionFile(QString fileOrUrl);
     virtual FileOpenStatus openSession(FileSource source);
+    virtual FileOpenStatus openSessionTemplate(FileSource source);
 
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
