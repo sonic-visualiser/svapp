@@ -214,6 +214,7 @@ public:
     void alignModels();
 
     void toXml(QTextStream &, QString indent, QString extraAttributes) const;
+    void toXmlAsTemplate(QTextStream &, QString indent, QString extraAttributes) const;
 
 signals:
     void layerAdded(Layer *);
@@ -334,6 +335,9 @@ protected:
 
     static TransformId getAlignmentTransformName();
     
+    void toXml(QTextStream &, QString, QString, bool asTemplate) const;
+    void writePlaceholderMainModel(QTextStream &, QString) const;
+
     /**
      * And these are the layers.  We also control the lifespans of
      * these (usually through the commands used to add and remove them).

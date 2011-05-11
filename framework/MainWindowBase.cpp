@@ -1961,7 +1961,7 @@ MainWindowBase::saveSessionFile(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&bzFile);
-        toXml(out);
+        toXml(out, false);
         out.flush();
 
         QApplication::restoreOverrideCursor();
@@ -2006,7 +2006,7 @@ MainWindowBase::saveSessionTemplate(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&file);
-        toXml(out);
+        toXml(out, true);
         out.flush();
 
         QApplication::restoreOverrideCursor();
@@ -2025,7 +2025,7 @@ MainWindowBase::saveSessionTemplate(QString path)
 }
 
 void
-MainWindowBase::toXml(QTextStream &out)
+MainWindowBase::toXml(QTextStream &out, bool asTemplate)
 {
     QString indent("  ");
 
@@ -2033,7 +2033,11 @@ MainWindowBase::toXml(QTextStream &out)
     out << "<!DOCTYPE sonic-visualiser>\n";
     out << "<sv>\n";
 
-    m_document->toXml(out, "", "");
+    if (asTemplate) {
+        m_document->toXmlAsTemplate(out, "", "");
+    } else {
+        m_document->toXml(out, "", "");
+    }
 
     out << "<display>\n";
 

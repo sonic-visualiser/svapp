@@ -411,7 +411,7 @@ protected:
 
     virtual void connectLayerEditDialog(ModelDataTableDialog *dialog);
 
-    virtual void toXml(QTextStream &stream);
+    virtual void toXml(QTextStream &stream, bool asTemplate);
 };
 
 
