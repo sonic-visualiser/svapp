@@ -135,7 +135,7 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
 #endif
 
         if (!target || !target->isOK()) {
-            std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open the requested target (\"" << m_default.toStdString() << "\")" << std::endl;
+            std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open the requested target (\"" << m_default << "\")" << std::endl;
             delete target;
             return 0;
         } else {

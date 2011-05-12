@@ -1073,7 +1073,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
 {
-//    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
+//    std::cerr << "MainWindowBase::openAudio(" << source.getLocation() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1158,7 +1158,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
     bool loadedTemplate = false;
     if ((mode == ReplaceMainModel) && (templateName.length() != 0)) {
         QString tplPath = "file::templates/" + templateName + ".xml";
-        std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
+        std::cerr << "SV looking for template " << tplPath << std::endl;
         FileOpenStatus tplStatus = openSessionFile(tplPath);
         if(tplStatus != FileOpenFailed) {
             loadedTemplate = true;
@@ -1280,7 +1280,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 MainWindowBase::FileOpenStatus
 MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 {
-    std::cerr << "MainWindowBase::openPlaylist(" << source.getLocation().toStdString() << ")" << std::endl;
+    std::cerr << "MainWindowBase::openPlaylist(" << source.getLocation() << ")" << std::endl;
 
     std::set<QString> extensions;
     PlaylistFileReader::getSupportedExtensions(extensions);
@@ -1321,7 +1321,7 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openLayer(FileSource source)
 {
-    std::cerr << "MainWindowBase::openLayer(" << source.getLocation().toStdString() << ")" << std::endl;
+    std::cerr << "MainWindowBase::openLayer(" << source.getLocation() << ")" << std::endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1382,7 +1382,7 @@ MainWindowBase::openLayer(FileSource source)
             std::cerr << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation().toStdString()
                       << "): Failed to read XML file: "
-                      << reader.getErrorString().toStdString() << std::endl;
+                      << reader.getErrorString() << std::endl;
             return FileOpenFailed;
         }
 
@@ -1453,7 +1453,7 @@ MainWindowBase::openLayer(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openImage(FileSource source)
 {
-    std::cerr << "MainWindowBase::openImage(" << source.getLocation().toStdString() << ")" << std::endl;
+    std::cerr << "MainWindowBase::openImage(" << source.getLocation() << ")" << std::endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1485,7 +1485,7 @@ MainWindowBase::openImage(FileSource source)
 
     // We don't put the image file in Recent Files
 
-    std::cerr << "openImage: trying location \"" << source.getLocation().toStdString() << "\" in image layer" << std::endl;
+    std::cerr << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << std::endl;
 
     if (!il->addImage(m_viewManager->getGlobalCentreFrame(), source.getLocation())) {
         if (newLayer) {
@@ -1513,7 +1513,7 @@ MainWindowBase::openSessionFile(QString fileOrUrl)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSession(FileSource source)
 {
-    std::cerr << "MainWindowBase::openSession(" << source.getLocation().toStdString() << ")" << std::endl;
+    std::cerr << "MainWindowBase::openSession(" << source.getLocation() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1633,7 +1633,7 @@ MainWindowBase::openSession(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFromRDF(FileSource source)
 {
-    std::cerr << "MainWindowBase::openSessionFromRDF(" << source.getLocation().toStdString() << ")" << std::endl;
+    std::cerr << "MainWindowBase::openSessionFromRDF(" << source.getLocation() << ")" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1901,7 +1901,7 @@ MainWindowBase::saveSessionFile(QString path)
             std::cerr << "Failed to open session file \""
                       << temp.getTemporaryFilename().toStdString()
                       << "\" for writing: "
-                      << bzFile.errorString().toStdString() << std::endl;
+                      << bzFile.errorString() << std::endl;
             return false;
         }
 

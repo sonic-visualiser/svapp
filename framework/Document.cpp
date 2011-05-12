@@ -220,7 +220,7 @@ Document::createDerivedLayer(const Transform &transform,
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier().toStdString() << std::endl;
+	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << std::endl;
         newModel->aboutToDelete();
         emit modelAboutToBeDeleted(newModel);
         m_models.erase(newModel);
@@ -299,7 +299,7 @@ Document::setMainModel(WaveFileModel *model)
 #ifdef DEBUG_DOCUMENT
         std::cerr << "Document::setMainModel: inspecting model "
                   << (model ? model->objectName().toStdString() : "(null)") << " in layer "
-                  << layer->objectName().toStdString() << std::endl;
+                  << layer->objectName() << std::endl;
 #endif
 
 	if (model == oldMainModel) {
@@ -351,7 +351,7 @@ Document::setMainModel(WaveFileModel *model)
 	    
 	    if (!replacementModel) {
 		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
-			  << transformId.toStdString() << "\"" << " in layer " << layer << std::endl;
+			  << transformId << "\"" << " in layer " << layer << std::endl;
                 if (failedTransformers.find(transformId)
                     == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
@@ -371,7 +371,7 @@ Document::setMainModel(WaveFileModel *model)
                           << typeid(*model).name() << ") with model "
                           << replacementModel << " (type "
                           << typeid(*replacementModel).name() << ") in layer "
-                          << layer << " (name " << layer->objectName().toStdString() << ")"
+                          << layer << " (name " << layer->objectName() << ")"
                           << std::endl;
 #endif
                 RangeSummarisableTimeValueModel *rm =
@@ -398,7 +398,7 @@ Document::setMainModel(WaveFileModel *model)
 
 #ifdef DEBUG_DOCUMENT
         std::cerr << "considering alignment for model " << m << " (name \""
-                  << m->objectName().toStdString() << "\")" << std::endl;
+                  << m->objectName() << "\")" << std::endl;
 #endif
 
         if (m_autoAlignment) {
@@ -438,7 +438,7 @@ Document::addDerivedModel(const Transform &transform,
     }
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName().toStdString() << "\"" << std::endl;
+    std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << std::endl;
 #endif
 
     ModelRecord rec;
@@ -526,7 +526,7 @@ Document::addDerivedModel(const Transform &transform,
          .getPluginVersion());
 
     if (!model) {
-	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier().toStdString() << std::endl;
+	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier() << std::endl;
     } else {
 	addDerivedModel(applied, input, model);
     }
@@ -605,7 +605,7 @@ Document::deleteLayer(Layer *layer, bool force)
 	m_layerViewMap[layer].size() > 0) {
 
 	std::cerr << "WARNING: Document::deleteLayer: Layer "
-		  << layer << " [" << layer->objectName().toStdString() << "]"
+		  << layer << " [" << layer->objectName() << "]"
 		  << " is still used in " << m_layerViewMap[layer].size()
 		  << " views!" << std::endl;
 
@@ -970,7 +970,7 @@ Document::AddLayerCommand::getName() const
 {
 #ifdef DEBUG_DOCUMENT
     std::cerr << "Document::AddLayerCommand::getName(): Name is "
-              << m_name.toStdString() << std::endl;
+              << m_name << std::endl;
 #endif
     return m_name;
 }
@@ -1030,7 +1030,7 @@ Document::RemoveLayerCommand::getName() const
 {
 #ifdef DEBUG_DOCUMENT
     std::cerr << "Document::RemoveLayerCommand::getName(): Name is "
-              << m_name.toStdString() << std::endl;
+              << m_name << std::endl;
 #endif
     return m_name;
 }

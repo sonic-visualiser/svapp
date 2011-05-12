@@ -81,7 +81,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 	std::vector<Vamp::Plugin::OutputDescriptor> od =
 	    vp->getOutputDescriptors();
 
-	std::cerr << "configure: looking for output: " << output.toStdString() << std::endl;
+	std::cerr << "configure: looking for output: " << output << std::endl;
 
 	if (od.size() > 1) {
 	    for (size_t i = 0; i < od.size(); ++i) {
@@ -173,12 +173,12 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     if (selectedInput != "") {
 	if (modelMap.contains(selectedInput)) {
 	    inputModel = modelMap.value(selectedInput);
-	    std::cerr << "Found selected input \"" << selectedInput.toStdString() << "\" in model map, result is " << inputModel << std::endl;
+	    std::cerr << "Found selected input \"" << selectedInput << "\" in model map, result is " << inputModel << std::endl;
 	} else {
-	    std::cerr << "Failed to find selected input \"" << selectedInput.toStdString() << "\" in model map" << std::endl;
+	    std::cerr << "Failed to find selected input \"" << selectedInput << "\" in model map" << std::endl;
 	}
     } else {
-	std::cerr << "Selected input empty: \"" << selectedInput.toStdString() << "\"" << std::endl;
+	std::cerr << "Selected input empty: \"" << selectedInput << "\"" << std::endl;
     }
         
     // Write parameters back to transform object

@@ -442,7 +442,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     QString name = attributes.value("name");
 
-    std::cerr << "SVFileReader::readModel: model name \"" << name.toStdString() << "\"" << std::endl;
+    std::cerr << "SVFileReader::readModel: model name \"" << name << "\"" << std::endl;
 
     READ_MANDATORY(int, sampleRate, toInt);
 
@@ -462,9 +462,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         file.waitForStatus();
 
         if (!file.isOK()) {
-            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path.toStdString() << "\" for wave file model: " << file.getErrorString().toStdString() << std::endl;
+            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: " << file.getErrorString() << std::endl;
         } else if (!file.isAvailable()) {
-            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path.toStdString() << "\" for wave file model: Source unavailable" << std::endl;
+            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: Source unavailable" << std::endl;
         } else {
 
             file.waitForData();
@@ -1016,7 +1016,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	float height = 0.0;
 	height = attributes.value("height").trimmed().toFloat(&ok);
 	QString label = attributes.value("label");
-//        std::cerr << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label.toStdString() << ", ok = " << ok << std::endl;
+//        std::cerr << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << std::endl;
 	tm->addPoint(TextModel::Point(frame, height, label));
 	return ok;
     }
@@ -1037,7 +1037,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //        std::cerr << "Current dataset is an image model" << std::endl;
 	QString image = attributes.value("image");
 	QString label = attributes.value("label");
-//        std::cerr << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image.toStdString() << ", label = " << label.toStdString() << ", ok = " << ok << std::endl;
+//        std::cerr << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << std::endl;
 	im->addPoint(ImageModel::Point(frame, image, label));
 	return ok;
     }

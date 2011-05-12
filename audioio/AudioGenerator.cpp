@@ -97,7 +97,7 @@ AudioGenerator::initialiseSampleDir()
             std::cerr << "WARNING: AudioGenerator::getSampleDir: "
                       << "Unable to copy " << fileName.toStdString()
                       << " into temporary directory \""
-                      << m_sampleDir.toStdString() << "\"" << std::endl;
+                      << m_sampleDir << "\"" << std::endl;
         } else {
             QFile tf(target);
             tf.setPermissions(tf.permissions() |
@@ -240,7 +240,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
 
     if (!instance) {
-	std::cerr << "Failed to instantiate plugin " << pluginId.toStdString() << std::endl;
+	std::cerr << "Failed to instantiate plugin " << pluginId << std::endl;
         return 0;
     }
 
@@ -255,7 +255,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
         instance->selectProgram(defaultProgram);
     }
     if (program != "") {
-//        std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
+//        std::cerr << "now selecting desired program " << program << std::endl;
         instance->selectProgram(program.toStdString());
     }
     instance->setIdealChannelCount(m_targetChannelCount); // reset!
