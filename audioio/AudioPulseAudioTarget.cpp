@@ -96,7 +96,7 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
 
 AudioPulseAudioTarget::~AudioPulseAudioTarget()
 {
-    std::cerr << "AudioPulseAudioTarget::~AudioPulseAudioTarget()" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::~AudioPulseAudioTarget()" << endl;
 
     if (m_source) {
         m_source->setTarget(0, m_bufferSize);
@@ -119,7 +119,7 @@ AudioPulseAudioTarget::~AudioPulseAudioTarget()
     m_context = 0;
     m_loop = 0;
 
-    std::cerr << "AudioPulseAudioTarget::~AudioPulseAudioTarget() done" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::~AudioPulseAudioTarget() done" << endl;
 }
 
 void 
@@ -275,8 +275,8 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
     }
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
-    std::cerr << "calling pa_stream_write with "
-              << nframes * tmpbufch * sizeof(float) << " bytes" << std::endl;
+    DEBUG << "calling pa_stream_write with "
+              << nframes * tmpbufch * sizeof(float) << " bytes" << endl;
 #endif
 
     pa_stream_write(m_stream, output, nframes * tmpbufch * sizeof(float),
@@ -302,7 +302,7 @@ void
 AudioPulseAudioTarget::streamStateChanged()
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget::streamStateChanged" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::streamStateChanged" << endl;
 #endif
     QMutexLocker locker(&m_mutex);
 
@@ -314,7 +314,7 @@ AudioPulseAudioTarget::streamStateChanged()
 
         case PA_STREAM_READY:
         {
-            std::cerr << "AudioPulseAudioTarget::streamStateChanged: Ready" << std::endl;
+            DEBUG << "AudioPulseAudioTarget::streamStateChanged: Ready" << endl;
 
             pa_usec_t latency = 0;
             int negative = 0;
@@ -327,13 +327,13 @@ AudioPulseAudioTarget::streamStateChanged()
 
             const pa_buffer_attr *attr;
             if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
-                std::cerr << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << std::endl;
+                DEBUG << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << endl;
                 m_source->setTarget(this, m_bufferSize);
                 m_source->setTargetSampleRate(m_sampleRate);
                 if (latframes != 0) m_source->setTargetPlayLatency(latframes);
             } else {
                 int targetLength = attr->tlength;
-                std::cerr << "AudioPulseAudioTarget::streamStateChanged: stream target length = " << targetLength << std::endl;
+                DEBUG << "AudioPulseAudioTarget::streamStateChanged: stream target length = " << targetLength << endl;
                 m_source->setTarget(this, targetLength);
                 m_source->setTargetSampleRate(m_sampleRate);
                 if (latframes == 0) latframes = targetLength;
@@ -367,7 +367,7 @@ void
 AudioPulseAudioTarget::contextStateChanged()
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget::contextStateChanged" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::contextStateChanged" << endl;
 #endif
     QMutexLocker locker(&m_mutex);
 
@@ -379,8 +379,8 @@ AudioPulseAudioTarget::contextStateChanged()
             break;
 
         case PA_CONTEXT_READY:
-            std::cerr << "AudioPulseAudioTarget::contextStateChanged: Ready"
-                      << std::endl;
+            DEBUG << "AudioPulseAudioTarget::contextStateChanged: Ready"
+                      << endl;
 
             m_stream = pa_stream_new(m_context, "stream", &m_spec, 0);
             assert(m_stream); //!!!
@@ -400,7 +400,7 @@ AudioPulseAudioTarget::contextStateChanged()
             break;
 
         case PA_CONTEXT_TERMINATED:
-            std::cerr << "AudioPulseAudioTarget::contextStateChanged: Terminated" << std::endl;
+            DEBUG << "AudioPulseAudioTarget::contextStateChanged: Terminated" << endl;
             //!!! do something...
             break;
 
@@ -416,13 +416,13 @@ AudioPulseAudioTarget::contextStateChanged()
 void
 AudioPulseAudioTarget::streamOverflowStatic(pa_stream *, void *)
 {
-    std::cerr << "AudioPulseAudioTarget::streamOverflowStatic: Overflow!" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::streamOverflowStatic: Overflow!" << endl;
 }
 
 void
 AudioPulseAudioTarget::streamUnderflowStatic(pa_stream *, void *data)
 {
-    std::cerr << "AudioPulseAudioTarget::streamUnderflowStatic: Underflow!" << std::endl;
+    DEBUG << "AudioPulseAudioTarget::streamUnderflowStatic: Underflow!" << endl;
     AudioPulseAudioTarget *target = (AudioPulseAudioTarget *)data;
     if (target && target->m_source) {
         target->m_source->audioProcessingOverload();

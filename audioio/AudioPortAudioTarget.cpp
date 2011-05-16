@@ -113,7 +113,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
 AudioPortAudioTarget::~AudioPortAudioTarget()
 {
-    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget()" << std::endl;
+    DEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget()" << endl;
 
     if (m_source) {
         m_source->setTarget(0, m_bufferSize);
@@ -123,7 +123,7 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 
     if (m_stream) {
 
-        std::cerr << "closing stream" << std::endl;
+        DEBUG << "closing stream" << endl;
 
 	PaError err;
 	err = Pa_CloseStream(m_stream);
@@ -141,14 +141,14 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 
     m_stream = 0;
 
-    std::cerr << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << std::endl;
+    DEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << endl;
 }
 
 void 
 AudioPortAudioTarget::shutdown()
 {
 #ifdef DEBUG_PORT_AUDIO_TARGET
-    std::cerr << "AudioPortAudioTarget::shutdown" << std::endl;
+    DEBUG << "AudioPortAudioTarget::shutdown" << endl;
 #endif
     m_done = true;
 }
@@ -190,12 +190,12 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
                               PaStreamCallbackFlags)
 {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET    
-    std::cerr << "AudioPortAudioTarget::process(" << nframes << ")" << std::endl;
+    DEBUG << "AudioPortAudioTarget::process(" << nframes << ")" << endl;
 #endif
 
     if (!m_source || m_done) {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET
-        std::cerr << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << std::endl;
+        DEBUG << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << endl;
 #endif
         return 0;
     }
@@ -205,9 +205,9 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
         sched_param param;
         param.sched_priority = 20;
         if (pthread_setschedparam(pthread_self(), SCHED_RR, &param)) {
-            std::cerr << "AudioPortAudioTarget: NOTE: couldn't set RT scheduling class" << std::endl;
+            DEBUG << "AudioPortAudioTarget: NOTE: couldn't set RT scheduling class" << endl;
         } else {
-            std::cerr << "AudioPortAudioTarget: NOTE: successfully set RT scheduling class" << std::endl;
+            DEBUG << "AudioPortAudioTarget: NOTE: successfully set RT scheduling class" << endl;
         }
 #endif
         m_prioritySet = true;

@@ -63,23 +63,23 @@ Document::~Document()
     CommandHistory::getInstance()->clear();
     
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::~Document: about to delete layers" << std::endl;
+    DEBUG << "Document::~Document: about to delete layers" << endl;
 #endif
     while (!m_layers.empty()) {
 	deleteLayer(*m_layers.begin(), true);
     }
 
     if (!m_models.empty()) {
-	std::cerr << "Document::~Document: WARNING: " 
+	DEBUG << "Document::~Document: WARNING: " 
 		  << m_models.size() << " model(s) still remain -- "
 		  << "should have been garbage collected when deleting layers"
-		  << std::endl;
+		  << endl;
 	while (!m_models.empty()) {
             Model *model = m_models.begin()->first;
 	    if (model == m_mainModel) {
 		// just in case!
-		std::cerr << "Document::~Document: WARNING: Main model is also"
-			  << " in models list!" << std::endl;
+		DEBUG << "Document::~Document: WARNING: Main model is also"
+			  << " in models list!" << endl;
 	    } else if (model) {
                 model->aboutToDelete();
 		emit modelAboutToBeDeleted(model);
@@ -90,8 +90,8 @@ Document::~Document()
     }
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::~Document: About to get rid of main model"
-	      << std::endl;
+    DEBUG << "Document::~Document: About to get rid of main model"
+	      << endl;
 #endif
     if (m_mainModel) {
         m_mainModel->aboutToDelete();
@@ -114,8 +114,8 @@ Document::createLayer(LayerFactory::LayerType type)
     m_layers.insert(newLayer);
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::createLayer: Added layer of type " << type
-              << ", now have " << m_layers.size() << " layers" << std::endl;
+    DEBUG << "Document::createLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << endl;
 #endif
 
     emit layerAdded(newLayer);
@@ -160,8 +160,8 @@ Document::createImportedLayer(Model *model)
     m_layers.insert(newLayer);
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::createImportedLayer: Added layer of type " << type
-              << ", now have " << m_layers.size() << " layers" << std::endl;
+    DEBUG << "Document::createImportedLayer: Added layer of type " << type
+              << ", now have " << m_layers.size() << " layers" << endl;
 #endif
 
     emit layerAdded(newLayer);
@@ -282,8 +282,8 @@ Document::setMainModel(WaveFileModel *model)
     // delete any of the models.
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::setMainModel: Have "
-              << m_layers.size() << " layers" << std::endl;
+    DEBUG << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << endl;
     std::cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         std::cerr << i->first << " ";
@@ -297,9 +297,9 @@ Document::setMainModel(WaveFileModel *model)
 	Model *model = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
-        std::cerr << "Document::setMainModel: inspecting model "
-                  << (model ? model->objectName().toStdString() : "(null)") << " in layer "
-                  << layer->objectName() << std::endl;
+        DEBUG << "Document::setMainModel: inspecting model "
+                  << (model ? model->objectName(): "(null)") << " in layer "
+                  << layer->objectName() << endl;
 #endif
 
 	if (model == oldMainModel) {
@@ -367,12 +367,12 @@ Document::setMainModel(WaveFileModel *model)
                                                   message);
                 }
 #ifdef DEBUG_DOCUMENT
-                std::cerr << "Replacing model " << model << " (type "
+                DEBUG << "Replacing model " << model << " (type "
                           << typeid(*model).name() << ") with model "
                           << replacementModel << " (type "
                           << typeid(*replacementModel).name() << ") in layer "
                           << layer << " (name " << layer->objectName() << ")"
-                          << std::endl;
+                          << endl;
 #endif
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
@@ -397,8 +397,8 @@ Document::setMainModel(WaveFileModel *model)
         Model *m = i->first;
 
 #ifdef DEBUG_DOCUMENT
-        std::cerr << "considering alignment for model " << m << " (name \""
-                  << m->objectName() << "\")" << std::endl;
+        DEBUG << "considering alignment for model " << m << " (name \""
+                  << m->objectName() << "\")" << endl;
 #endif
 
         if (m_autoAlignment) {
@@ -438,7 +438,7 @@ Document::addDerivedModel(const Transform &transform,
     }
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << std::endl;
+    DEBUG << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
 #endif
 
     ModelRecord rec;
@@ -452,7 +452,7 @@ Document::addDerivedModel(const Transform &transform,
     m_models[outputModelToAdd] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::addDerivedModel: Added model " << outputModelToAdd << std::endl;
+    DEBUG << "Document::addDerivedModel: Added model " << outputModelToAdd << endl;
     std::cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         std::cerr << i->first << " ";
@@ -480,7 +480,7 @@ Document::addImportedModel(Model *model)
     m_models[model] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::addImportedModel: Added model " << model << std::endl;
+    DEBUG << "Document::addImportedModel: Added model " << model << endl;
     std::cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         std::cerr << i->first << " ";
@@ -575,10 +575,10 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 	}
 
 	if (sourceCount > 0) {
-	    std::cerr << "Document::releaseModel: Deleting model "
+	    DEBUG << "Document::releaseModel: Deleting model "
 		      << model << " even though it is source for "
 		      << sourceCount << " other derived model(s) -- resetting "
-		      << "their source fields appropriately" << std::endl;
+		      << "their source fields appropriately" << endl;
 	}
 
         model->aboutToDelete();
@@ -586,7 +586,7 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 	m_models.erase(model);
 
 #ifdef DEBUG_DOCUMENT
-        std::cerr << "Document::releaseModel: Deleted model " << model << std::endl;
+        DEBUG << "Document::releaseModel: Deleted model " << model << endl;
         std::cerr << "Models now: ";
         for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
             std::cerr << i->first << " ";
@@ -630,18 +630,18 @@ Document::deleteLayer(Layer *layer, bool force)
     }
 
     if (m_layers.find(layer) == m_layers.end()) {
-	std::cerr << "Document::deleteLayer: Layer "
+	DEBUG << "Document::deleteLayer: Layer "
                   << layer << " (" << typeid(layer).name() <<
                   ") does not exist, or has already been deleted "
-		  << "(this may not be as serious as it sounds)" << std::endl;
+		  << "(this may not be as serious as it sounds)" << endl;
 	return;
     }
 
     m_layers.erase(layer);
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::deleteLayer: Removing, now have "
-              << m_layers.size() << " layers" << std::endl;
+    DEBUG << "Document::deleteLayer: Removing, now have "
+              << m_layers.size() << " layers" << endl;
 #endif
 
     releaseModel(layer->getModel());
@@ -667,12 +667,11 @@ Document::setModel(Layer *layer, Model *model)
     Model *previousModel = layer->getModel();
 
     if (previousModel == model) {
-        std::cerr << "NOTE: Document::setModel: Layer " << layer << " (\""
-                  << layer->objectName().toStdString()
-                  << "\") is already set to model "
+        DEBUG << "NOTE: Document::setModel: Layer " << layer << " (\""
+                  << layer->objectName()                  << "\") is already set to model "
                   << model << " (\""
-                  << (model ? model->objectName().toStdString() : "(null)")
-                  << "\")" << std::endl;
+                  << (model ? model->objectName(): "(null)")
+                  << "\")" << endl;
         return;
     }
 
@@ -704,10 +703,9 @@ Document::addLayerToView(View *view, Layer *layer)
     Model *model = layer->getModel();
     if (!model) {
 #ifdef DEBUG_DOCUMENT
-	std::cerr << "Document::addLayerToView: Layer (\""
-                  << layer->objectName().toStdString()
-                  << "\") with no model being added to view: "
-                  << "normally you want to set the model first" << std::endl;
+	DEBUG << "Document::addLayerToView: Layer (\""
+                  << layer->objectName()                  << "\") with no model being added to view: "
+                  << "normally you want to set the model first" << endl;
 #endif
     } else {
 	if (model != m_mainModel &&
@@ -850,7 +848,7 @@ Document::alignModel(Model *model)
     if (!rm) return;
 
     if (rm->getAlignmentReference() == m_mainModel) {
-        std::cerr << "Document::alignModel: model " << rm << " is already aligned to main model " << m_mainModel << std::endl;
+        DEBUG << "Document::alignModel: model " << rm << " is already aligned to main model " << m_mainModel << endl;
         return;
     }
     
@@ -859,7 +857,7 @@ Document::alignModel(Model *model)
         // it possible to distinguish between the reference and any
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
-        std::cerr << "Document::alignModel(" << model << "): is main model, setting appropriately" << std::endl;
+        DEBUG << "Document::alignModel(" << model << "): is main model, setting appropriately" << endl;
         rm->setAlignment(new AlignmentModel(model, model, 0, 0));
         return;
     }
@@ -904,7 +902,7 @@ Document::alignModel(Model *model)
     transform.setStepSize(transform.getBlockSize()/2);
     transform.setParameter("serialise", 1);
 
-    std::cerr << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << std::endl;
+    DEBUG << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
@@ -958,7 +956,7 @@ Document::AddLayerCommand::AddLayerCommand(Document *d,
 Document::AddLayerCommand::~AddLayerCommand()
 {
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::AddLayerCommand::~AddLayerCommand" << std::endl;
+    DEBUG << "Document::AddLayerCommand::~AddLayerCommand" << endl;
 #endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
@@ -969,8 +967,8 @@ QString
 Document::AddLayerCommand::getName() const
 {
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::AddLayerCommand::getName(): Name is "
-              << m_name << std::endl;
+    DEBUG << "Document::AddLayerCommand::getName(): Name is "
+              << m_name << endl;
 #endif
     return m_name;
 }
@@ -1018,7 +1016,7 @@ Document::RemoveLayerCommand::RemoveLayerCommand(Document *d,
 Document::RemoveLayerCommand::~RemoveLayerCommand()
 {
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::RemoveLayerCommand::~RemoveLayerCommand" << std::endl;
+    DEBUG << "Document::RemoveLayerCommand::~RemoveLayerCommand" << endl;
 #endif
     if (!m_added) {
 	m_d->deleteLayer(m_layer);
@@ -1029,8 +1027,8 @@ QString
 Document::RemoveLayerCommand::getName() const
 {
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::RemoveLayerCommand::getName(): Name is "
-              << m_name << std::endl;
+    DEBUG << "Document::RemoveLayerCommand::getName(): Name is "
+              << m_name << endl;
 #endif
     return m_name;
 }
