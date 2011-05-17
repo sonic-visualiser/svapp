@@ -214,9 +214,14 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
     Labeller::ValueType labellerType = Labeller::ValueFromTwoLevelCounter;
     settings.beginGroup("MainWindow");
+
     labellerType = (Labeller::ValueType)
         settings.value("labellertype", (int)labellerType).toInt();
     int cycle = settings.value("labellercycle", 4).toInt();
+
+    m_defaultSessionTemplate = settings.value("sessiontemplate", "").toString();
+    if (m_defaultSessionTemplate == "") m_defaultSessionTemplate = "default";
+
     settings.endGroup();
 
     m_labeller = new Labeller(labellerType);
@@ -1189,19 +1194,11 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     if (mode == ReplaceSession) {
 
-        if (templateName.length() != 0) {
-            // Template in the user's template directory takes
-            // priority over a bundled one; we don't unbundle, but
-            // open directly from the bundled file (where applicable)
-            ResourceFinder rf;
-            QString tfile = rf.getResourcePath("templates", templateName + ".svt");
-            if (tfile != "") {
-                std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
-                FileOpenStatus tplStatus = openSessionTemplate("file:" + tfile);
-                if (tplStatus != FileOpenFailed) {
-                    std::cerr << "Template load succeeded" << std::endl;
-                    loadedTemplate = true;
-                }
+        if (templateName != "") {
+            FileOpenStatus tplStatus = openSessionTemplate(templateName);
+            if (tplStatus != FileOpenFailed) {
+                std::cerr << "Template load succeeded" << std::endl;
+                loadedTemplate = true;
             }
         }
 
@@ -1675,6 +1672,22 @@ MainWindowBase::openSession(FileSource source)
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openSessionTemplate(QString templateName)
+{
+    // Template in the user's template directory takes
+    // priority over a bundled one; we don't unbundle, but
+    // open directly from the bundled file (where applicable)
+    ResourceFinder rf;
+    QString tfile = rf.getResourcePath("templates", templateName + ".svt");
+    if (tfile != "") {
+        std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
+        return openSessionTemplate(FileSource("file:" + tfile));
+    } else {
+        return FileOpenFailed;
+    }
 }
 
 MainWindowBase::FileOpenStatus
