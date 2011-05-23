@@ -219,9 +219,6 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
         settings.value("labellertype", (int)labellerType).toInt();
     int cycle = settings.value("labellercycle", 4).toInt();
 
-    m_defaultSessionTemplate = settings.value("sessiontemplate", "").toString();
-    if (m_defaultSessionTemplate == "") m_defaultSessionTemplate = "default";
-
     settings.endGroup();
 
     m_labeller = new Labeller(labellerType);
@@ -332,16 +329,14 @@ MainWindowBase::registerLastOpenedFilePath(FileFinder::FileType type, QString pa
     ff->registerLastOpenedFilePath(type, path);
 }
 
-void
-MainWindowBase::setDefaultSessionTemplate(QString name)
-{
-    m_defaultSessionTemplate = name;
-}
-
 QString
 MainWindowBase::getDefaultSessionTemplate() const
 {
-    return m_defaultSessionTemplate;
+    QSettings settings;
+    settings.beginGroup("MainWindow");
+    QString templateName = settings.value("sessiontemplate", "").toString();
+    if (templateName == "") templateName = "default";
+    return templateName;
 }
 
 void
@@ -1095,7 +1090,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 //    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
 
     if (templateName == "") {
-        templateName = m_defaultSessionTemplate;
+        templateName = getDefaultSessionTemplate();
     }
 
     std::cerr << "template is: \"" << templateName.toStdString() << "\"" << std::endl;

@@ -284,7 +284,6 @@ protected:
     QString                  m_sessionFile;
     QString                  m_audioFile;
     Document                *m_document;
-    QString                  m_defaultSessionTemplate;
 
     QLabel                  *m_descriptionLabel;
     PaneStack               *m_paneStack;
@@ -399,7 +398,6 @@ protected:
     virtual QString getSaveFileName(FileFinder::FileType type);
     virtual void registerLastOpenedFilePath(FileFinder::FileType type, QString path);
 
-    virtual void setDefaultSessionTemplate(QString name);
     virtual QString getDefaultSessionTemplate() const;
 
     virtual void createPlayTarget();
