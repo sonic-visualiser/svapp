@@ -19,6 +19,7 @@
 */
 
 #include "VersionTester.h"
+#include "base/Debug.h"
 
 #include <iostream>
 
@@ -87,9 +88,7 @@ VersionTester::httpDone(bool error)
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
-    std::cerr << "Comparing current version \"" << m_myVersion.toStdString()
-              << "\" with latest version \"" << latestVersion.toStdString()
-	      << "\"" << std::endl;
+    DEBUG << "Comparing current version \"" << m_myVersion              << "\" with latest version \"" << latestVersion	      << "\"" << endl;
     if (isVersionNewerThan(latestVersion, m_myVersion)) {
         emit newerVersionAvailable(latestVersion);
     }

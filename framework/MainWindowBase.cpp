@@ -234,7 +234,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
 MainWindowBase::~MainWindowBase()
 {
-    std::cerr << "MainWindowBase::~MainWindowBase" << std::endl;
+    DEBUG << "MainWindowBase::~MainWindowBase" << endl;
     if (m_playTarget) m_playTarget->shutdown();
 //    delete m_playTarget;
     delete m_playSource;
@@ -427,7 +427,7 @@ MainWindowBase::updateMenuStates()
 void
 MainWindowBase::documentModified()
 {
-//    std::cerr << "MainWindowBase::documentModified" << std::endl;
+//    DEBUG << "MainWindowBase::documentModified" << endl;
 
     if (!m_documentModified) {
         //!!! this in subclass implementation?
@@ -441,7 +441,7 @@ MainWindowBase::documentModified()
 void
 MainWindowBase::documentRestored()
 {
-//    std::cerr << "MainWindowBase::documentRestored" << std::endl;
+//    DEBUG << "MainWindowBase::documentRestored" << endl;
 
     if (m_documentModified) {
         //!!! this in subclass implementation?
@@ -1073,7 +1073,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
 {
-//    std::cerr << "MainWindowBase::openAudio(" << source.getLocation().toStdString() << ")" << std::endl;
+//    DEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1158,7 +1158,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
     bool loadedTemplate = false;
     if ((mode == ReplaceMainModel) && (templateName.length() != 0)) {
         QString tplPath = "file::templates/" + templateName + ".xml";
-        std::cerr << "SV looking for template " << tplPath.toStdString() << std::endl;
+        std::cerr << "SV looking for template " << tplPath << std::endl;
         FileOpenStatus tplStatus = openSessionFile(tplPath);
         if(tplStatus != FileOpenFailed) {
             loadedTemplate = true;
@@ -1280,7 +1280,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 MainWindowBase::FileOpenStatus
 MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 {
-    std::cerr << "MainWindowBase::openPlaylist(" << source.getLocation().toStdString() << ")" << std::endl;
+    DEBUG << "MainWindowBase::openPlaylist(" << source.getLocation() << ")" << endl;
 
     std::set<QString> extensions;
     PlaylistFileReader::getSupportedExtensions(extensions);
@@ -1321,7 +1321,7 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openLayer(FileSource source)
 {
-    std::cerr << "MainWindowBase::openLayer(" << source.getLocation().toStdString() << ")" << std::endl;
+    DEBUG << "MainWindowBase::openLayer(" << source.getLocation() << ")" << endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1382,7 +1382,7 @@ MainWindowBase::openLayer(FileSource source)
             std::cerr << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation().toStdString()
                       << "): Failed to read XML file: "
-                      << reader.getErrorString().toStdString() << std::endl;
+                      << reader.getErrorString() << std::endl;
             return FileOpenFailed;
         }
 
@@ -1418,7 +1418,7 @@ MainWindowBase::openLayer(FileSource source)
 
             if (model) {
 
-                std::cerr << "MainWindowBase::openLayer: Have model" << std::endl;
+                DEBUG << "MainWindowBase::openLayer: Have model" << endl;
 
                 emit activity(tr("Import MIDI file \"%1\"").arg(source.getLocation()));
 
@@ -1453,7 +1453,7 @@ MainWindowBase::openLayer(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openImage(FileSource source)
 {
-    std::cerr << "MainWindowBase::openImage(" << source.getLocation().toStdString() << ")" << std::endl;
+    DEBUG << "MainWindowBase::openImage(" << source.getLocation() << ")" << endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1485,7 +1485,7 @@ MainWindowBase::openImage(FileSource source)
 
     // We don't put the image file in Recent Files
 
-    std::cerr << "openImage: trying location \"" << source.getLocation().toStdString() << "\" in image layer" << std::endl;
+    std::cerr << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << std::endl;
 
     if (!il->addImage(m_viewManager->getGlobalCentreFrame(), source.getLocation())) {
         if (newLayer) {
@@ -1513,7 +1513,7 @@ MainWindowBase::openSessionFile(QString fileOrUrl)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSession(FileSource source)
 {
-    std::cerr << "MainWindowBase::openSession(" << source.getLocation().toStdString() << ")" << std::endl;
+    DEBUG << "MainWindowBase::openSession(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1633,7 +1633,7 @@ MainWindowBase::openSession(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFromRDF(FileSource source)
 {
-    std::cerr << "MainWindowBase::openSessionFromRDF(" << source.getLocation().toStdString() << ")" << std::endl;
+    DEBUG << "MainWindowBase::openSessionFromRDF(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1664,7 +1664,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 {
     size_t rate = 0;
 
-    std::cerr << "MainWindowBase::openLayersFromRDF" << std::endl;
+    DEBUG << "MainWindowBase::openLayersFromRDF" << endl;
 
     ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -1901,7 +1901,7 @@ MainWindowBase::saveSessionFile(QString path)
             std::cerr << "Failed to open session file \""
                       << temp.getTemporaryFilename().toStdString()
                       << "\" for writing: "
-                      << bzFile.errorString().toStdString() << std::endl;
+                      << bzFile.errorString() << std::endl;
             return false;
         }
 
@@ -2587,7 +2587,7 @@ MainWindowBase::editCurrentLayer()
         //!!! how to prevent this function from being active if not
         //appropriate model type?  or will we ultimately support
         //tabular display for all editable models?
-        std::cerr << "NOTE: Not a tabular model" << std::endl;
+        DEBUG << "NOTE: Not a tabular model" << endl;
         return;
     }
 
@@ -2769,7 +2769,7 @@ MainWindowBase::globalCentreFrameChanged(unsigned long )
 void
 MainWindowBase::viewCentreFrameChanged(View *v, unsigned long frame)
 {
-//    std::cerr << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << std::endl;
+//    DEBUG << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << endl;
 
     if (m_viewDataDialogMap.find(v) != m_viewDataDialogMap.end()) {
         for (DataDialogSet::iterator i = m_viewDataDialogMap[v].begin();
@@ -2795,21 +2795,21 @@ MainWindowBase::viewZoomLevelChanged(View *v, unsigned long , bool )
 void
 MainWindowBase::layerAdded(Layer *)
 {
-//    std::cerr << "MainWindowBase::layerAdded(" << layer << ")" << std::endl;
+//    DEBUG << "MainWindowBase::layerAdded(" << layer << ")" << endl;
     updateMenuStates();
 }
 
 void
 MainWindowBase::layerRemoved(Layer *)
 {
-//    std::cerr << "MainWindowBase::layerRemoved(" << layer << ")" << std::endl;
+//    DEBUG << "MainWindowBase::layerRemoved(" << layer << ")" << endl;
     updateMenuStates();
 }
 
 void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
-//    std::cerr << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << std::endl;
+//    DEBUG << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << endl;
 
     removeLayerEditDialog(layer);
 
@@ -2822,7 +2822,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 void
 MainWindowBase::layerInAView(Layer *layer, bool inAView)
 {
-//    std::cerr << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << std::endl;
+//    DEBUG << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << endl;
 
     if (!inAView) removeLayerEditDialog(layer);
 
@@ -2876,14 +2876,14 @@ MainWindowBase::removeLayerEditDialog(Layer *layer)
 void
 MainWindowBase::modelAdded(Model *model)
 {
-//    std::cerr << "MainWindowBase::modelAdded(" << model << ")" << std::endl;
+//    DEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
     m_playSource->addModel(model);
 }
 
 void
 MainWindowBase::mainModelChanged(WaveFileModel *model)
 {
-//    std::cerr << "MainWindowBase::mainModelChanged(" << model << ")" << std::endl;
+//    DEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
     if (model && !m_playTarget && m_audioOutput) createPlayTarget();
@@ -2892,7 +2892,7 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 void
 MainWindowBase::modelAboutToBeDeleted(Model *model)
 {
-//    std::cerr << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << std::endl;
+//    DEBUG << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << endl;
     if (model == m_viewManager->getPlaybackModel()) {
         m_viewManager->setPlaybackModel(0);
     }
@@ -2911,8 +2911,8 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
         }
     }
     if (!found) {
-        std::cerr << "MainWindowBase::paneDeleteButtonClicked: Unknown pane "
-                  << pane << std::endl;
+        DEBUG << "MainWindowBase::paneDeleteButtonClicked: Unknown pane "
+                  << pane << endl;
         return;
     }
 
@@ -2940,7 +2940,7 @@ void
 MainWindowBase::pollOSC()
 {
     if (!m_oscQueue || m_oscQueue->isEmpty()) return;
-    std::cerr << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << std::endl;
+    DEBUG << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << endl;
 
     if (m_openingAudioFile) return;
 

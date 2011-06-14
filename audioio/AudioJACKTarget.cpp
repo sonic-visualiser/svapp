@@ -262,7 +262,7 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
 
 AudioJACKTarget::~AudioJACKTarget()
 {
-    std::cerr << "AudioJACKTarget::~AudioJACKTarget()" << std::endl;
+    DEBUG << "AudioJACKTarget::~AudioJACKTarget()" << endl;
 
     if (m_source) {
         m_source->setTarget(0, m_bufferSize);
@@ -289,7 +289,7 @@ AudioJACKTarget::~AudioJACKTarget()
 
     m_client = 0;
 
-    std::cerr << "AudioJACKTarget::~AudioJACKTarget() done" << std::endl;
+    DEBUG << "AudioJACKTarget::~AudioJACKTarget() done" << endl;
 }
 
 void
@@ -351,7 +351,7 @@ AudioJACKTarget::sourceModelReplaced()
     while (ports[physicalPortCount]) ++physicalPortCount;
 
 #ifdef DEBUG_AUDIO_JACK_TARGET    
-    std::cerr << "AudioJACKTarget::sourceModelReplaced: have " << channels << " channels and " << physicalPortCount << " physical ports" << std::endl;
+    DEBUG << "AudioJACKTarget::sourceModelReplaced: have " << channels << " channels and " << physicalPortCount << " physical ports" << endl;
 #endif
 
     while (m_outputs.size() < channels) {

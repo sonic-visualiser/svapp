@@ -442,7 +442,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     QString name = attributes.value("name");
 
-    std::cerr << "SVFileReader::readModel: model name \"" << name.toStdString() << "\"" << std::endl;
+    DEBUG << "SVFileReader::readModel: model name \"" << name << "\"" << endl;
 
     READ_MANDATORY(int, sampleRate, toInt);
 
@@ -462,9 +462,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         file.waitForStatus();
 
         if (!file.isOK()) {
-            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path.toStdString() << "\" for wave file model: " << file.getErrorString().toStdString() << std::endl;
+            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: " << file.getErrorString() << std::endl;
         } else if (!file.isAvailable()) {
-            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path.toStdString() << "\" for wave file model: Source unavailable" << std::endl;
+            std::cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: Source unavailable" << std::endl;
         } else {
 
             file.waitForData();
@@ -954,7 +954,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 
     READ_MANDATORY(int, frame, toInt);
 
-//    std::cerr << "SVFileReader::addPointToDataset: frame = " << frame << std::endl;
+//    DEBUG << "SVFileReader::addPointToDataset: frame = " << frame << endl;
 
     SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
 	(m_currentDataset);
@@ -1016,7 +1016,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	float height = 0.0;
 	height = attributes.value("height").trimmed().toFloat(&ok);
 	QString label = attributes.value("label");
-//        std::cerr << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label.toStdString() << ", ok = " << ok << std::endl;
+//        DEBUG << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << endl;
 	tm->addPoint(TextModel::Point(frame, height, label));
 	return ok;
     }
@@ -1026,7 +1026,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     if (pm) {
 //        std::cerr << "Current dataset is a path model" << std::endl;
         int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
-//        std::cerr << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << std::endl;
+//        DEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
 	pm->addPoint(PathModel::Point(frame, mapframe));
 	return ok;
     }
@@ -1037,7 +1037,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //        std::cerr << "Current dataset is an image model" << std::endl;
 	QString image = attributes.value("image");
 	QString label = attributes.value("label");
-//        std::cerr << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image.toStdString() << ", label = " << label.toStdString() << ", ok = " << ok << std::endl;
+//        DEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
 	im->addPoint(ImageModel::Point(frame, image, label));
 	return ok;
     }
@@ -1185,8 +1185,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
         return true;
     } else {
         m_currentTransformIsNewStyle = false;
-        std::cerr << "NOTE: SV-XML: Reading old-style derivation element"
-                  << std::endl;
+        DEBUG << "NOTE: SV-XML: Reading old-style derivation element"
+                  << endl;
     }
 
     QString transformId = attributes.value("transform");
@@ -1368,8 +1368,8 @@ SVFileReader::readSelection(const QXmlAttributes &attributes)
 bool
 SVFileReader::readMeasurement(const QXmlAttributes &attributes)
 {
-    std::cerr << "SVFileReader::readMeasurement: inLayer "
-              << m_inLayer << ", layer " << m_currentLayer << std::endl;
+    DEBUG << "SVFileReader::readMeasurement: inLayer "
+              << m_inLayer << ", layer " << m_currentLayer << endl;
 
     if (!m_inLayer) {
         std::cerr << "WARNING: SV-XML: Measurement found outside layer" << std::endl;

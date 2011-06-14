@@ -66,7 +66,7 @@ AudioGenerator::AudioGenerator() :
 AudioGenerator::~AudioGenerator()
 {
 #ifdef DEBUG_AUDIO_GENERATOR
-    std::cerr << "AudioGenerator::~AudioGenerator" << std::endl;
+    DEBUG << "AudioGenerator::~AudioGenerator" << endl;
 #endif
 }
 
@@ -97,7 +97,7 @@ AudioGenerator::initialiseSampleDir()
             std::cerr << "WARNING: AudioGenerator::getSampleDir: "
                       << "Unable to copy " << fileName.toStdString()
                       << " into temporary directory \""
-                      << m_sampleDir.toStdString() << "\"" << std::endl;
+                      << m_sampleDir << "\"" << std::endl;
         } else {
             QFile tf(target);
             tf.setPermissions(tf.permissions() |
@@ -160,7 +160,7 @@ void
 AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
                                                QString configurationXml)
 {
-//    std::cerr << "AudioGenerator::playPluginConfigurationChanged" << std::endl;
+//    DEBUG << "AudioGenerator::playPluginConfigurationChanged" << endl;
 
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
@@ -171,7 +171,7 @@ AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
     }
 
     if (m_synthMap.find(model) == m_synthMap.end()) {
-        std::cerr << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << std::endl;
+        DEBUG << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << endl;
         return;
     }
 
@@ -240,7 +240,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
 
     if (!instance) {
-	std::cerr << "Failed to instantiate plugin " << pluginId.toStdString() << std::endl;
+	std::cerr << "Failed to instantiate plugin " << pluginId << std::endl;
         return 0;
     }
 
@@ -255,7 +255,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
         instance->selectProgram(defaultProgram);
     }
     if (program != "") {
-//        std::cerr << "now selecting desired program " << program.toStdString() << std::endl;
+//        std::cerr << "now selecting desired program " << program << std::endl;
         instance->selectProgram(program.toStdString());
     }
     instance->setIdealChannelCount(m_targetChannelCount); // reset!
@@ -309,7 +309,7 @@ AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
 {
     if (m_targetChannelCount == targetChannelCount) return;
 
-//    std::cerr << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << std::endl;
+//    DEBUG << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << endl;
 
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
@@ -464,7 +464,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 
 	size_t sourceChannel = (c % modelChannels);
 
-//	std::cerr << "mixing channel " << c << " from source channel " << sourceChannel << std::endl;
+//	DEBUG << "mixing channel " << c << " from source channel " << sourceChannel << endl;
 
 	float channelGain = gain;
 	if (pan != 0.0) {
