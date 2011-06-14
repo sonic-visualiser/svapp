@@ -234,7 +234,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
 MainWindowBase::~MainWindowBase()
 {
-    DEBUG << "MainWindowBase::~MainWindowBase" << endl;
+    SVDEBUG << "MainWindowBase::~MainWindowBase" << endl;
     if (m_playTarget) m_playTarget->shutdown();
 //    delete m_playTarget;
     delete m_playSource;
@@ -427,7 +427,7 @@ MainWindowBase::updateMenuStates()
 void
 MainWindowBase::documentModified()
 {
-//    DEBUG << "MainWindowBase::documentModified" << endl;
+//    SVDEBUG << "MainWindowBase::documentModified" << endl;
 
     if (!m_documentModified) {
         //!!! this in subclass implementation?
@@ -441,7 +441,7 @@ MainWindowBase::documentModified()
 void
 MainWindowBase::documentRestored()
 {
-//    DEBUG << "MainWindowBase::documentRestored" << endl;
+//    SVDEBUG << "MainWindowBase::documentRestored" << endl;
 
     if (m_documentModified) {
         //!!! this in subclass implementation?
@@ -1073,7 +1073,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
 {
-//    DEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+//    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1280,7 +1280,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 MainWindowBase::FileOpenStatus
 MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 {
-    DEBUG << "MainWindowBase::openPlaylist(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openPlaylist(" << source.getLocation() << ")" << endl;
 
     std::set<QString> extensions;
     PlaylistFileReader::getSupportedExtensions(extensions);
@@ -1321,7 +1321,7 @@ MainWindowBase::openPlaylist(FileSource source, AudioFileOpenMode mode)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openLayer(FileSource source)
 {
-    DEBUG << "MainWindowBase::openLayer(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openLayer(" << source.getLocation() << ")" << endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1418,7 +1418,7 @@ MainWindowBase::openLayer(FileSource source)
 
             if (model) {
 
-                DEBUG << "MainWindowBase::openLayer: Have model" << endl;
+                SVDEBUG << "MainWindowBase::openLayer: Have model" << endl;
 
                 emit activity(tr("Import MIDI file \"%1\"").arg(source.getLocation()));
 
@@ -1453,7 +1453,7 @@ MainWindowBase::openLayer(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openImage(FileSource source)
 {
-    DEBUG << "MainWindowBase::openImage(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openImage(" << source.getLocation() << ")" << endl;
 
     Pane *pane = m_paneStack->getCurrentPane();
     
@@ -1513,7 +1513,7 @@ MainWindowBase::openSessionFile(QString fileOrUrl)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSession(FileSource source)
 {
-    DEBUG << "MainWindowBase::openSession(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openSession(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1633,7 +1633,7 @@ MainWindowBase::openSession(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionFromRDF(FileSource source)
 {
-    DEBUG << "MainWindowBase::openSessionFromRDF(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openSessionFromRDF(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1664,7 +1664,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 {
     size_t rate = 0;
 
-    DEBUG << "MainWindowBase::openLayersFromRDF" << endl;
+    SVDEBUG << "MainWindowBase::openLayersFromRDF" << endl;
 
     ProgressDialog dialog(tr("Importing from RDF..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -2587,7 +2587,7 @@ MainWindowBase::editCurrentLayer()
         //!!! how to prevent this function from being active if not
         //appropriate model type?  or will we ultimately support
         //tabular display for all editable models?
-        DEBUG << "NOTE: Not a tabular model" << endl;
+        SVDEBUG << "NOTE: Not a tabular model" << endl;
         return;
     }
 
@@ -2769,7 +2769,7 @@ MainWindowBase::globalCentreFrameChanged(unsigned long )
 void
 MainWindowBase::viewCentreFrameChanged(View *v, unsigned long frame)
 {
-//    DEBUG << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << endl;
+//    SVDEBUG << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << endl;
 
     if (m_viewDataDialogMap.find(v) != m_viewDataDialogMap.end()) {
         for (DataDialogSet::iterator i = m_viewDataDialogMap[v].begin();
@@ -2795,21 +2795,21 @@ MainWindowBase::viewZoomLevelChanged(View *v, unsigned long , bool )
 void
 MainWindowBase::layerAdded(Layer *)
 {
-//    DEBUG << "MainWindowBase::layerAdded(" << layer << ")" << endl;
+//    SVDEBUG << "MainWindowBase::layerAdded(" << layer << ")" << endl;
     updateMenuStates();
 }
 
 void
 MainWindowBase::layerRemoved(Layer *)
 {
-//    DEBUG << "MainWindowBase::layerRemoved(" << layer << ")" << endl;
+//    SVDEBUG << "MainWindowBase::layerRemoved(" << layer << ")" << endl;
     updateMenuStates();
 }
 
 void
 MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 {
-//    DEBUG << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << endl;
+//    SVDEBUG << "MainWindowBase::layerAboutToBeDeleted(" << layer << ")" << endl;
 
     removeLayerEditDialog(layer);
 
@@ -2822,7 +2822,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 void
 MainWindowBase::layerInAView(Layer *layer, bool inAView)
 {
-//    DEBUG << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << endl;
+//    SVDEBUG << "MainWindowBase::layerInAView(" << layer << "," << inAView << ")" << endl;
 
     if (!inAView) removeLayerEditDialog(layer);
 
@@ -2876,14 +2876,14 @@ MainWindowBase::removeLayerEditDialog(Layer *layer)
 void
 MainWindowBase::modelAdded(Model *model)
 {
-//    DEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
+//    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
     m_playSource->addModel(model);
 }
 
 void
 MainWindowBase::mainModelChanged(WaveFileModel *model)
 {
-//    DEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
+//    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
     if (model && !m_playTarget && m_audioOutput) createPlayTarget();
@@ -2892,7 +2892,7 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 void
 MainWindowBase::modelAboutToBeDeleted(Model *model)
 {
-//    DEBUG << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << endl;
+//    SVDEBUG << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << endl;
     if (model == m_viewManager->getPlaybackModel()) {
         m_viewManager->setPlaybackModel(0);
     }
@@ -2911,7 +2911,7 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
         }
     }
     if (!found) {
-        DEBUG << "MainWindowBase::paneDeleteButtonClicked: Unknown pane "
+        SVDEBUG << "MainWindowBase::paneDeleteButtonClicked: Unknown pane "
                   << pane << endl;
         return;
     }
@@ -2940,7 +2940,7 @@ void
 MainWindowBase::pollOSC()
 {
     if (!m_oscQueue || m_oscQueue->isEmpty()) return;
-    DEBUG << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << endl;
+    SVDEBUG << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << endl;
 
     if (m_openingAudioFile) return;
 

@@ -66,7 +66,7 @@ AudioGenerator::AudioGenerator() :
 AudioGenerator::~AudioGenerator()
 {
 #ifdef DEBUG_AUDIO_GENERATOR
-    DEBUG << "AudioGenerator::~AudioGenerator" << endl;
+    SVDEBUG << "AudioGenerator::~AudioGenerator" << endl;
 #endif
 }
 
@@ -160,7 +160,7 @@ void
 AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
                                                QString configurationXml)
 {
-//    DEBUG << "AudioGenerator::playPluginConfigurationChanged" << endl;
+//    SVDEBUG << "AudioGenerator::playPluginConfigurationChanged" << endl;
 
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
@@ -171,7 +171,7 @@ AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
     }
 
     if (m_synthMap.find(model) == m_synthMap.end()) {
-        DEBUG << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << endl;
+        SVDEBUG << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << endl;
         return;
     }
 
@@ -309,7 +309,7 @@ AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
 {
     if (m_targetChannelCount == targetChannelCount) return;
 
-//    DEBUG << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << endl;
+//    SVDEBUG << "AudioGenerator::setTargetChannelCount(" << targetChannelCount << ")" << endl;
 
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
@@ -464,7 +464,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 
 	size_t sourceChannel = (c % modelChannels);
 
-//	DEBUG << "mixing channel " << c << " from source channel " << sourceChannel << endl;
+//	SVDEBUG << "mixing channel " << c << " from source channel " << sourceChannel << endl;
 
 	float channelGain = gain;
 	if (pan != 0.0) {

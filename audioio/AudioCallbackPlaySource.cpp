@@ -101,7 +101,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
 AudioCallbackPlaySource::~AudioCallbackPlaySource()
 {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::~AudioCallbackPlaySource entering" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::~AudioCallbackPlaySource entering" << endl;
 #endif
     m_exiting = true;
 
@@ -136,7 +136,7 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::~AudioCallbackPlaySource finishing" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::~AudioCallbackPlaySource finishing" << endl;
 #endif
 }
 
@@ -192,7 +192,7 @@ AudioCallbackPlaySource::addModel(Model *model)
                 if (wfm && wfm != dtvm &&
                     wfm->getSampleRate() != model->getSampleRate() &&
                     wfm->getSampleRate() == m_sourceSampleRate) {
-                    DEBUG << "AudioCallbackPlaySource::addModel: Conflicting wave file model " << *i << " found" << endl;
+                    SVDEBUG << "AudioCallbackPlaySource::addModel: Conflicting wave file model " << *i << " found" << endl;
                     conflicting = true;
                     break;
                 }
@@ -200,7 +200,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 
             if (conflicting) {
 
-                DEBUG << "AudioCallbackPlaySource::addModel: ERROR: "
+                SVDEBUG << "AudioCallbackPlaySource::addModel: ERROR: "
                           << "New model sample rate does not match" << endl
                           << "existing model(s) (new " << model->getSampleRate()
                           << " vs " << m_sourceSampleRate
@@ -266,7 +266,7 @@ void
 AudioCallbackPlaySource::modelChanged(size_t startFrame, size_t endFrame)
 {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::modelChanged(" << startFrame << "," << endFrame << ")" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::modelChanged(" << startFrame << "," << endFrame << ")" << endl;
 #endif
     if (endFrame > m_lastModelEndFrame) {
         m_lastModelEndFrame = endFrame;
@@ -384,11 +384,11 @@ AudioCallbackPlaySource::play(size_t startFrame)
     if (m_viewManager->getPlaySelectionMode() &&
 	!m_viewManager->getSelections().empty()) {
 
-        DEBUG << "AudioCallbackPlaySource::play: constraining frame " << startFrame << " to selection = ";
+        SVDEBUG << "AudioCallbackPlaySource::play: constraining frame " << startFrame << " to selection = ";
 
         startFrame = m_viewManager->constrainFrameToSelection(startFrame);
 
-        DEBUG << startFrame << endl;
+        SVDEBUG << startFrame << endl;
 
     } else {
 	if (startFrame >= m_lastModelEndFrame) {
@@ -466,7 +466,7 @@ void
 AudioCallbackPlaySource::stop()
 {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::stop()" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::stop()" << endl;
 #endif
     bool changed = m_playing;
     m_playing = false;
@@ -555,7 +555,7 @@ AudioCallbackPlaySource::setTarget(AudioCallbackPlayTarget *target, size_t size)
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
-        DEBUG << "AudioCallbackPlaySource::setTarget: Buffer size "
+        SVDEBUG << "AudioCallbackPlaySource::setTarget: Buffer size "
                   << size << " > a quarter of ring buffer size "
                   << m_ringBufferSize << ", calling for more ring buffer"
                   << endl;
@@ -848,7 +848,7 @@ AudioCallbackPlaySource::rebuildRangeLists()
     MultiSelection::SelectionList::const_iterator i;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::rebuildRangeLists" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::rebuildRangeLists" << endl;
 #endif
 
     if (!selections.empty()) {
@@ -968,7 +968,7 @@ AudioCallbackPlaySource::setResampleQuality(int q)
     m_resampleQuality = q;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    DEBUG << "AudioCallbackPlaySource::setResampleQuality: setting to "
+    SVDEBUG << "AudioCallbackPlaySource::setResampleQuality: setting to "
               << m_resampleQuality << endl;
 #endif
 
@@ -1068,7 +1068,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-        DEBUG << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
+        SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
 #endif
 	for (size_t ch = 0; ch < getTargetChannelCount(); ++ch) {
 	    for (int i = 0; i < count; ++i) {
@@ -1079,7 +1079,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    DEBUG << "AudioCallbackPlaySource::getSourceSamples: Playing" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Playing" << endl;
 #endif
 
     // Ensure that all buffers have at least the amount of data we
@@ -1230,7 +1230,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
                 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
                 if (c == 0) {
-                    DEBUG << "feeding stretcher: got " << gotHere
+                    SVDEBUG << "feeding stretcher: got " << gotHere
                               << ", " << rb->getReadSpace() << " remain" << endl;
                 }
 #endif
@@ -1722,7 +1722,7 @@ AudioCallbackPlaySource::unifyRingBuffers()
 		    // OK, we don't have enough and there's more to
 		    // read -- don't unify until we can do better
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-                    DEBUG << "AudioCallbackPlaySource::unifyRingBuffers: Not unifying: write buffer has less (" << wb->getReadSpace() << ") than " << m_blockSize*2 << " to read and write buffer fill (" << m_writeBufferFill << ") is not close to end frame (" << m_lastModelEndFrame << ")" << endl;
+                    SVDEBUG << "AudioCallbackPlaySource::unifyRingBuffers: Not unifying: write buffer has less (" << wb->getReadSpace() << ") than " << m_blockSize*2 << " to read and write buffer fill (" << m_writeBufferFill << ") is not close to end frame (" << m_lastModelEndFrame << ")" << endl;
 #endif
 		    return;
 		}
@@ -1742,7 +1742,7 @@ AudioCallbackPlaySource::unifyRingBuffers()
     }
     
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    DEBUG << "AudioCallbackPlaySource::unifyRingBuffers: m_readBufferFill = " << m_readBufferFill << ", rf = " << rf << ", m_writeBufferFill = " << m_writeBufferFill << endl;
+    SVDEBUG << "AudioCallbackPlaySource::unifyRingBuffers: m_readBufferFill = " << m_readBufferFill << ", rf = " << rf << ", m_writeBufferFill = " << m_writeBufferFill << endl;
 #endif
 
     size_t wf = m_writeBufferFill;

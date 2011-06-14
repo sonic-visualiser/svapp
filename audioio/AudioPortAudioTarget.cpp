@@ -113,7 +113,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
 AudioPortAudioTarget::~AudioPortAudioTarget()
 {
-    DEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget()" << endl;
+    SVDEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget()" << endl;
 
     if (m_source) {
         m_source->setTarget(0, m_bufferSize);
@@ -123,7 +123,7 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 
     if (m_stream) {
 
-        DEBUG << "closing stream" << endl;
+        SVDEBUG << "closing stream" << endl;
 
 	PaError err;
 	err = Pa_CloseStream(m_stream);
@@ -141,14 +141,14 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 
     m_stream = 0;
 
-    DEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << endl;
+    SVDEBUG << "AudioPortAudioTarget::~AudioPortAudioTarget() done" << endl;
 }
 
 void 
 AudioPortAudioTarget::shutdown()
 {
 #ifdef DEBUG_PORT_AUDIO_TARGET
-    DEBUG << "AudioPortAudioTarget::shutdown" << endl;
+    SVDEBUG << "AudioPortAudioTarget::shutdown" << endl;
 #endif
     m_done = true;
 }
@@ -190,12 +190,12 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
                               PaStreamCallbackFlags)
 {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET    
-    DEBUG << "AudioPortAudioTarget::process(" << nframes << ")" << endl;
+    SVDEBUG << "AudioPortAudioTarget::process(" << nframes << ")" << endl;
 #endif
 
     if (!m_source || m_done) {
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET
-        DEBUG << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << endl;
+        SVDEBUG << "AudioPortAudioTarget::process: Doing nothing, no source or application done" << endl;
 #endif
         return 0;
     }
@@ -205,9 +205,9 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
         sched_param param;
         param.sched_priority = 20;
         if (pthread_setschedparam(pthread_self(), SCHED_RR, &param)) {
-            DEBUG << "AudioPortAudioTarget: NOTE: couldn't set RT scheduling class" << endl;
+            SVDEBUG << "AudioPortAudioTarget: NOTE: couldn't set RT scheduling class" << endl;
         } else {
-            DEBUG << "AudioPortAudioTarget: NOTE: successfully set RT scheduling class" << endl;
+            SVDEBUG << "AudioPortAudioTarget: NOTE: successfully set RT scheduling class" << endl;
         }
 #endif
         m_prioritySet = true;

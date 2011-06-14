@@ -37,12 +37,12 @@ TransformUserConfigurator::getChannelRange(TransformId identifier,
 {
     if (plugin && plugin->getType() == "Feature Extraction Plugin") {
 	Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
-	DEBUG << "TransformUserConfigurator::getChannelRange: is a VP" << endl;
+	SVDEBUG << "TransformUserConfigurator::getChannelRange: is a VP" << endl;
         minChannels = vp->getMinChannelCount();
         maxChannels = vp->getMaxChannelCount();
         return true;
     } else {
-	DEBUG << "TransformUserConfigurator::getChannelRange: is not a VP" << endl;
+	SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a VP" << endl;
         return TransformFactory::getInstance()->
             getTransformChannelRange(identifier, minChannels, maxChannels);
     }
@@ -119,7 +119,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
             static_cast<RealTimePluginInstance *>(plugin);
 
         if (effect && source) {
-	    DEBUG << "Setting auditioning effect" << endl;
+	    SVDEBUG << "Setting auditioning effect" << endl;
             source->setAuditioningEffect(rtp);
         }
     }

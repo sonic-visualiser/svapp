@@ -88,7 +88,7 @@ VersionTester::httpDone(bool error)
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
-    DEBUG << "Comparing current version \"" << m_myVersion              << "\" with latest version \"" << latestVersion	      << "\"" << endl;
+    SVDEBUG << "Comparing current version \"" << m_myVersion              << "\" with latest version \"" << latestVersion	      << "\"" << endl;
     if (isVersionNewerThan(latestVersion, m_myVersion)) {
         emit newerVersionAvailable(latestVersion);
     }
