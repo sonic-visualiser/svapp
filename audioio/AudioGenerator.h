@@ -28,6 +28,7 @@ class Playable;
 
 #include <set>
 #include <map>
+#include <vector>
 
 class AudioGenerator : public QObject
 {
@@ -101,6 +102,14 @@ protected:
     bool m_soloing;
     std::set<Model *> m_soloModelSet;
 
+    struct Note {
+        int pitch;
+        size_t frame;
+        size_t duration; // 0 -> "anything" (short example note)
+        int velocity;
+    };
+    typedef std::vector<Note> Notes;
+
     struct NoteOff {
 
 	int pitch;
@@ -128,16 +137,15 @@ protected:
     static void initialiseSampleDir();
     static void setSampleDir(RealTimePluginInstance *plugin);
 
+    virtual Notes getNotesFromModel
+    (Model *model, size_t startFrame, size_t frameCount);
+
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
-    virtual size_t mixSparseOneDimensionalModel
-    (SparseOneDimensionalModel *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
-
-    virtual size_t mixNoteModel
-    (NoteModel *model, size_t startFrame, size_t frameCount,
+    virtual size_t mixSparseModel
+    (Model *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
     static const size_t m_pluginBlockSize;
