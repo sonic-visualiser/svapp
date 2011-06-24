@@ -138,7 +138,8 @@ protected:
     static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual Notes getNotesFromModel
-    (Model *model, size_t startFrame, size_t frameCount);
+    (Model *model, size_t startFrame, size_t frameCount, 
+     size_t latency);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,

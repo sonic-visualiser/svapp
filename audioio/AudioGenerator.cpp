@@ -501,7 +501,8 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 AudioGenerator::Notes
 AudioGenerator::getNotesFromModel(Model *model,
                                   size_t startFrame,
-                                  size_t frameCount)
+                                  size_t frameCount,
+                                  size_t latency)
 {
     Notes notes;
 
@@ -516,11 +517,17 @@ AudioGenerator::getNotesFromModel(Model *model,
     if (sodm) {
 
 	SparseOneDimensionalModel::PointList points =
-	    sodm->getPoints(startFrame, startFrame + frameCount);
+	    sodm->getPoints(startFrame + latency,
+                            startFrame + frameCount + latency);
         
 	for (SparseOneDimensionalModel::PointList::iterator pli =
 		 points.begin(); pli != points.end(); ++pli) {
-            n.frame = pli->frame;
+            size_t frame = pli->frame;
+            if (frame > latency) frame -= latency;
+            if (frame < startFrame || frame >= startFrame + frameCount) {
+                continue;
+            }
+            n.frame = frame;
             notes.push_back(n);
         }
     }
@@ -531,12 +538,19 @@ AudioGenerator::getNotesFromModel(Model *model,
     if (nm) {
 
 	NoteModel::PointList points =
-	    nm->getPoints(startFrame, startFrame + frameCount);
+	    nm->getPoints(startFrame + latency,
+                          startFrame + frameCount + latency);
         
 	for (NoteModel::PointList::iterator pli =
 		 points.begin(); pli != points.end(); ++pli) {
 
-            n.frame = pli->frame;
+            size_t frame = pli->frame;
+            if (frame > latency) frame -= latency;
+            if (frame < startFrame || frame >= startFrame + frameCount) {
+                continue;
+            }
+
+            n.frame = frame;
             n.duration = pli->duration;
             if (n.duration == 1) n.duration = m_sourceSampleRate / 20;
 
@@ -565,7 +579,12 @@ AudioGenerator::mixSparseModel(Model *model,
                                size_t /* fadeOut */)
 {
     RealTimePluginInstance *plugin = m_synthMap[model];
-    if (!plugin) return 0;
+    if (!plugin) {
+        SVDEBUG << "AudioGenerator::mixSparseModel: No plugin" << endl;
+        return 0;
+    }
+
+    SVDEBUG << "AudioGenerator::mixSparseModel: Have plugin" << endl;
 
     size_t latency = plugin->getLatency();
     size_t blocks = frames / m_pluginBlockSize;
@@ -608,17 +627,11 @@ AudioGenerator::mixSparseModel(Model *model,
 	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
 
         Notes notes = getNotesFromModel
-            (model, reqStart + latency, m_pluginBlockSize);
+            (model, reqStart, m_pluginBlockSize, latency);
         
         for (Notes::const_iterator ni = notes.begin(); ni != notes.end(); ++ni) {
 
             size_t frame = ni->frame;
-            if (frame > latency) frame -= latency;
-
-            if (frame < reqStart ||
-                frame >= reqStart + m_pluginBlockSize) {
-                continue;
-            }
 
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= frame) {
