@@ -1070,12 +1070,29 @@ Document::RemoveLayerCommand::unexecute()
 void
 Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
 {
+    toXml(out, indent, extraAttributes, false);
+}
+
+void
+Document::toXmlAsTemplate(QTextStream &out, QString indent, QString extraAttributes) const
+{
+    toXml(out, indent, extraAttributes, true);
+}
+
+void
+Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
+                bool asTemplate) const
+{
     out << indent + QString("<data%1%2>\n")
         .arg(extraAttributes == "" ? "" : " ").arg(extraAttributes);
 
     if (m_mainModel) {
 
-	m_mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
+        if (asTemplate) {
+            writePlaceholderMainModel(out, indent + "  ");
+        } else {
+            m_mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
+        }
 
         PlayParameters *playParameters =
             PlayParameterRepository::getInstance()->getPlayParameters(m_mainModel);
@@ -1184,6 +1201,15 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes) const
     }
 
     out << indent + "</data>\n";
+}
+
+void
+Document::writePlaceholderMainModel(QTextStream &out, QString indent) const
+{
+    out << indent;
+    out << QString("<model id=\"%1\" name=\"placeholder\" sampleRate=\"%2\" type=\"wavefile\" file=\":samples/silent.wav\" mainModel=\"true\"/>\n")
+        .arg(getObjectExportId(m_mainModel))
+        .arg(m_mainModel->getSampleRate());
 }
 
 void

@@ -79,6 +79,7 @@ public:
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
+        ReplaceSession,
         ReplaceMainModel,
         CreateAdditionalModel,
         ReplaceCurrentPane,
@@ -102,8 +103,11 @@ public:
 
     virtual FileOpenStatus openSessionFile(QString fileOrUrl);
     virtual FileOpenStatus openSession(FileSource source);
+    virtual FileOpenStatus openSessionTemplate(QString templateName);
+    virtual FileOpenStatus openSessionTemplate(FileSource source);
 
     virtual bool saveSessionFile(QString path);
+    virtual bool saveSessionTemplate(QString path);
 
     /// Implementation of FrameTimer interface method
     virtual unsigned long getFrame() const;
@@ -394,6 +398,8 @@ protected:
     virtual QString getSaveFileName(FileFinder::FileType type);
     virtual void registerLastOpenedFilePath(FileFinder::FileType type, QString path);
 
+    virtual QString getDefaultSessionTemplate() const;
+
     virtual void createPlayTarget();
     virtual void openHelpUrl(QString url);
 
@@ -405,7 +411,7 @@ protected:
 
     virtual void connectLayerEditDialog(ModelDataTableDialog *dialog);
 
-    virtual void toXml(QTextStream &stream);
+    virtual void toXml(QTextStream &stream, bool asTemplate);
 };
 
 

@@ -68,6 +68,7 @@
 #include "base/Preferences.h"
 #include "base/TempWriteFile.h"
 #include "base/Exceptions.h"
+#include "base/ResourceFinder.h"
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
@@ -213,9 +214,11 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
     Labeller::ValueType labellerType = Labeller::ValueFromTwoLevelCounter;
     settings.beginGroup("MainWindow");
+
     labellerType = (Labeller::ValueType)
         settings.value("labellertype", (int)labellerType).toInt();
     int cycle = settings.value("labellercycle", 4).toInt();
+
     settings.endGroup();
 
     m_labeller = new Labeller(labellerType);
@@ -324,6 +327,16 @@ MainWindowBase::registerLastOpenedFilePath(FileFinder::FileType type, QString pa
 {
     FileFinder *ff = FileFinder::getInstance();
     ff->registerLastOpenedFilePath(type, path);
+}
+
+QString
+MainWindowBase::getDefaultSessionTemplate() const
+{
+    QSettings settings;
+    settings.beginGroup("MainWindow");
+    QString templateName = settings.value("sessiontemplate", "").toString();
+    if (templateName == "") templateName = "default";
+    return templateName;
 }
 
 void
@@ -690,11 +703,11 @@ MainWindowBase::pasteAtPlaybackPosition()
         long firstEventFrame = clipboard.getPoints()[0].getFrame();
         long offset = 0;
         if (firstEventFrame < 0) {
-            offset = long(pos) - firstEventFrame;
+            offset = (long)pos - firstEventFrame;
         } else if (firstEventFrame < pos) {
-            offset = pos - firstEventFrame;
+            offset = pos - (unsigned long)firstEventFrame;
         } else {
-            offset = -(firstEventFrame - pos);
+            offset = -((unsigned long)firstEventFrame - pos);
         }
         pasteRelative(offset);
     }
@@ -1071,9 +1084,16 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString templateName)
+MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
+                          QString templateName)
 {
 //    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+
+    if (templateName == "") {
+        templateName = getDefaultSessionTemplate();
+    }
+
+    std::cerr << "template is: \"" << templateName.toStdString() << "\"" << std::endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1101,19 +1121,20 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
 
             QSettings settings;
             settings.beginGroup("MainWindow");
-            bool prevSetAsMain = settings.value("newsessionforaudio", true).toBool();
+            int lastMode = settings.value("lastaudioopenmode", 0).toBool();
             settings.endGroup();
-            bool setAsMain = true;
+            int imode = 0;
             
             QStringList items;
-            items << tr("Replace the existing main waveform")
-                  << tr("Load this file into a new waveform pane");
+            items << tr("Close the current session and start a new one")
+                  << tr("Replace the main audio file in this session")
+                  << tr("Add the audio file to this session");
 
             bool ok = false;
             QString item = ListInputDialog::getItem
                 (this, tr("Select target for import"),
-                 tr("<b>Select a target for import</b><p>You already have an audio waveform loaded.<br>What would you like to do with the new audio file?"),
-                 items, prevSetAsMain ? 0 : 1, &ok);
+                 tr("<b>Select a target for import</b><p>You already have an audio file loaded.<br>What would you like to do with the new audio file?"),
+                 items, lastMode, &ok);
             
             if (!ok || item.isEmpty()) {
                 delete newModel;
@@ -1121,16 +1142,19 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
                 return FileOpenCancelled;
             }
             
-            setAsMain = (item == items[0]);
+            for (int i = 0; i < items.size(); ++i) {
+                if (item == items[i]) imode = i;
+            }
+
             settings.beginGroup("MainWindow");
-            settings.setValue("newsessionforaudio", setAsMain);
+            settings.setValue("lastaudioopenmode", imode);
             settings.endGroup();
 
-            if (setAsMain) mode = ReplaceMainModel;
-            else mode = CreateAdditionalModel;
+            mode = (AudioFileOpenMode)imode;
 
         } else {
-            mode = ReplaceMainModel;
+            // no main model: make a new session
+            mode = ReplaceSession;
         }
     }
 
@@ -1141,29 +1165,44 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode, QString tem
             if (getMainModel()) {
                 View::ModelSet models(pane->getModels());
                 if (models.find(getMainModel()) != models.end()) {
+                    // Current pane contains main model: replace that
                     mode = ReplaceMainModel;
                 }
+                // Otherwise the current pane has a non-default model,
+                // which we will deal with later
             } else {
-                mode = ReplaceMainModel;
+                // We have no main model, so start a new session with
+                // optional template
+                mode = ReplaceSession;
             }
         } else {
+            // We seem to have no current pane!  Oh well
             mode = CreateAdditionalModel;
         }
     }
 
     if (mode == CreateAdditionalModel && !getMainModel()) {
-        mode = ReplaceMainModel;
+        mode = ReplaceSession;
     }
 
     bool loadedTemplate = false;
-    if ((mode == ReplaceMainModel) && (templateName.length() != 0)) {
-        QString tplPath = "file::templates/" + templateName + ".xml";
+
+    if (mode == ReplaceSession) {
         std::cerr << "SV looking for template " << tplPath << std::endl;
-        FileOpenStatus tplStatus = openSessionFile(tplPath);
-        if(tplStatus != FileOpenFailed) {
-            loadedTemplate = true;
-            mode = ReplaceMainModel;
+        if (templateName != "") {
+            FileOpenStatus tplStatus = openSessionTemplate(templateName);
+            if (tplStatus != FileOpenFailed) {
+                std::cerr << "Template load succeeded" << std::endl;
+                loadedTemplate = true;
+            }
         }
+
+        if (!loadedTemplate) {
+            closeSession();
+            createDocument();
+        }
+
+        mode = ReplaceMainModel;
     }
 
     emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
@@ -1620,11 +1659,91 @@ MainWindowBase::openSession(FileSource source)
         if (!source.isRemote()) {
             // for file dialog
             registerLastOpenedFilePath(FileFinder::SessionFile,
-                                        source.getLocalFilename());
+                                       source.getLocalFilename());
         }
 
     } else {
 	setWindowTitle(QApplication::applicationName());
+    }
+
+    return ok ? FileOpenSucceeded : FileOpenFailed;
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openSessionTemplate(QString templateName)
+{
+    // Template in the user's template directory takes
+    // priority over a bundled one; we don't unbundle, but
+    // open directly from the bundled file (where applicable)
+    ResourceFinder rf;
+    QString tfile = rf.getResourcePath("templates", templateName + ".svt");
+    if (tfile != "") {
+        std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
+        return openSessionTemplate(FileSource("file:" + tfile));
+    } else {
+        return FileOpenFailed;
+    }
+}
+
+MainWindowBase::FileOpenStatus
+MainWindowBase::openSessionTemplate(FileSource source)
+{
+    std::cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation().toStdString() << ")" << std::endl;
+
+    if (!source.isAvailable()) return FileOpenFailed;
+    source.waitForData();
+
+    QXmlInputSource *inputSource = 0;
+    QFile *file = 0;
+    bool isTemplate = false;
+
+    file = new QFile(source.getLocalFilename());
+    inputSource = new QXmlInputSource(file);
+
+    if (!checkSaveModified()) {
+        delete inputSource;
+        delete file;
+        return FileOpenCancelled;
+    }
+
+    QString error;
+    closeSession();
+    createDocument();
+
+    PaneCallback callback(this);
+    m_viewManager->clearSelections();
+
+    SVFileReader reader(m_document, callback, source.getLocation());
+    connect
+        (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+    connect
+        (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+
+    reader.parse(*inputSource);
+    
+    if (!reader.isOK()) {
+        error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
+    }
+    
+    delete inputSource;
+    delete file;
+
+    bool ok = (error == "");
+
+    setWindowTitle(QApplication::applicationName());
+
+    if (ok) {
+
+        emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
+
+	setupMenus();
+
+	CommandHistory::getInstance()->clear();
+	CommandHistory::getInstance()->documentSaved();
+	m_documentModified = false;
+	updateMenuStates();
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
@@ -1703,7 +1822,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 
     std::set<Model *> added;
 
-    for (int i = 0; i < models.size(); ++i) {
+    for (int i = 0; i < (int)models.size(); ++i) {
 
         Model *m = models[i];
         WaveFileModel *w = dynamic_cast<WaveFileModel *>(m);
@@ -1728,7 +1847,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 
             added.insert(w);
             
-            for (int j = 0; j < models.size(); ++j) {
+            for (int j = 0; j < (int)models.size(); ++j) {
 
                 Model *dm = models[j];
 
@@ -1786,7 +1905,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         }
     }
 
-    for (int i = 0; i < models.size(); ++i) {
+    for (int i = 0; i < (int)models.size(); ++i) {
 
         Model *m = models[i];
 
@@ -1908,7 +2027,7 @@ MainWindowBase::saveSessionFile(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&bzFile);
-        toXml(out);
+        toXml(out, false);
         out.flush();
 
         QApplication::restoreOverrideCursor();
@@ -1934,8 +2053,45 @@ MainWindowBase::saveSessionFile(QString path)
     }
 }
 
+bool
+MainWindowBase::saveSessionTemplate(QString path)
+{
+    try {
+
+        TempWriteFile temp(path);
+
+        QFile file(temp.getTemporaryFilename());
+        if (!file.open(QIODevice::WriteOnly)) {
+            std::cerr << "Failed to open session template file \""
+                      << temp.getTemporaryFilename().toStdString()
+                      << "\" for writing: "
+                      << file.errorString().toStdString() << std::endl;
+            return false;
+        }
+        
+        QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+
+        QTextStream out(&file);
+        toXml(out, true);
+        out.flush();
+
+        QApplication::restoreOverrideCursor();
+
+        file.close();
+        temp.moveToTarget();
+        return true;
+
+    } catch (FileOperationFailed &f) {
+        
+        QMessageBox::critical(this, tr("Failed to write file"),
+                              tr("<b>Save failed</b><p>Failed to write to file \"%1\": %2")
+                              .arg(path).arg(f.what()));
+        return false;
+    }
+}
+
 void
-MainWindowBase::toXml(QTextStream &out)
+MainWindowBase::toXml(QTextStream &out, bool asTemplate)
 {
     QString indent("  ");
 
@@ -1943,7 +2099,11 @@ MainWindowBase::toXml(QTextStream &out)
     out << "<!DOCTYPE sonic-visualiser>\n";
     out << "<sv>\n";
 
-    m_document->toXml(out, "", "");
+    if (asTemplate) {
+        m_document->toXmlAsTemplate(out, "", "");
+    } else {
+        m_document->toXml(out, "", "");
+    }
 
     out << "<display>\n";
 
