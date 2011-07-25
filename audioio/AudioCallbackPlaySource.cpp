@@ -24,7 +24,9 @@
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/WaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
+#include "data/model/NoteModel.h"
 #include "plugin/RealTimePluginInstance.h"
+#include "base/Debug.h"
 
 #include "AudioCallbackPlayTarget.h"
 
@@ -69,6 +71,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_auditioningPluginBypassed(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
+    m_exampleNotes(0),
+    m_examplePlaybackFrame(0),
     m_timeStretcher(0),
     m_monoStretcher(0),
     m_stretchRatio(1.0),
@@ -115,6 +119,8 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     }
 
     clearModels();
+
+    delete m_exampleNotes;
     
     if (m_readBuffers != m_writeBuffers) {
 	delete m_readBuffers;
@@ -990,6 +996,39 @@ AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
 }
 
 void
+AudioCallbackPlaySource::queueExampleNote(int midiPitch)
+{
+    SVDEBUG << "AudioCallbackPlaySource::queueExampleNote " << midiPitch << endl;
+    
+    size_t rate = getTargetSampleRate();
+    if (!rate) return;
+
+    Note n(m_examplePlaybackFrame,
+           midiPitch,
+           rate / 2, // half a second
+           0,
+           "");
+
+    NoteModel *newNoteModel = 0;
+
+    if (!m_exampleNotes) {
+        // do this outside mutex -- adding the playable and the model
+        // both call back on us into functions that need to lock
+        newNoteModel = new NoteModel(rate, 1, false);
+        PlayParameterRepository::getInstance()->addPlayable(newNoteModel);
+        m_audioGenerator->addModel(newNoteModel);
+        m_exampleNotes = newNoteModel;
+    }
+
+    m_mutex.lock();
+    m_exampleNotes->addPoint(n);
+    m_mutex.unlock();
+
+    SVDEBUG << "AudioCallbackPlaySource::queueExampleNote: Added note at frame "
+            << n.frame << endl;
+}
+
+void
 AudioCallbackPlaySource::setSoloModelSet(std::set<Model *> s)
 {
     m_audioGenerator->setSoloModelSet(s);
@@ -1062,6 +1101,52 @@ AudioCallbackPlaySource::setTimeStretch(float factor)
 }
 
 size_t
+AudioCallbackPlaySource::mixExampleModel(size_t count, float **buffer)
+{
+    SVDEBUG << "AudioCallbackPlaySource::mixExampleModel" << endl;
+
+    if (!m_exampleNotes || m_exampleNotes->isEmpty()) {
+        return 0;
+    }
+
+    SVDEBUG << "AudioCallbackPlaySource::mixExampleModel: Model non-empty; m_examplePlaybackFrame is " << m_examplePlaybackFrame << " and count " << count << endl;
+
+    QMutexLocker locker(&m_mutex);
+
+    size_t n = 0;
+
+    n = m_audioGenerator->mixModel(m_exampleNotes,
+                                   m_examplePlaybackFrame,
+                                   count,
+                                   buffer,
+                                   0,
+                                   0);
+
+    m_examplePlaybackFrame += n;
+
+    // prune notes that have finished
+    while (1) {
+        const NoteModel::PointList &points = m_exampleNotes->getPoints();
+        if (!points.empty()) {
+            NoteModel::Point p(*points.begin());
+            if (p.frame + p.duration < m_examplePlaybackFrame) {
+                m_exampleNotes->deletePoint(p);
+                continue;
+            }
+        }
+        break;
+    }
+
+    SVDEBUG << "AudioCallbackPlaySource::mixExampleModel: done, got "
+            << n << " frames for new m_examplePlaybackFrame of "
+            << m_examplePlaybackFrame << ", "
+            << m_exampleNotes->getPoints().size() << " queued notes remain"
+            << endl;
+
+    return n;
+}
+
+size_t
 AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 {
     int count = ucount;
@@ -1075,7 +1160,7 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 		buffer[ch][i] = 0.0;
 	    }
 	}
-	return 0;
+	return mixExampleModel(ucount, buffer);
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1180,6 +1265,8 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 #endif
 
         m_condition.wakeAll();
+        
+        (void)mixExampleModel(got, buffer);
 
 	return got;
     }
@@ -1272,6 +1359,8 @@ AudioCallbackPlaySource::getSourceSamples(size_t ucount, float **buffer)
 #endif
 
     m_condition.wakeAll();
+
+    (void)mixExampleModel(count, buffer);
 
     return count;
 }

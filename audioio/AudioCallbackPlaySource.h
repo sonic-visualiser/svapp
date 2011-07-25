@@ -38,6 +38,7 @@ namespace RubberBand {
 }
 
 class Model;
+class NoteModel;
 class ViewManagerBase;
 class AudioGenerator;
 class PlayParameters;
@@ -227,6 +228,12 @@ public:
     void setAuditioningEffect(Auditionable *plugin);
 
     /**
+     * Request spontaneous playback of a single short note of the
+     * given pitch.
+     */
+    void queueExampleNote(int midiPitch);
+
+    /**
      * Specify that only the given set of models should be played.
      */
     void setSoloModelSet(std::set<Model *>s);
@@ -305,6 +312,8 @@ protected:
     size_t                            m_playStartFrame;
     bool                              m_playStartFramePassed;
     RealTime                          m_playStartedAt;
+    NoteModel                        *m_exampleNotes;
+    size_t                            m_examplePlaybackFrame;
 
     RingBuffer<float> *getWriteRingBuffer(size_t c) {
 	if (m_writeBuffers && c < m_writeBuffers->size()) {
@@ -344,6 +353,11 @@ protected:
     // new buffered frame position (which may be earlier than the
     // frame argument passed in, in the case of looping).
     size_t mixModels(size_t &frame, size_t count, float **buffers);
+
+    // Called from getSourceSamples, thus in play thread rather than
+    // fill thread.  Return the number of frames written, which will
+    // be count or fewer.
+    size_t mixExampleModel(size_t count, float **buffers);
 
     // Called from getSourceSamples.
     void applyAuditioningEffect(size_t count, float **buffers);
