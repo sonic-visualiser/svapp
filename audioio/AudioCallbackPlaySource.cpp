@@ -1006,7 +1006,7 @@ AudioCallbackPlaySource::queueExampleNote(int midiPitch)
     Note n(m_examplePlaybackFrame,
            midiPitch,
            rate / 2, // half a second
-           0,
+           64,
            "");
 
     NoteModel *newNoteModel = 0;
