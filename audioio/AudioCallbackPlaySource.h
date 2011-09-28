@@ -51,7 +51,7 @@ class AudioCallbackPlayTarget;
  * provides a method for a realtime thread to pick up the latest
  * available sample data from these buffers.
  */
-class AudioCallbackPlaySource : public virtual QObject,
+class AudioCallbackPlaySource : public QObject,
 				public AudioPlaySource
 {
     Q_OBJECT
