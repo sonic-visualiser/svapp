@@ -49,7 +49,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 	return;
     }
 
-    m_bufferSize = 2048;
+    m_bufferSize = 2048; //1024 (does not change the latency on win); //initial: 2048
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
 	m_sampleRate = m_source->getSourceSampleRate();
@@ -59,7 +59,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     op.device = Pa_GetDefaultOutputDevice();
     op.channelCount = 2;
     op.sampleFormat = paFloat32;
-    op.suggestedLatency = 1.0;
+    op.suggestedLatency = 0.2;//1.0;
     op.hostApiSpecificStreamInfo = 0;
     err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                         paFramesPerBufferUnspecified,

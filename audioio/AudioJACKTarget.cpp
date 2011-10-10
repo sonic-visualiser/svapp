@@ -21,7 +21,7 @@
 #include <iostream>
 #include <cmath>
 
-#include <alloca.h>
+#include <malloc.h> //replace with #include <alloca.h> for osx compilation
 
 //#define DEBUG_AUDIO_JACK_TARGET 1
 

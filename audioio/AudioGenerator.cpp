@@ -38,7 +38,7 @@
 #include <QFile>
 
 const size_t
-AudioGenerator::m_pluginBlockSize = 1024; //2048;
+AudioGenerator::m_pluginBlockSize = 1024;//2048;//1024;
 
 QString
 AudioGenerator::m_sampleDir = "";
