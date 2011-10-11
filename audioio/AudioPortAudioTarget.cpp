@@ -59,7 +59,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     op.device = Pa_GetDefaultOutputDevice();
     op.channelCount = 2;
     op.sampleFormat = paFloat32;
-    op.suggestedLatency = 0.2;//1.0;
+    op.suggestedLatency = 0.2;
     op.hostApiSpecificStreamInfo = 0;
     err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                         paFramesPerBufferUnspecified,

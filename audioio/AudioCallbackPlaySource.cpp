@@ -902,8 +902,16 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 void
 AudioCallbackPlaySource::setTargetSampleRate(size_t sr)
 {
+    bool first = (m_targetSampleRate == 0);
+
     m_targetSampleRate = sr;
     initialiseConverter();
+
+    if (first && (m_stretchRatio != 1.f)) {
+        // couldn't create a stretcher before because we had no sample
+        // rate: make one now
+        setTimeStretch(m_stretchRatio);
+    }
 }
 
 void
@@ -1072,6 +1080,8 @@ void
 AudioCallbackPlaySource::setTimeStretch(float factor)
 {
     m_stretchRatio = factor;
+
+    if (!getTargetSampleRate()) return; // have to make our stretcher later
 
     if (m_timeStretcher || (factor == 1.f)) {
         // stretch ratio will be set in next process call if appropriate

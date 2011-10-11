@@ -1216,6 +1216,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         }
         PlayParameterRepository::getInstance()->addPlayable(newModel);
 
+        SVDEBUG << "SV about to call setMainModel(" << newModel << "): prevMain is " << prevMain << endl;
+
 	m_document->setMainModel(newModel);
 
 	setupMenus();

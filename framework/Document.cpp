@@ -282,13 +282,14 @@ Document::setMainModel(WaveFileModel *model)
     // delete any of the models.
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::setMainModel: Have "
-              << m_layers.size() << " layers" << endl;
+    std::cerr << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << std::endl;
     std::cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         std::cerr << i->first << " ";
     } 
     std::cerr << std::endl;
+    std::cerr << "Old main model: " << oldMainModel << std::endl;
 #endif
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
@@ -297,9 +298,9 @@ Document::setMainModel(WaveFileModel *model)
 	Model *model = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
-        SVDEBUG << "Document::setMainModel: inspecting model "
+        std::cerr << "Document::setMainModel: inspecting model "
                   << (model ? model->objectName(): "(null)") << " in layer "
-                  << layer->objectName() << endl;
+                  << layer->objectName() << std::endl;
 #endif
 
 	if (model == oldMainModel) {
@@ -367,12 +368,12 @@ Document::setMainModel(WaveFileModel *model)
                                                   message);
                 }
 #ifdef DEBUG_DOCUMENT
-                SVDEBUG << "Replacing model " << model << " (type "
+                std::cerr << "Replacing model " << model << " (type "
                           << typeid(*model).name() << ") with model "
                           << replacementModel << " (type "
                           << typeid(*replacementModel).name() << ") in layer "
                           << layer << " (name " << layer->objectName() << ")"
-                          << endl;
+                          << std::endl;
 #endif
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
@@ -438,7 +439,11 @@ Document::addDerivedModel(const Transform &transform,
     }
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
+    if (input.getModel()) {
+        std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << std::endl;
+    } else {
+        std::cerr << "Document::addDerivedModel: source is " << input.getModel() << std::endl;
+    }
 #endif
 
     ModelRecord rec;
