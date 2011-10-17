@@ -340,6 +340,14 @@ MainWindowBase::getDefaultSessionTemplate() const
 }
 
 void
+MainWindowBase::setDefaultSessionTemplate(QString n) 
+{
+    QSettings settings;
+    settings.beginGroup("MainWindow");
+    settings.setValue("sessiontemplate", n);
+}    
+
+void
 MainWindowBase::updateMenuStates()
 {
     Pane *currentPane = 0;

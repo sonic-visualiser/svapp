@@ -399,6 +399,7 @@ protected:
     virtual void registerLastOpenedFilePath(FileFinder::FileType type, QString path);
 
     virtual QString getDefaultSessionTemplate() const;
+    virtual void setDefaultSessionTemplate(QString);
 
     virtual void createPlayTarget();
     virtual void openHelpUrl(QString url);
