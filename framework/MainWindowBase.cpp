@@ -108,6 +108,27 @@ using std::vector;
 using std::map;
 using std::set;
 
+#ifdef Q_WS_X11
+#define Window X11Window
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xatom.h>
+#include <X11/SM/SMlib.h>
+
+static int handle_x11_error(Display *dpy, XErrorEvent *err)
+{
+    char errstr[256];
+    XGetErrorText(dpy, err->error_code, errstr, 256);
+    if (err->error_code != BadWindow) {
+	std::cerr << "Sonic Visualiser: X Error: "
+		  << errstr << " " << int(err->error_code)
+		  << "\nin major opcode:  "
+		  << int(err->request_code) << std::endl;
+    }
+    return 0;
+}
+#undef Window
+#endif
 
 MainWindowBase::MainWindowBase(bool withAudioOutput,
                                bool withOSCSupport,
@@ -131,6 +152,10 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_lastPlayStatusSec(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
+
+#ifdef Q_WS_X11
+    XSetErrorHandler(handle_x11_error);
+#endif
 
     connect(CommandHistory::getInstance(), SIGNAL(commandExecuted()),
 	    this, SLOT(documentModified()));
