@@ -2272,12 +2272,6 @@ MainWindowBase::showMinimalOverlays()
 }
 
 void
-MainWindowBase::showStandardOverlays()
-{
-    m_viewManager->setOverlayMode(ViewManager::StandardOverlays);
-}
-
-void
 MainWindowBase::showAllOverlays()
 {
     m_viewManager->setOverlayMode(ViewManager::AllOverlays);
@@ -2365,6 +2359,16 @@ MainWindowBase::toggleStatusBar()
     settings.setValue("showstatusbar", !sb);
 
     settings.endGroup();
+}
+
+void
+MainWindowBase::toggleCentreLine()
+{
+    if (m_viewManager->shouldShowCentreLine()) {
+        m_viewManager->setShowCentreLine(false);
+    } else {
+        m_viewManager->setShowCentreLine(true);
+    }
 }
 
 void

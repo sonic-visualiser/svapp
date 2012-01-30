@@ -172,13 +172,13 @@ protected slots:
 
     virtual void showNoOverlays();
     virtual void showMinimalOverlays();
-    virtual void showStandardOverlays();
     virtual void showAllOverlays();
 
     virtual void toggleTimeRulers();
     virtual void toggleZoomWheels();
     virtual void togglePropertyBoxes();
     virtual void toggleStatusBar();
+    virtual void toggleCentreLine();
 
     virtual void play();
     virtual void ffwd();
