@@ -1221,9 +1221,16 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     bool loadedTemplate = false;
 
     if (mode == ReplaceSession) {
+
+        if (!checkSaveModified()) return FileOpenCancelled;
+
         std::cerr << "SV looking for template " << templateName << std::endl;
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
+            if (tplStatus == FileOpenCancelled) {
+                std::cerr << "Template load cancelled" << std::endl;
+                return FileOpenCancelled;
+            }
             if (tplStatus != FileOpenFailed) {
                 std::cerr << "Template load succeeded" << std::endl;
                 loadedTemplate = true;
