@@ -441,6 +441,7 @@ MainWindowBase::updateMenuStates()
     emit canScroll(haveMainModel && haveCurrentPane);
     emit canAddLayer(haveMainModel && haveCurrentPane);
     emit canImportMoreAudio(haveMainModel);
+    emit canReplaceMainAudio(haveMainModel);
     emit canImportLayer(haveMainModel && haveCurrentPane);
     emit canExportAudio(haveMainModel);
     emit canExportLayer(haveMainModel &&

@@ -118,6 +118,7 @@ signals:
     void canDeleteCurrentPane(bool);
     void canAddLayer(bool);
     void canImportMoreAudio(bool);
+    void canReplaceMainAudio(bool);
     void canImportLayer(bool);
     void canExportAudio(bool);
     void canExportLayer(bool);
