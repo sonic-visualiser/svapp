@@ -286,7 +286,6 @@ protected:
     QString                  m_audioFile;
     Document                *m_document;
 
-    QLabel                  *m_descriptionLabel;
     PaneStack               *m_paneStack;
     ViewManager             *m_viewManager;
     Layer                   *m_timeRulerLayer;
