@@ -13,6 +13,13 @@ INCLUDEPATH += . ../svcore ../svgui
 OBJECTS_DIR = o
 MOC_DIR = o
 
+win32-g++ {
+    INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
+}
+win32-msvc* {
+    INCLUDEPATH += ../sv-dependency-builds/win32-msvc/include
+}
+
 HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioCallbackPlayTarget.h \
            audioio/AudioCoreAudioTarget.h \
