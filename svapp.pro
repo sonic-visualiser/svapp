@@ -1,7 +1,14 @@
 
 TEMPLATE = lib
 
-include(config.pri)
+exists(config.pri) {
+    include(config.pri)
+}
+win* {
+    !exists(config.pri) {
+        DEFINES += HAVE_PORTAUDIO_2_0
+    }
+}
 
 CONFIG += staticlib qt thread warn_on stl rtti exceptions
 QT += network xml gui widgets
