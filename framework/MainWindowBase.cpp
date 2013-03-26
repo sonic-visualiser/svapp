@@ -1012,15 +1012,15 @@ MainWindowBase::insertItemAt(size_t frame, size_t duration)
         return;
     }
 
-    FlexiNoteModel *nm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
-    if (nm) {
+    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
+    if (fnm) {
         FlexiNoteModel::Point point(alignedStart,
                                rm->getValueMinimum(),
                                alignedDuration,
                                1.f,
                                "");
         FlexiNoteModel::EditCommand *command =
-            new FlexiNoteModel::EditCommand(nm, tr("Add Point"));
+            new FlexiNoteModel::EditCommand(fnm, tr("Add Point"));
         command->addPoint(point);
         command->setName(name);
         c = command->finish();
