@@ -22,6 +22,7 @@
 #include "data/model/WaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
+#include "data/model/FlexiNoteModel.h"
 #include "data/model/Labeller.h"
 #include "data/model/TabularModel.h"
 #include "view/ViewManager.h"
@@ -35,6 +36,7 @@
 #include "layer/SliceableLayer.h"
 #include "layer/ImageLayer.h"
 #include "layer/NoteLayer.h"
+#include "layer/FlexiNoteLayer.h"
 #include "layer/RegionLayer.h"
 
 #include "widgets/ListInputDialog.h"
@@ -424,6 +426,7 @@ MainWindowBase::updateMenuStates()
     bool haveCurrentDurationLayer = 
 	(haveCurrentLayer &&
 	 (dynamic_cast<NoteLayer *>(currentLayer) ||
+	  dynamic_cast<FlexiNoteLayer *>(currentLayer) ||
           dynamic_cast<RegionLayer *>(currentLayer)));
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
@@ -999,6 +1002,25 @@ MainWindowBase::insertItemAt(size_t frame, size_t duration)
                                "");
         NoteModel::EditCommand *command =
             new NoteModel::EditCommand(nm, tr("Add Point"));
+        command->addPoint(point);
+        command->setName(name);
+        c = command->finish();
+    }
+
+    if (c) {
+        CommandHistory::getInstance()->addCommand(c, false);
+        return;
+    }
+
+    FlexiNoteModel *nm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
+    if (nm) {
+        FlexiNoteModel::Point point(alignedStart,
+                               rm->getValueMinimum(),
+                               alignedDuration,
+                               1.f,
+                               "");
+        FlexiNoteModel::EditCommand *command =
+            new FlexiNoteModel::EditCommand(nm, tr("Add Point"));
         command->addPoint(point);
         command->setName(name);
         c = command->finish();
