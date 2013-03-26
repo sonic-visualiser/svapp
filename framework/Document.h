@@ -117,6 +117,16 @@ public:
                               const ModelTransformer::Input &);
 
     /**
+     * Exactly the same as above, but providing exactly the layer type
+     * for cases in which the first suitable layer type for a transform
+     * is not the desired one.
+     * WARNING: highly redundant code (with the above creation funciotn)
+     */
+    Layer *createDerivedLayer(const Transform &,
+                              const ModelTransformer::Input &,
+                              const LayerFactory::LayerType type);
+
+    /**
      * Delete the given layer, and also its associated model if no
      * longer used by any other layer.  In general, this should be the
      * only method used to delete layers -- doing so directly is a bit

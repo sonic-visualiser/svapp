@@ -202,7 +202,6 @@ Document::createDerivedLayer(LayerFactory::LayerType type,
 
     return newLayer;
 }
-
 Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input)
@@ -258,6 +257,66 @@ Document::createDerivedLayer(const Transform &transform,
     emit layerAdded(newLayer);
     return newLayer;
 }
+
+Layer *
+Document::createDerivedLayer(const Transform &transform,
+                             const ModelTransformer::Input &input,
+                             const LayerFactory::LayerType type)
+{
+	// !!! THIS IS TOTALLY REDUNDANT CODE, EXCEPT FOR THE type SETTING
+	
+    QString message;
+    Model *newModel = addDerivedModel(transform, input, message);
+    if (!newModel) {
+        emit modelGenerationFailed(transform.getIdentifier(), message);
+        return 0;
+    } else if (message != "") {
+        emit modelGenerationWarning(transform.getIdentifier(), message);
+    }
+
+    LayerFactory::LayerTypeSet types =
+	LayerFactory::getInstance()->getValidLayerTypes(newModel);
+
+    if (types.empty()) {
+	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << std::endl;
+        newModel->aboutToDelete();
+        emit modelAboutToBeDeleted(newModel);
+        m_models.erase(newModel);
+	delete newModel;
+	return 0;
+    }
+
+    //!!! for now, just use the first suitable layer type
+
+    Layer *newLayer = createLayer(type);
+    setModel(newLayer, newModel);
+
+    //!!! We need to clone the model when adding the layer, so that it
+    //can be edited without affecting other layers that are based on
+    //the same model.  Unfortunately we can't just clone it now,
+    //because it probably hasn't been completed yet -- the transform
+    //runs in the background.  Maybe the transform has to handle
+    //cloning and cacheing models itself.
+    //
+    // Once we do clone models here, of course, we'll have to avoid
+    // leaking them too.
+    //
+    // We want the user to be able to add a model to a second layer
+    // _while it's still being calculated in the first_ and have it
+    // work quickly.  That means we need to put the same physical
+    // model pointer in both layers, so they can't actually be cloned.
+    
+    if (newLayer) {
+	newLayer->setObjectName(getUniqueLayerName
+                                (TransformFactory::getInstance()->
+                                 getTransformFriendlyName
+                                 (transform.getIdentifier())));
+    }
+
+    emit layerAdded(newLayer);
+    return newLayer;
+}
+
 
 void
 Document::setMainModel(WaveFileModel *model)
