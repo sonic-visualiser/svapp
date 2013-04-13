@@ -121,9 +121,6 @@ Document::createLayer(LayerFactory::LayerType type)
               << ", now have " << m_layers.size() << " layers" << endl;
 #endif
 
-	std::cerr << "Document::createLayer: Added layer of type " << type
-	          << ", now have " << m_layers.size() << " layers" << endl;
-
     emit layerAdded(newLayer);
 
     return newLayer;
@@ -296,7 +293,6 @@ Document::createDerivedLayer(const Transform &transform,
     //!!! creating layer with the specified type
 
     Layer *newLayer = createLayer(type);
-	std::cerr << " NOTE: Created layer " << newLayer << " calling Document::setModel() " << std::endl;
     setModel(newLayer, newModel);
 
     //!!! We need to clone the model when adding the layer, so that it
@@ -607,8 +603,7 @@ Document::addDerivedModel(const Transform &transform,
     } else {
 	addDerivedModel(applied, input, model);
     }
-	std::cerr << "derived model from ModelTransformerFactory::getInstance()->transform " << std::endl;
-	std::cerr << "derived model name: " << model->getTypeName() << std::endl;
+	// std::cerr << "derived model name: " << model->getTypeName() << std::endl;
 	
     return model;
 }
@@ -732,7 +727,6 @@ Document::deleteLayer(Layer *layer, bool force)
 void
 Document::setModel(Layer *layer, Model *model)
 {
-	std::cerr << "Document::setModel: setting model " << std::endl;
     if (model && 
 	model != m_mainModel &&
 	m_models.find(model) == m_models.end()) {
@@ -764,13 +758,8 @@ Document::setModel(Layer *layer, Model *model)
             (previousModel, model);
     }
 
-	std::cerr << "Document::setModel: calling layer->setModel() " << std::endl;
-	std::cerr << "Document::setModel: getInstance: " << LayerFactory::getInstance() << std::endl;
-	std::cerr << "model: " << model << std::endl;
-	std::cerr << "layer: " << layer << std::endl;
     LayerFactory::getInstance()->setModel(layer, model);
-	std::cerr << "layer type: " << LayerFactory::getInstance()->getLayerTypeName(LayerFactory::getInstance()->getLayerType(layer)) << std::endl;
-	std::cerr << "Document::setModel: done. " << std::endl;
+	// std::cerr << "layer type: " << LayerFactory::getInstance()->getLayerTypeName(LayerFactory::getInstance()->getLayerType(layer)) << std::endl;
 
     if (previousModel) {
         releaseModel(previousModel);
