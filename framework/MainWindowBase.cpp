@@ -3106,6 +3106,7 @@ void
 MainWindowBase::modelAdded(Model *model)
 {
 //    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
+	std::cerr << "\nAdding model " << model->getTypeName() << " to playsource " << std::endl;
     m_playSource->addModel(model);
 }
 
