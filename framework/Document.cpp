@@ -19,6 +19,8 @@
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/DenseThreeDimensionalModel.h"
 #include "data/model/DenseTimeValueModel.h"
+#include "data/model/FlexiNoteModel.h"
+
 #include "layer/Layer.h"
 #include "widgets/CommandHistory.h"
 #include "base/Command.h"
@@ -27,6 +29,7 @@
 #include "base/PlayParameters.h"
 #include "transform/TransformFactory.h"
 #include "transform/ModelTransformerFactory.h"
+#include "transform/FeatureExtractionModelTransformer.h"
 #include <QApplication>
 #include <QTextStream>
 #include <QSettings>
@@ -117,6 +120,9 @@ Document::createLayer(LayerFactory::LayerType type)
     SVDEBUG << "Document::createLayer: Added layer of type " << type
               << ", now have " << m_layers.size() << " layers" << endl;
 #endif
+
+	std::cerr << "Document::createLayer: Added layer of type " << type
+	          << ", now have " << m_layers.size() << " layers" << endl;
 
     emit layerAdded(newLayer);
 
@@ -261,34 +267,36 @@ Document::createDerivedLayer(const Transform &transform,
 Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input,
-                             const LayerFactory::LayerType type)
+                             const LayerFactory::LayerType type,
+							 const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
 {
 	// !!! THIS IS TOTALLY REDUNDANT CODE, EXCEPT FOR THE type SETTING
 	
-    QString message;
-    Model *newModel = addDerivedModel(transform, input, message);
-    if (!newModel) {
-        emit modelGenerationFailed(transform.getIdentifier(), message);
-        return 0;
-    } else if (message != "") {
-        emit modelGenerationWarning(transform.getIdentifier(), message);
-    }
-
-    LayerFactory::LayerTypeSet types =
+	    QString message;
+	    Model *newModel = addDerivedModel(transform, input, message, outputmodel);
+	    if (!newModel) {
+	        emit modelGenerationFailed(transform.getIdentifier(), message);
+	        return 0;
+	    } else if (message != "") {
+	        emit modelGenerationWarning(transform.getIdentifier(), message);
+	    }
+	
+	    LayerFactory::LayerTypeSet types =
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
-
-    if (types.empty()) {
+	
+	    if (types.empty()) {
 	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << std::endl;
-        newModel->aboutToDelete();
-        emit modelAboutToBeDeleted(newModel);
-        m_models.erase(newModel);
+	        newModel->aboutToDelete();
+	        emit modelAboutToBeDeleted(newModel);
+	        m_models.erase(newModel);
 	delete newModel;
 	return 0;
-    }
+	    }
 
-    //!!! for now, just use the first suitable layer type
+    //!!! creating layer with the specified type
 
     Layer *newLayer = createLayer(type);
+	std::cerr << " NOTE: Created layer " << newLayer << " calling Document::setModel() " << std::endl;
     setModel(newLayer, newModel);
 
     //!!! We need to clone the model when adding the layer, so that it
@@ -560,20 +568,25 @@ Document::addImportedModel(Model *model)
 Model *
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
-                          QString &message)
+                          QString &message,
+						  const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
 {
     Model *model = 0;
+	// model = (Model) new FlexiNoteModel();
+	// return model;
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
 	if (i->second.transform == transform &&
 	    i->second.source == input.getModel() && 
             i->second.channel == input.getChannel()) {
+				std::cerr << "derived model taken from map " << std::endl;
 	    return i->first;
 	}
     }
 
+	// GF: TODO: propagate preferredOutputModelSelection (done)
     model = ModelTransformerFactory::getInstance()->transform
-        (transform, input, message);
+        (transform, input, message, outputmodel); //e.g. FeatureExtractionModelTransformer::FlexiNoteOutputModel
 
     // The transform we actually used was presumably identical to the
     // one asked for, except that the version of the plugin may
@@ -594,7 +607,9 @@ Document::addDerivedModel(const Transform &transform,
     } else {
 	addDerivedModel(applied, input, model);
     }
-
+	std::cerr << "derived model from ModelTransformerFactory::getInstance()->transform " << std::endl;
+	std::cerr << "derived model name: " << model->getTypeName() << std::endl;
+	
     return model;
 }
 
@@ -717,6 +732,7 @@ Document::deleteLayer(Layer *layer, bool force)
 void
 Document::setModel(Layer *layer, Model *model)
 {
+	std::cerr << "Document::setModel: setting model " << std::endl;
     if (model && 
 	model != m_mainModel &&
 	m_models.find(model) == m_models.end()) {
@@ -748,7 +764,13 @@ Document::setModel(Layer *layer, Model *model)
             (previousModel, model);
     }
 
+	std::cerr << "Document::setModel: calling layer->setModel() " << std::endl;
+	std::cerr << "Document::setModel: getInstance: " << LayerFactory::getInstance() << std::endl;
+	std::cerr << "model: " << model << std::endl;
+	std::cerr << "layer: " << layer << std::endl;
     LayerFactory::getInstance()->setModel(layer, model);
+	std::cerr << "layer type: " << LayerFactory::getInstance()->getLayerTypeName(LayerFactory::getInstance()->getLayerType(layer)) << std::endl;
+	std::cerr << "Document::setModel: done. " << std::endl;
 
     if (previousModel) {
         releaseModel(previousModel);

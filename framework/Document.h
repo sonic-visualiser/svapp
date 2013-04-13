@@ -19,6 +19,7 @@
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 #include "transform/ModelTransformer.h"
+#include "transform/FeatureExtractionModelTransformer.h"
 #include "base/Command.h"
 
 #include <map>
@@ -124,7 +125,8 @@ public:
      */
     Layer *createDerivedLayer(const Transform &,
                               const ModelTransformer::Input &,
-                              const LayerFactory::LayerType type);
+                              const LayerFactory::LayerType type, 
+							  const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel);
 
     /**
      * Delete the given layer, and also its associated model if no
@@ -161,7 +163,8 @@ public:
      */
     Model *addDerivedModel(const Transform &transform,
                            const ModelTransformer::Input &input,
-                           QString &returnedMessage);
+                           QString &returnedMessage,
+						   FeatureExtractionModelTransformer::PreferredOutputModel outputmodel = FeatureExtractionModelTransformer::NoteOutputModel);
 
     /**
      * Add a derived model associated with the given transform.  This
