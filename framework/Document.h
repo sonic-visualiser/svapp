@@ -160,6 +160,7 @@ public:
     /**
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.
+	 * In case the output model is a NoteModel, the preferred output model will be selected: {NoteModel | FlexiNoteModel}.
      */
     Model *addDerivedModel(const Transform &transform,
                            const ModelTransformer::Input &input,
