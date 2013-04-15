@@ -204,10 +204,18 @@ AudioGenerator::loadPluginFor(const Model *model)
         configurationXml = parameters->getPlayPluginConfiguration();
     }
 
-    if (pluginId == "") return 0;
+    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): id = " << pluginId << std::endl;
+
+    if (pluginId == "") {
+        SVDEBUG << "AudioGenerator::loadPluginFor(" << model << "): parameters contain empty plugin ID, skipping" << endl;
+        return 0;
+    }
 
     RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
     if (!plugin) return 0;
+
+    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): loaded plugin "
+              << plugin << std::endl;
 
     if (configurationXml != "") {
         PluginXml(plugin).setParametersFromXml(configurationXml);
@@ -232,7 +240,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
     
     if (!factory) {
 	std::cerr << "Failed to get plugin factory" << std::endl;
-	return false;
+	return 0;
     }
 	
     RealTimePluginInstance *instance =
@@ -251,11 +259,11 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
     }
     std::string defaultProgram = instance->getProgram(0, 0);
     if (defaultProgram != "") {
-//        std::cerr << "first selecting default program " << defaultProgram << std::endl;
+        std::cerr << "first selecting default program " << defaultProgram << std::endl;
         instance->selectProgram(defaultProgram);
     }
     if (program != "") {
-//        std::cerr << "now selecting desired program " << program << std::endl;
+        std::cerr << "now selecting desired program " << program << std::endl;
         instance->selectProgram(program.toStdString());
     }
     instance->setIdealChannelCount(m_targetChannelCount); // reset!
@@ -399,6 +407,8 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 	return mixNoteModel(nm, startFrame, frameCount,
 			    buffer, gain, pan, fadeIn, fadeOut);
     }
+
+    std::cerr << "AudioGenerator::mixModel: WARNING: Model " << model << " of type " << model->getTypeName() << " is marked as playable, but I have no mechanism to play it" << std::endl;
 
     return frameCount;
 }
