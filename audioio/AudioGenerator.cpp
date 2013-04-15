@@ -387,15 +387,11 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 				      buffer, gain, pan, fadeIn, fadeOut);
     }
 
-    SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-	(model);
-    if (sodm) {
-        return mixSyntheticNoteModel(model, startFrame, frameCount,
-                                     buffer, gain, pan, fadeIn, fadeOut);
-    }
+    bool synthetic = 
+        (qobject_cast<SparseOneDimensionalModel *>(model) ||
+         qobject_cast<NoteModel *>(model));
 
-    NoteModel *nm = dynamic_cast<NoteModel *>(model);
-    if (nm) {
+    if (synthetic) {
         return mixSyntheticNoteModel(model, startFrame, frameCount,
                                      buffer, gain, pan, fadeIn, fadeOut);
     }
