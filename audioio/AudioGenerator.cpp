@@ -22,6 +22,7 @@
 #include "base/Exceptions.h"
 
 #include "data/model/NoteModel.h"
+#include "data/model/FlexiNoteModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 
@@ -395,15 +396,12 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 				      buffer, gain, pan, fadeIn, fadeOut);
     }
 
-    SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-	(model);
-    if (sodm) {
-        return mixSyntheticNoteModel(model, startFrame, frameCount,
-                                     buffer, gain, pan, fadeIn, fadeOut);
-    }
+    bool synthetic = 
+        (qobject_cast<SparseOneDimensionalModel *>(model) ||
+         qobject_cast<NoteModel *>(model) ||
+         qobject_cast<FlexiNoteModel *>(model));
 
-    NoteModel *nm = dynamic_cast<NoteModel *>(model);
-    if (nm) {
+    if (synthetic) {
         return mixSyntheticNoteModel(model, startFrame, frameCount,
                                      buffer, gain, pan, fadeIn, fadeOut);
     }
@@ -712,6 +710,46 @@ AudioGenerator::getNotes(Model *model,
                           velocity);
 
             if (nm->getScaleUnits() == "Hz") {
+                note.frequency = pli->value;
+                note.isMidiPitchQuantized = false;
+            }
+        
+            notes.push_back(note);
+        }
+
+        return notes;
+    }
+
+    FlexiNoteModel *fnm = qobject_cast<FlexiNoteModel *>(model);
+
+    if (fnm) {
+        
+        // currently identical to NoteModel case above
+
+	FlexiNoteModel::PointList points =
+	    fnm->getPoints(startFrame, endFrame);
+
+        for (FlexiNoteModel::PointList::iterator pli =
+		 points.begin(); pli != points.end(); ++pli) {
+
+	    size_t duration = pli->duration;
+            if (duration == 0 || duration == 1) {
+                duration = m_sourceSampleRate / 20;
+            }
+
+            int pitch = lrintf(pli->value);
+
+            int velocity = 100;
+            if (pli->level > 0.f && pli->level <= 1.f) {
+                velocity = lrintf(pli->level * 127);
+            }
+
+            NoteData note(pli->frame,
+                          duration,
+                          pitch,
+                          velocity);
+
+            if (fnm->getScaleUnits() == "Hz") {
                 note.frequency = pli->value;
                 note.isMidiPitchQuantized = false;
             }
