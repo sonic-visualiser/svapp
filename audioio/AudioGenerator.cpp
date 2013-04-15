@@ -232,7 +232,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
     
     if (!factory) {
 	std::cerr << "Failed to get plugin factory" << std::endl;
-	return false;
+	return 0;
     }
 	
     RealTimePluginInstance *instance =
