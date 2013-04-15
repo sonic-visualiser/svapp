@@ -398,14 +398,14 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
     SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
 	(model);
     if (sodm) {
-	return mixSparseOneDimensionalModel(sodm, startFrame, frameCount,
-					    buffer, gain, pan, fadeIn, fadeOut);
+        return mixSyntheticNoteModel(model, startFrame, frameCount,
+                                     buffer, gain, pan, fadeIn, fadeOut);
     }
 
     NoteModel *nm = dynamic_cast<NoteModel *>(model);
     if (nm) {
-	return mixNoteModel(nm, startFrame, frameCount,
-			    buffer, gain, pan, fadeIn, fadeOut);
+        return mixSyntheticNoteModel(model, startFrame, frameCount,
+                                     buffer, gain, pan, fadeIn, fadeOut);
     }
 
     std::cerr << "AudioGenerator::mixModel: WARNING: Model " << model << " of type " << model->getTypeName() << " is marked as playable, but I have no mechanism to play it" << std::endl;
@@ -509,13 +509,13 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 }
   
 size_t
-AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
-					     size_t startFrame, size_t frames,
-					     float **buffer, float gain, float pan,
-					     size_t /* fadeIn */,
-					     size_t /* fadeOut */)
+AudioGenerator::mixSyntheticNoteModel(Model *model,
+                                      size_t startFrame, size_t frames,
+                                      float **buffer, float gain, float pan,
+                                      size_t /* fadeIn */,
+                                      size_t /* fadeOut */)
 {
-    RealTimePluginInstance *plugin = m_synthMap[sodm];
+    RealTimePluginInstance *plugin = m_synthMap[model];
     if (!plugin) return 0;
 
     size_t latency = plugin->getLatency();
@@ -534,46 +534,44 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
     size_t got = blocks * m_pluginBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    std::cout << "mixModel [sparse]: frames " << frames
+    std::cout << "mixModel [synthetic note]: frames " << frames
 	      << ", blocks " << blocks << std::endl;
 #endif
 
     snd_seq_event_t onEv;
     onEv.type = SND_SEQ_EVENT_NOTEON;
     onEv.data.note.channel = 0;
-    onEv.data.note.note = 64;
-    onEv.data.note.velocity = 100;
 
     snd_seq_event_t offEv;
     offEv.type = SND_SEQ_EVENT_NOTEOFF;
     offEv.data.note.channel = 0;
     offEv.data.note.velocity = 0;
     
-    NoteOffSet &noteOffs = m_noteOffs[sodm];
+    NoteOffSet &noteOffs = m_noteOffs[model];
 
     for (size_t i = 0; i < blocks; ++i) {
 
 	size_t reqStart = startFrame + i * m_pluginBlockSize;
 
-	SparseOneDimensionalModel::PointList points =
-	    sodm->getPoints(reqStart + latency,
-			    reqStart + latency + m_pluginBlockSize);
+        NoteList notes = getNotes(model,
+                                  reqStart + latency,
+                                  reqStart + latency + m_pluginBlockSize);
 
         Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
 	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
 
-	for (SparseOneDimensionalModel::PointList::iterator pli =
-		 points.begin(); pli != points.end(); ++pli) {
+	for (NoteList::const_iterator ni = notes.begin();
+             ni != notes.end(); ++ni) {
 
-	    size_t pliFrame = pli->frame;
+	    size_t noteFrame = ni->start;
 
-	    if (pliFrame >= latency) pliFrame -= latency;
+	    if (noteFrame >= latency) noteFrame -= latency;
 
-	    if (pliFrame < reqStart ||
-		pliFrame >= reqStart + m_pluginBlockSize) continue;
+	    if (noteFrame < reqStart ||
+		noteFrame >= reqStart + m_pluginBlockSize) continue;
 
 	    while (noteOffs.begin() != noteOffs.end() &&
-		   noteOffs.begin()->frame <= pliFrame) {
+		   noteOffs.begin()->frame <= noteFrame) {
 
                 Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		    (noteOffs.begin()->frame, m_sourceSampleRate);
@@ -581,7 +579,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 		offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [sparse]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
+		std::cerr << "mixModel [synthetic]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 		plugin->sendEvent(eventTime, &offEv);
@@ -589,19 +587,27 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	    }
 
             Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		(pliFrame, m_sourceSampleRate);
+		(noteFrame, m_sourceSampleRate);
 	    
+            if (ni->isMidiPitchQuantized) {
+                onEv.data.note.note = ni->midiPitch;
+            } else {
+#ifdef DEBUG_AUDIO_GENERATOR
+                std::cerr << "mixModel [synthetic]: non-pitch-quantized notes are not supported [yet], quantizing" << std::endl;
+#endif
+                onEv.data.note.note = Pitch::getPitchForFrequency(ni->frequency);
+            }
+
+            onEv.data.note.velocity = ni->velocity;
+
 	    plugin->sendEvent(eventTime, &onEv);
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [sparse]: point at frame " << pliFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
+	    std::cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
 #endif
 	    
-	    size_t duration = 7000; // frames [for now]
-	    NoteOff noff;
-	    noff.pitch = onEv.data.note.note;
-	    noff.frame = pliFrame + duration;
-	    noteOffs.insert(noff);
+	    noteOffs.insert
+                (NoteOff(onEv.data.note.note, noteFrame + ni->duration));
 	}
 
 	while (noteOffs.begin() != noteOffs.end() &&
@@ -614,7 +620,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 	    offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            std::cerr << "mixModel [sparse]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
+            std::cerr << "mixModel [synthetic]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
 #endif
 
 	    plugin->sendEvent(eventTime, &offEv);
@@ -626,7 +632,7 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
 
 	for (size_t c = 0; c < m_targetChannelCount; ++c) {
 #ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [sparse]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
+	    std::cout << "mixModel [synthetic]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
 #endif
 
 	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
@@ -650,169 +656,72 @@ AudioGenerator::mixSparseOneDimensionalModel(SparseOneDimensionalModel *sodm,
     return got;
 }
 
-    
-//!!! mucho duplication with above -- refactor
-size_t
-AudioGenerator::mixNoteModel(NoteModel *nm,
-			     size_t startFrame, size_t frames,
-			     float **buffer, float gain, float pan,
-			     size_t /* fadeIn */,
-			     size_t /* fadeOut */)
+AudioGenerator::NoteList
+AudioGenerator::getNotes(Model *model,
+                         size_t startFrame,
+                         size_t endFrame)
 {
-    RealTimePluginInstance *plugin = m_synthMap[nm];
-    if (!plugin) return 0;
+    NoteList notes;
 
-    size_t latency = plugin->getLatency();
-    size_t blocks = frames / m_pluginBlockSize;
-    
-    //!!! hang on -- the fact that the audio callback play source's
-    //buffer is a multiple of the plugin's buffer size doesn't mean
-    //that we always get called for a multiple of it here (because it
-    //also depends on the JACK block size).  how should we ensure that
-    //all models write the same amount in to the mix, and that we
-    //always have a multiple of the plugin buffer size?  I guess this
-    //class has to be queryable for the plugin buffer size & the
-    //callback play source has to use that as a multiple for all the
-    //calls to mixModel
+    SparseOneDimensionalModel *sodm = 
+        qobject_cast<SparseOneDimensionalModel *>(model);
 
-    size_t got = blocks * m_pluginBlockSize;
+    if (sodm) {
+        
+	SparseOneDimensionalModel::PointList points =
+	    sodm->getPoints(startFrame, endFrame);
 
-#ifdef DEBUG_AUDIO_GENERATOR
-    Vamp::RealTime startTime = Vamp::RealTime::frame2RealTime
-        (startFrame, m_sourceSampleRate);
-
-    std::cout << "mixModel [note]: frames " << frames << " from " << startFrame
-	      << " (time " << startTime << "), blocks " << blocks << std::endl;
-#endif
-
-    snd_seq_event_t onEv;
-    onEv.type = SND_SEQ_EVENT_NOTEON;
-    onEv.data.note.channel = 0;
-    onEv.data.note.note = 64;
-    onEv.data.note.velocity = 100;
-
-    snd_seq_event_t offEv;
-    offEv.type = SND_SEQ_EVENT_NOTEOFF;
-    offEv.data.note.channel = 0;
-    offEv.data.note.velocity = 0;
-    
-    NoteOffSet &noteOffs = m_noteOffs[nm];
-
-    for (size_t i = 0; i < blocks; ++i) {
-
-	size_t reqStart = startFrame + i * m_pluginBlockSize;
-
-	NoteModel::PointList points =
-	    nm->getPoints(reqStart + latency,
-			    reqStart + latency + m_pluginBlockSize);
-
-        Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
-	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
-
-	for (NoteModel::PointList::iterator pli =
+	for (SparseOneDimensionalModel::PointList::iterator pli =
 		 points.begin(); pli != points.end(); ++pli) {
 
-	    size_t pliFrame = pli->frame;
+            notes.push_back
+                (NoteData(pli->frame,
+                          m_sourceSampleRate / 6, // arbitrary short duration
+                          64,   // default pitch
+                          100)); // default velocity
+        }
 
-	    if (pliFrame >= latency) pliFrame -= latency;
+        return notes;
+    }
 
-	    if (pliFrame < reqStart ||
-		pliFrame >= reqStart + m_pluginBlockSize) continue;
+    NoteModel *nm = qobject_cast<NoteModel *>(model);
 
-	    while (noteOffs.begin() != noteOffs.end() &&
-		   noteOffs.begin()->frame <= pliFrame) {
+    if (nm) {
+        
+	NoteModel::PointList points =
+	    nm->getPoints(startFrame, endFrame);
 
-                Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		    (noteOffs.begin()->frame, m_sourceSampleRate);
+        for (NoteModel::PointList::iterator pli =
+		 points.begin(); pli != points.end(); ++pli) {
 
-		offEv.data.note.note = noteOffs.begin()->pitch;
-
-#ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [note]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
-#endif
-
-		plugin->sendEvent(eventTime, &offEv);
-		noteOffs.erase(noteOffs.begin());
-	    }
-
-            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		(pliFrame, m_sourceSampleRate);
-	    
-            if (nm->getScaleUnits() == "Hz") {
-                onEv.data.note.note = Pitch::getPitchForFrequency(pli->value);
-            } else {
-                onEv.data.note.note = lrintf(pli->value);
-            }
-
-            if (pli->level > 0.f && pli->level <= 1.f) {
-                onEv.data.note.velocity = lrintf(pli->level * 127);
-            } else {
-                onEv.data.note.velocity = 100;
-            }
-
-	    plugin->sendEvent(eventTime, &onEv);
-
-#ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [note]: point at frame " << pliFrame << ", pitch " << (int)onEv.data.note.note << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
-#endif
-	    
 	    size_t duration = pli->duration;
             if (duration == 0 || duration == 1) {
                 duration = m_sourceSampleRate / 20;
             }
-	    NoteOff noff;
-	    noff.pitch = onEv.data.note.note;
-	    noff.frame = pliFrame + duration;
-	    noteOffs.insert(noff);
 
-#ifdef DEBUG_AUDIO_GENERATOR
-            std::cout << "mixModel [note]: recording note off at " << noff.frame << std::endl;
-#endif
-	}
+            int pitch = lrintf(pli->value);
 
-	while (noteOffs.begin() != noteOffs.end() &&
-	       noteOffs.begin()->frame <=
-	       startFrame + i * m_pluginBlockSize + m_pluginBlockSize) {
+            int velocity = 100;
+            if (pli->level > 0.f && pli->level <= 1.f) {
+                velocity = lrintf(pli->level * 127);
+            }
 
-            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		(noteOffs.begin()->frame, m_sourceSampleRate);
+            NoteData note(pli->frame,
+                          duration,
+                          pitch,
+                          velocity);
 
-	    offEv.data.note.note = noteOffs.begin()->pitch;
+            if (nm->getScaleUnits() == "Hz") {
+                note.frequency = pli->value;
+                note.isMidiPitchQuantized = false;
+            }
+        
+            notes.push_back(note);
+        }
 
-#ifdef DEBUG_AUDIO_GENERATOR
-            std::cerr << "mixModel [note]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
-#endif
-
-	    plugin->sendEvent(eventTime, &offEv);
-	    noteOffs.erase(noteOffs.begin());
-	}
-	
-	plugin->run(blockTime);
-	float **outs = plugin->getAudioOutputBuffers();
-
-	for (size_t c = 0; c < m_targetChannelCount; ++c) {
-#ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [note]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
-#endif
-
-	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
-
-	    float channelGain = gain;
-	    if (pan != 0.0) {
-		if (c == 0) {
-		    if (pan > 0.0) channelGain *= 1.0 - pan;
-		} else {
-		    if (pan < 0.0) channelGain *= pan + 1.0;
-		}
-	    }
-
-	    for (size_t j = 0; j < m_pluginBlockSize; ++j) {
-		buffer[c][i * m_pluginBlockSize + j] += 
-		    channelGain * outs[sourceChannel][j];
-	    }
-	}
+        return notes;
     }
 
-    return got;
+    return notes;
 }
 
