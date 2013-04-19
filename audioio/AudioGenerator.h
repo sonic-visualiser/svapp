@@ -18,6 +18,7 @@
 
 class Model;
 class NoteModel;
+class FlexiNoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class RealTimePluginInstance;

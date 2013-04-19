@@ -164,7 +164,7 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    std::cout << "Adding model with " << modelChannels << " channels at rate " << model->getSampleRate() << std::endl;
+    std::cout << "AudioCallbackPlaySource.cpp: Adding model with " << modelChannels << " channels at rate " << model->getSampleRate() << std::endl;
 #endif
 
     if (m_sourceSampleRate == 0) {

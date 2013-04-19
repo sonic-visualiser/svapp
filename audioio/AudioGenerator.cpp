@@ -762,4 +762,3 @@ AudioGenerator::getNotes(Model *model,
 
     return notes;
 }
-
