@@ -26,6 +26,8 @@
 #include <QObject>
 #include <QNetworkReply>
 
+class QNetworkAccessManager;
+
 class VersionTester : public QObject
 {
     Q_OBJECT
@@ -47,6 +49,7 @@ private:
     QString m_myVersion;
     QNetworkReply *m_reply;
     bool m_httpFailed;
+    QNetworkAccessManager *m_nm;
 };
 
 #endif

@@ -25,17 +25,17 @@
 
 #include <QNetworkAccessManager>
 
-static QNetworkAccessManager nm;
 
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
 			     QString myVersion) :
     m_myVersion(myVersion),
     m_reply(0),
-    m_httpFailed(false)
+    m_httpFailed(false),
+    m_nm(new QNetworkAccessManager)
 {
     QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
     std::cerr << "VersionTester: URL is " << url << std::endl;
-    m_reply = nm.get(QNetworkRequest(url));
+    m_reply = m_nm->get(QNetworkRequest(url));
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(error(QNetworkReply::NetworkError)));
     connect(m_reply, SIGNAL(finished()), this, SLOT(finished()));
@@ -47,6 +47,7 @@ VersionTester::~VersionTester()
         m_reply->abort();
         m_reply->deleteLater();
     }
+    delete m_nm;
 }
 
 bool
@@ -84,16 +85,19 @@ VersionTester::error(QNetworkReply::NetworkError)
 void
 VersionTester::finished()
 {
-    m_reply->deleteLater();
+    QNetworkReply *r = m_reply;
+    m_reply = 0;
+
+    r->deleteLater();
     if (m_httpFailed) return;
 
-    int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (status / 100 != 2) {
         std::cerr << "VersionTester: error: http status = " << status << std::endl;
         return;
     }
 
-    QByteArray responseData = m_reply->readAll();
+    QByteArray responseData = r->readAll();
     QString str = QString::fromUtf8(responseData.data());
     QStringList lines = str.split('\n', QString::SkipEmptyParts);
     if (lines.empty()) return;
