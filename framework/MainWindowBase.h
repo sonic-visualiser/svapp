@@ -120,6 +120,7 @@ signals:
     void canImportMoreAudio(bool);
     void canReplaceMainAudio(bool);
     void canImportLayer(bool);
+    void canChangeSessionTemplate(bool);
     void canExportAudio(bool);
     void canExportLayer(bool);
     void canExportImage(bool);

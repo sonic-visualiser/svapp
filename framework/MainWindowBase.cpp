@@ -444,6 +444,7 @@ MainWindowBase::updateMenuStates()
     emit canReplaceMainAudio(haveMainModel);
     emit canImportLayer(haveMainModel && haveCurrentPane);
     emit canExportAudio(haveMainModel);
+    emit canChangeSessionTemplate(haveMainModel);
     emit canExportLayer(haveMainModel &&
                         (haveCurrentEditableLayer || haveCurrentColour3DPlot));
     emit canExportImage(haveMainModel && haveCurrentPane);
