@@ -24,8 +24,9 @@
 #include <QStringList>
 #include <QString>
 #include <QObject>
+#include <QNetworkReply>
 
-class QHttpResponseHeader;
+class QNetworkAccessManager;
 
 class VersionTester : public QObject
 {
@@ -41,12 +42,14 @@ signals:
     void newerVersionAvailable(QString);
 
 protected slots:
-    void httpResponseHeaderReceived(const QHttpResponseHeader &);
-    void httpDone(bool);
+    void finished();
+    void error(QNetworkReply::NetworkError);
 
 private:
-    bool m_httpFailed;
     QString m_myVersion;
+    QNetworkReply *m_reply;
+    bool m_httpFailed;
+    QNetworkAccessManager *m_nm;
 };
 
 #endif

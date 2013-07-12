@@ -23,24 +23,31 @@
 
 #include <iostream>
 
-#include <QHttp>
+#include <QNetworkAccessManager>
+
 
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
 			     QString myVersion) :
+    m_myVersion(myVersion),
+    m_reply(0),
     m_httpFailed(false),
-    m_myVersion(myVersion)
+    m_nm(new QNetworkAccessManager)
 {
-    QHttp *http = new QHttp();
-    connect(http, SIGNAL(responseHeaderReceived(const QHttpResponseHeader &)),
-            this, SLOT(httpResponseHeaderReceived(const QHttpResponseHeader &)));
-    connect(http, SIGNAL(done(bool)),
-            this, SLOT(httpDone(bool)));
-    http->setHost(hostname);
-    http->get(versionFilePath);
+    QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
+    std::cerr << "VersionTester: URL is " << url << std::endl;
+    m_reply = m_nm->get(QNetworkRequest(url));
+    connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
+            this, SLOT(error(QNetworkReply::NetworkError)));
+    connect(m_reply, SIGNAL(finished()), this, SLOT(finished()));
 }
 
 VersionTester::~VersionTester()
 {
+    if (m_reply) {
+        m_reply->abort();
+        m_reply->deleteLater();
+    }
+    delete m_nm;
 }
 
 bool
@@ -69,20 +76,28 @@ VersionTester::isVersionNewerThan(QString a, QString b)
 }
 
 void
-VersionTester::httpResponseHeaderReceived(const QHttpResponseHeader &h)
+VersionTester::error(QNetworkReply::NetworkError)
 {
-    if (h.statusCode() / 100 != 2) m_httpFailed = true;
+    std::cerr << "VersionTester: error: " << m_reply->errorString() << std::endl;
+    m_httpFailed = true;
 }
 
 void
-VersionTester::httpDone(bool error)
+VersionTester::finished()
 {
-    QHttp *http = const_cast<QHttp *>(dynamic_cast<const QHttp *>(sender()));
-    if (!http) return;
-    http->deleteLater();
-    if (error || m_httpFailed) return;
+    QNetworkReply *r = m_reply;
+    m_reply = 0;
 
-    QByteArray responseData = http->readAll();
+    r->deleteLater();
+    if (m_httpFailed) return;
+
+    int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (status / 100 != 2) {
+        std::cerr << "VersionTester: error: http status = " << status << std::endl;
+        return;
+    }
+
+    QByteArray responseData = r->readAll();
     QString str = QString::fromUtf8(responseData.data());
     QStringList lines = str.split('\n', QString::SkipEmptyParts);
     if (lines.empty()) return;

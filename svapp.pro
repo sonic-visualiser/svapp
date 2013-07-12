@@ -1,10 +1,17 @@
 
 TEMPLATE = lib
 
-include(config.pri)
+exists(config.pri) {
+    include(config.pri)
+}
+win* {
+    !exists(config.pri) {
+        DEFINES += HAVE_PORTAUDIO_2_0
+    }
+}
 
 CONFIG += staticlib qt thread warn_on stl rtti exceptions
-QT += network xml gui
+QT += network xml gui widgets
 
 TARGET = svapp
 
@@ -12,6 +19,13 @@ DEPENDPATH += . ../svcore ../svgui
 INCLUDEPATH += . ../svcore ../svgui
 OBJECTS_DIR = o
 MOC_DIR = o
+
+win32-g++ {
+    INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
+}
+win32-msvc* {
+    INCLUDEPATH += ../sv-dependency-builds/win32-msvc/include
+}
 
 HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioCallbackPlayTarget.h \
