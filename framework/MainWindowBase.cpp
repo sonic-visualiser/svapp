@@ -311,6 +311,8 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::ImageFile:
         return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::CSVFile:
+        return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::AnyFile:
         if (getMainModel() != 0 &&
             m_paneStack != 0 &&
@@ -340,6 +342,8 @@ MainWindowBase::getSaveFileName(FileFinder::FileType type)
     case FileFinder::SessionOrAudioFile:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::ImageFile:
+        return ff->getSaveFileName(type, m_sessionFile);
+    case FileFinder::CSVFile:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::AnyFile:
         return ff->getSaveFileName(type, m_sessionFile);
