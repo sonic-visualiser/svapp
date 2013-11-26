@@ -50,9 +50,9 @@ static void *symbol(const char *name)
             if (!library) library = ::dlopen("libjack.so.0", RTLD_NOW);
             if (!library) library = ::dlopen("libjack.so", RTLD_NOW);
             if (!library) {
-                std::cerr << "WARNING: AudioJACKTarget: Failed to load JACK library: "
+                cerr << "WARNING: AudioJACKTarget: Failed to load JACK library: "
                           << ::dlerror() << " (tried .so, .so.0, .so.1)"
-                          << std::endl;
+                          << endl;
             }
             attempted = true;
         }
@@ -60,8 +60,8 @@ static void *symbol(const char *name)
     }
     void *symbol = ::dlsym(library, name);
     if (!symbol) {
-        std::cerr << "WARNING: AudioJACKTarget: Failed to locate symbol "
-                  << name << ": " << ::dlerror() << std::endl;
+        cerr << "WARNING: AudioJACKTarget: Failed to locate symbol "
+                  << name << ": " << ::dlerror() << endl;
     }
     symbols[name] = symbol;
     return symbol;
@@ -231,8 +231,8 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
                                 options, &status);
     
     if (!m_client) {
-        std::cerr << "AudioJACKTarget: Failed to connect to JACK server: status code "
-                  << status << std::endl;
+        cerr << "AudioJACKTarget: Failed to connect to JACK server: status code "
+                  << status << endl;
         return;
     }
 
@@ -243,8 +243,8 @@ AudioJACKTarget::AudioJACKTarget(AudioCallbackPlaySource *source) :
     jack_set_process_callback(m_client, processStatic, this);
 
     if (jack_activate(m_client)) {
-	std::cerr << "ERROR: AudioJACKTarget: Failed to activate JACK client"
-		  << std::endl;
+	cerr << "ERROR: AudioJACKTarget: Failed to activate JACK client"
+		  << endl;
     }
 
     if (m_source) {
@@ -276,15 +276,15 @@ AudioJACKTarget::~AudioJACKTarget()
             std::vector<jack_port_t *>::iterator itr = m_outputs.end();
             --itr;
             jack_port_t *port = *itr;
-            std::cerr << "unregister " << m_outputs.size() << std::endl;
+            cerr << "unregister " << m_outputs.size() << endl;
             if (port) jack_port_unregister(m_client, port);
             m_outputs.erase(itr);
         }
-        std::cerr << "Deactivating... ";
+        cerr << "Deactivating... ";
 	jack_deactivate(m_client);
-        std::cerr << "done\nClosing... ";
+        cerr << "done\nClosing... ";
 	jack_client_close(m_client);
-        std::cerr << "done" << std::endl;
+        cerr << "done" << endl;
     }
 
     m_client = 0;
@@ -368,9 +368,9 @@ AudioJACKTarget::sourceModelReplaced()
 				  0);
 
 	if (!port) {
-	    std::cerr
+	    cerr
 		<< "ERROR: AudioJACKTarget: Failed to create JACK output port "
-		<< m_outputs.size() << std::endl;
+		<< m_outputs.size() << endl;
 	} else {
 	    m_source->setTargetPlayLatency(jack_port_get_latency(port));
 	}
@@ -408,12 +408,12 @@ AudioJACKTarget::process(jack_nframes_t nframes)
     }
 
 #ifdef DEBUG_AUDIO_JACK_TARGET    
-    std::cout << "AudioJACKTarget::process(" << nframes << "): have a source" << std::endl;
+    cout << "AudioJACKTarget::process(" << nframes << "): have a source" << endl;
 #endif
 
 #ifdef DEBUG_AUDIO_JACK_TARGET    
     if (m_bufferSize != nframes) {
-	std::cerr << "WARNING: m_bufferSize != nframes (" << m_bufferSize << " != " << nframes << ")" << std::endl;
+	cerr << "WARNING: m_bufferSize != nframes (" << m_bufferSize << " != " << nframes << ")" << endl;
     }
 #endif
 
@@ -462,7 +462,7 @@ AudioJACKTarget::process(jack_nframes_t nframes)
 int
 AudioJACKTarget::xrun()
 {
-    std::cerr << "AudioJACKTarget: xrun!" << std::endl;
+    cerr << "AudioJACKTarget: xrun!" << endl;
     if (m_source) m_source->audioProcessingOverload();
     return 0;
 }

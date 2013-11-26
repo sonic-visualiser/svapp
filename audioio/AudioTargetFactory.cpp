@@ -135,7 +135,7 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
 #endif
 
         if (!target || !target->isOK()) {
-            std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open the requested target (\"" << m_default << "\")" << std::endl;
+            cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open the requested target (\"" << m_default << "\")" << endl;
             delete target;
             return 0;
         } else {
@@ -147,7 +147,7 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     target = new AudioJACKTarget(source);
     if (target->isOK()) return target;
     else {
-	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open JACK target" << std::endl;
+	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open JACK target" << endl;
 	delete target;
     }
 #endif
@@ -156,7 +156,7 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     target = new AudioPulseAudioTarget(source);
     if (target->isOK()) return target;
     else {
-	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open PulseAudio target" << std::endl;
+	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open PulseAudio target" << endl;
 	delete target;
     }
 #endif
@@ -165,7 +165,7 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     target = new AudioCoreAudioTarget(source);
     if (target->isOK()) return target;
     else {
-	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open CoreAudio target" << std::endl;
+	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open CoreAudio target" << endl;
 	delete target;
     }
 #endif
@@ -174,12 +174,12 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     target = new AudioPortAudioTarget(source);
     if (target->isOK()) return target;
     else {
-	std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open PortAudio target" << std::endl;
+	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open PortAudio target" << endl;
 	delete target;
     }
 #endif
 
-    std::cerr << "WARNING: AudioTargetFactory::createCallbackTarget: No suitable targets available" << std::endl;
+    cerr << "WARNING: AudioTargetFactory::createCallbackTarget: No suitable targets available" << endl;
     return 0;
 }
 

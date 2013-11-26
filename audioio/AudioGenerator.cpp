@@ -78,9 +78,9 @@ AudioGenerator::initialiseSampleDir()
     try {
         m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
     } catch (DirectoryCreationFailed f) {
-        std::cerr << "WARNING: AudioGenerator::initialiseSampleDir:"
+        cerr << "WARNING: AudioGenerator::initialiseSampleDir:"
                   << " Failed to create temporary sample directory"
-                  << std::endl;
+                  << endl;
         m_sampleDir = "";
         return;
     }
@@ -94,10 +94,10 @@ AudioGenerator::initialiseSampleDir()
         QString target = QDir(m_sampleDir).filePath(fileName);
 
         if (!file.copy(target)) {
-            std::cerr << "WARNING: AudioGenerator::getSampleDir: "
+            cerr << "WARNING: AudioGenerator::getSampleDir: "
                       << "Unable to copy " << fileName.toStdString()
                       << " into temporary directory \""
-                      << m_sampleDir << "\"" << std::endl;
+                      << m_sampleDir << "\"" << endl;
         } else {
             QFile tf(target);
             tf.setPermissions(tf.permissions() |
@@ -140,9 +140,9 @@ AudioGenerator::playPluginIdChanged(const Playable *playable, QString)
 {
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        std::cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
                   << playable << " is not a supported model type"
-                  << std::endl;
+                  << endl;
         return;
     }
 
@@ -164,9 +164,9 @@ AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
 
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        std::cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
                   << playable << " is not a supported model type"
-                  << std::endl;
+                  << endl;
         return;
     }
 
@@ -231,7 +231,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	RealTimePluginFactory::instanceFor(pluginId);
     
     if (!factory) {
-	std::cerr << "Failed to get plugin factory" << std::endl;
+	cerr << "Failed to get plugin factory" << endl;
 	return 0;
     }
 	
@@ -240,7 +240,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
 
     if (!instance) {
-	std::cerr << "Failed to instantiate plugin " << pluginId << std::endl;
+	cerr << "Failed to instantiate plugin " << pluginId << endl;
         return 0;
     }
 
@@ -251,11 +251,11 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
     }
     std::string defaultProgram = instance->getProgram(0, 0);
     if (defaultProgram != "") {
-//        std::cerr << "first selecting default program " << defaultProgram << std::endl;
+//        cerr << "first selecting default program " << defaultProgram << endl;
         instance->selectProgram(defaultProgram);
     }
     if (program != "") {
-//        std::cerr << "now selecting desired program " << program << std::endl;
+//        cerr << "now selecting desired program " << program << endl;
         instance->selectProgram(program.toStdString());
     }
     instance->setIdealChannelCount(m_targetChannelCount); // reset!
@@ -348,7 +348,7 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 			 float **buffer, size_t fadeIn, size_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
-	std::cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << std::endl;
+	cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
 	return frameCount;
     }
 
@@ -364,7 +364,7 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
     bool playing = !parameters->isPlayMuted();
     if (!playing) {
 #ifdef DEBUG_AUDIO_GENERATOR
-        std::cout << "AudioGenerator::mixModel(" << model << "): muted" << std::endl;
+        cout << "AudioGenerator::mixModel(" << model << "): muted" << endl;
 #endif
         return frameCount;
     }
@@ -372,7 +372,7 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
     if (m_soloing) {
         if (m_soloModelSet.find(model) == m_soloModelSet.end()) {
 #ifdef DEBUG_AUDIO_GENERATOR
-            std::cout << "AudioGenerator::mixModel(" << model << "): not one of the solo'd models" << std::endl;
+            cout << "AudioGenerator::mixModel(" << model << "): not one of the solo'd models" << endl;
 #endif
             return frameCount;
         }
@@ -520,8 +520,8 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
     size_t got = blocks * m_pluginBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    std::cout << "mixModel [synthetic note]: frames " << frames
-	      << ", blocks " << blocks << std::endl;
+    cout << "mixModel [synthetic note]: frames " << frames
+	      << ", blocks " << blocks << endl;
 #endif
 
     snd_seq_event_t onEv;
@@ -565,7 +565,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 		offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		std::cerr << "mixModel [synthetic]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
+		cerr << "mixModel [synthetic]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << endl;
 #endif
 
 		plugin->sendEvent(eventTime, &offEv);
@@ -579,7 +579,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
                 onEv.data.note.note = ni->midiPitch;
             } else {
 #ifdef DEBUG_AUDIO_GENERATOR
-                std::cerr << "mixModel [synthetic]: non-pitch-quantized notes are not supported [yet], quantizing" << std::endl;
+                cerr << "mixModel [synthetic]: non-pitch-quantized notes are not supported [yet], quantizing" << endl;
 #endif
                 onEv.data.note.note = Pitch::getPitchForFrequency(ni->frequency);
             }
@@ -589,7 +589,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	    plugin->sendEvent(eventTime, &onEv);
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << std::endl;
+	    cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << endl;
 #endif
 	    
 	    noteOffs.insert
@@ -606,7 +606,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	    offEv.data.note.note = noteOffs.begin()->pitch;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            std::cerr << "mixModel [synthetic]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << std::endl;
+            cerr << "mixModel [synthetic]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << endl;
 #endif
 
 	    plugin->sendEvent(eventTime, &offEv);
@@ -618,7 +618,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
 	for (size_t c = 0; c < m_targetChannelCount; ++c) {
 #ifdef DEBUG_AUDIO_GENERATOR
-	    std::cout << "mixModel [synthetic]: adding " << m_pluginBlockSize << " samples from plugin output " << c << std::endl;
+	    cout << "mixModel [synthetic]: adding " << m_pluginBlockSize << " samples from plugin output " << c << endl;
 #endif
 
 	    size_t sourceChannel = (c % plugin->getAudioOutputCount());

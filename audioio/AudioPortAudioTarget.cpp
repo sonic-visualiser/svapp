@@ -40,12 +40,12 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     PaError err;
 
 #ifdef DEBUG_AUDIO_PORT_AUDIO_TARGET
-    std::cerr << "AudioPortAudioTarget: Initialising for PortAudio v19" << std::endl;
+    cerr << "AudioPortAudioTarget: Initialising for PortAudio v19" << endl;
 #endif
 
     err = Pa_Initialize();
     if (err != paNoError) {
-	std::cerr << "ERROR: AudioPortAudioTarget: Failed to initialize PortAudio: " << Pa_GetErrorText(err) << std::endl;
+	cerr << "ERROR: AudioPortAudioTarget: Failed to initialize PortAudio: " << Pa_GetErrorText(err) << endl;
 	return;
     }
 
@@ -67,7 +67,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
 
     if (err != paNoError) {
 
-        std::cerr << "WARNING: AudioPortAudioTarget: Failed to open PortAudio stream with default frames per buffer, trying again with fixed frames per buffer..." << std::endl;
+        cerr << "WARNING: AudioPortAudioTarget: Failed to open PortAudio stream with default frames per buffer, trying again with fixed frames per buffer..." << endl;
         
         err = Pa_OpenStream(&m_stream, 0, &op, m_sampleRate,
                             1024,
@@ -76,8 +76,8 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     }
 
     if (err != paNoError) {
-	std::cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
-        std::cerr << "Note: device ID was " << op.device << std::endl;
+	cerr << "ERROR: AudioPortAudioTarget: Failed to open PortAudio stream: " << Pa_GetErrorText(err) << endl;
+        cerr << "Note: device ID was " << op.device << endl;
 	m_stream = 0;
 	Pa_Terminate();
 	return;
@@ -87,12 +87,12 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     m_latency = int(info->outputLatency * m_sampleRate + 0.001);
     if (m_bufferSize < m_latency) m_bufferSize = m_latency;
 
-    std::cerr << "PortAudio latency = " << m_latency << " frames" << std::endl;
+    cerr << "PortAudio latency = " << m_latency << " frames" << endl;
 
     err = Pa_StartStream(m_stream);
 
     if (err != paNoError) {
-	std::cerr << "ERROR: AudioPortAudioTarget: Failed to start PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
+	cerr << "ERROR: AudioPortAudioTarget: Failed to start PortAudio stream: " << Pa_GetErrorText(err) << endl;
 	Pa_CloseStream(m_stream);
 	m_stream = 0;
 	Pa_Terminate();
@@ -100,14 +100,14 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     }
 
     if (m_source) {
-	std::cerr << "AudioPortAudioTarget: block size " << m_bufferSize << std::endl;
+	cerr << "AudioPortAudioTarget: block size " << m_bufferSize << endl;
 	m_source->setTarget(this, m_bufferSize);
 	m_source->setTargetSampleRate(m_sampleRate);
 	m_source->setTargetPlayLatency(m_latency);
     }
 
 #ifdef DEBUG_PORT_AUDIO_TARGET
-    std::cerr << "AudioPortAudioTarget: initialised OK" << std::endl;
+    cerr << "AudioPortAudioTarget: initialised OK" << endl;
 #endif
 }
 
@@ -128,14 +128,14 @@ AudioPortAudioTarget::~AudioPortAudioTarget()
 	PaError err;
 	err = Pa_CloseStream(m_stream);
 	if (err != paNoError) {
-	    std::cerr << "ERROR: AudioPortAudioTarget: Failed to close PortAudio stream: " << Pa_GetErrorText(err) << std::endl;
+	    cerr << "ERROR: AudioPortAudioTarget: Failed to close PortAudio stream: " << Pa_GetErrorText(err) << endl;
 	}
 
-        std::cerr << "terminating" << std::endl;
+        cerr << "terminating" << endl;
 
 	err = Pa_Terminate();
         if (err != paNoError) {
-            std::cerr << "ERROR: AudioPortAudioTarget: Failed to terminate PortAudio: " << Pa_GetErrorText(err) << std::endl;
+            cerr << "ERROR: AudioPortAudioTarget: Failed to terminate PortAudio: " << Pa_GetErrorText(err) << endl;
 	}   
     }
 

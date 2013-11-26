@@ -34,7 +34,7 @@ VersionTester::VersionTester(QString hostname, QString versionFilePath,
     m_nm(new QNetworkAccessManager)
 {
     QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
-    std::cerr << "VersionTester: URL is " << url << std::endl;
+    cerr << "VersionTester: URL is " << url << endl;
     m_reply = m_nm->get(QNetworkRequest(url));
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(error(QNetworkReply::NetworkError)));
@@ -78,7 +78,7 @@ VersionTester::isVersionNewerThan(QString a, QString b)
 void
 VersionTester::error(QNetworkReply::NetworkError)
 {
-    std::cerr << "VersionTester: error: " << m_reply->errorString() << std::endl;
+    cerr << "VersionTester: error: " << m_reply->errorString() << endl;
     m_httpFailed = true;
 }
 
@@ -93,7 +93,7 @@ VersionTester::finished()
 
     int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (status / 100 != 2) {
-        std::cerr << "VersionTester: error: http status = " << status << std::endl;
+        cerr << "VersionTester: error: http status = " << status << endl;
         return;
     }
 

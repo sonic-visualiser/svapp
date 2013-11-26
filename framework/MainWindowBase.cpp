@@ -101,8 +101,8 @@
 #include <cstdio>
 #include <errno.h>
 
-using std::cerr;
-using std::endl;
+
+
 
 using std::vector;
 using std::map;
@@ -120,10 +120,10 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
     char errstr[256];
     XGetErrorText(dpy, err->error_code, errstr, 256);
     if (err->error_code != BadWindow) {
-	std::cerr << "Sonic Visualiser: X Error: "
+	cerr << "Sonic Visualiser: X Error: "
 		  << errstr << " " << int(err->error_code)
 		  << "\nin major opcode:  "
-		  << int(err->request_code) << std::endl;
+		  << int(err->request_code) << endl;
     }
     return 0;
 }
@@ -290,7 +290,7 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        std::cerr << "Finished setting up OSC interface" << std::endl;
+        cerr << "Finished setting up OSC interface" << endl;
     }
 }
 
@@ -578,7 +578,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     int frame = m_playSource->getCurrentBufferedFrame();
 
-//    std::cerr << "currentPaneChanged: current frame (in ref model) = " << frame << std::endl;
+//    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -1073,7 +1073,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
-//        std::cerr << "RDF type: " << (int)rdfType << std::endl;
+//        cerr << "RDF type: " << (int)rdfType << endl;
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1132,7 +1132,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         templateName = getDefaultSessionTemplate();
     }
 
-    std::cerr << "template is: \"" << templateName.toStdString() << "\"" << std::endl;
+    cerr << "template is: \"" << templateName.toStdString() << "\"" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1153,7 +1153,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 	return FileOpenFailed;
     }
 
-//    std::cerr << "mode = " << mode << std::endl;
+//    cerr << "mode = " << mode << endl;
 
     if (mode == AskUser) {
         if (getMainModel()) {
@@ -1230,15 +1230,15 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
         if (!checkSaveModified()) return FileOpenCancelled;
 
-        std::cerr << "SV looking for template " << templateName << std::endl;
+        cerr << "SV looking for template " << templateName << endl;
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
-                std::cerr << "Template load cancelled" << std::endl;
+                cerr << "Template load cancelled" << endl;
                 return FileOpenCancelled;
             }
             if (tplStatus != FileOpenFailed) {
-                std::cerr << "Template load succeeded" << std::endl;
+                cerr << "Template load succeeded" << endl;
                 loadedTemplate = true;
             }
         }
@@ -1414,13 +1414,13 @@ MainWindowBase::openLayer(FileSource source)
     
     if (!pane) {
 	// shouldn't happen, as the menu action should have been disabled
-	std::cerr << "WARNING: MainWindowBase::openLayer: no current pane" << std::endl;
+	cerr << "WARNING: MainWindowBase::openLayer: no current pane" << endl;
 	return FileOpenWrongMode;
     }
 
     if (!getMainModel()) {
 	// shouldn't happen, as the menu action should have been disabled
-	std::cerr << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << std::endl;
+	cerr << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << endl;
 	return FileOpenWrongMode;
     }
 
@@ -1432,7 +1432,7 @@ MainWindowBase::openLayer(FileSource source)
     RDFImporter::RDFDocumentType rdfType = 
         RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path).toString());
 
-//    std::cerr << "RDF type:  (in layer) " << (int) rdfType << std::endl;
+//    cerr << "RDF type:  (in layer) " << (int) rdfType << endl;
 
     if (rdfType != RDFImporter::NotRDF) {
 
@@ -1447,9 +1447,9 @@ MainWindowBase::openLayer(FileSource source)
         QFile file(path);
         
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            std::cerr << "ERROR: MainWindowBase::openLayer("
+            cerr << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation().toStdString()
-                      << "): Failed to open file for reading" << std::endl;
+                      << "): Failed to open file for reading" << endl;
             return FileOpenFailed;
         }
         
@@ -1466,10 +1466,10 @@ MainWindowBase::openLayer(FileSource source)
         reader.parse(inputSource);
         
         if (!reader.isOK()) {
-            std::cerr << "ERROR: MainWindowBase::openLayer("
+            cerr << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation().toStdString()
                       << "): Failed to read XML file: "
-                      << reader.getErrorString() << std::endl;
+                      << reader.getErrorString() << endl;
             return FileOpenFailed;
         }
 
@@ -1546,7 +1546,7 @@ MainWindowBase::openImage(FileSource source)
     
     if (!pane) {
 	// shouldn't happen, as the menu action should have been disabled
-	std::cerr << "WARNING: MainWindowBase::openImage: no current pane" << std::endl;
+	cerr << "WARNING: MainWindowBase::openImage: no current pane" << endl;
 	return FileOpenWrongMode;
     }
 
@@ -1572,7 +1572,7 @@ MainWindowBase::openImage(FileSource source)
 
     // We don't put the image file in Recent Files
 
-    std::cerr << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << std::endl;
+    cerr << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << endl;
 
     if (!il->addImage(m_viewManager->getGlobalCentreFrame(), source.getLocation())) {
         if (newLayer) {
@@ -1611,7 +1611,7 @@ MainWindowBase::openSession(FileSource source)
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
 
-//        std::cerr << "RDF type: " << (int)rdfType << std::endl;
+//        cerr << "RDF type: " << (int)rdfType << endl;
 
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
@@ -1623,7 +1623,7 @@ MainWindowBase::openSession(FileSource source)
         if (source.getExtension().toLower() == "xml") {
             if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
                 SVFileReader::SVSessionFile) {
-                std::cerr << "This XML file looks like a session file, attempting to open it as a session" << std::endl;
+                cerr << "This XML file looks like a session file, attempting to open it as a session" << endl;
             } else {
                 return FileOpenFailed;
             }
@@ -1726,7 +1726,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
     ResourceFinder rf;
     QString tfile = rf.getResourcePath("templates", templateName + ".svt");
     if (tfile != "") {
-        std::cerr << "SV loading template file " << tfile.toStdString() << std::endl;
+        cerr << "SV loading template file " << tfile.toStdString() << endl;
         return openSessionTemplate(FileSource("file:" + tfile));
     } else {
         return FileOpenFailed;
@@ -1736,7 +1736,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionTemplate(FileSource source)
 {
-    std::cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation().toStdString() << ")" << std::endl;
+    cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation().toStdString() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -2065,10 +2065,10 @@ MainWindowBase::saveSessionFile(QString path)
 
         BZipFileDevice bzFile(temp.getTemporaryFilename());
         if (!bzFile.open(QIODevice::WriteOnly)) {
-            std::cerr << "Failed to open session file \""
+            cerr << "Failed to open session file \""
                       << temp.getTemporaryFilename().toStdString()
                       << "\" for writing: "
-                      << bzFile.errorString() << std::endl;
+                      << bzFile.errorString() << endl;
             return false;
         }
 
@@ -2110,10 +2110,10 @@ MainWindowBase::saveSessionTemplate(QString path)
 
         QFile file(temp.getTemporaryFilename());
         if (!file.open(QIODevice::WriteOnly)) {
-            std::cerr << "Failed to open session template file \""
+            cerr << "Failed to open session template file \""
                       << temp.getTemporaryFilename().toStdString()
                       << "\" for writing: "
-                      << file.errorString().toStdString() << std::endl;
+                      << file.errorString().toStdString() << endl;
             return false;
         }
         
@@ -3026,7 +3026,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
     removeLayerEditDialog(layer);
 
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
-//	std::cerr << "(this is the time ruler layer)" << std::endl;
+//	cerr << "(this is the time ruler layer)" << endl;
 	m_timeRulerLayer = 0;
     }
 }

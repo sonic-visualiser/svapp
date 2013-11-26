@@ -58,7 +58,7 @@ Document::~Document()
     //the document, be nice to fix that
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "\n\nDocument::~Document: about to clear command history" << std::endl;
+    cerr << "\n\nDocument::~Document: about to clear command history" << endl;
 #endif
     CommandHistory::getInstance()->clear();
     
@@ -139,7 +139,7 @@ Document::createImportedLayer(Model *model)
 	LayerFactory::getInstance()->getValidLayerTypes(model);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::importLayer: no valid display layer for model" << std::endl;
+	cerr << "WARNING: Document::importLayer: no valid display layer for model" << endl;
 	return 0;
     }
 
@@ -220,7 +220,7 @@ Document::createDerivedLayer(const Transform &transform,
 	LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
     if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << std::endl;
+	cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << endl;
         newModel->aboutToDelete();
         emit modelAboutToBeDeleted(newModel);
         m_models.erase(newModel);
@@ -282,14 +282,14 @@ Document::setMainModel(WaveFileModel *model)
     // delete any of the models.
 
 #ifdef DEBUG_DOCUMENT
-    std::cerr << "Document::setMainModel: Have "
-              << m_layers.size() << " layers" << std::endl;
-    std::cerr << "Models now: ";
+    cerr << "Document::setMainModel: Have "
+              << m_layers.size() << " layers" << endl;
+    cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        std::cerr << i->first << " ";
+        cerr << i->first << " ";
     } 
-    std::cerr << std::endl;
-    std::cerr << "Old main model: " << oldMainModel << std::endl;
+    cerr << endl;
+    cerr << "Old main model: " << oldMainModel << endl;
 #endif
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
@@ -298,30 +298,30 @@ Document::setMainModel(WaveFileModel *model)
 	Model *model = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
-        std::cerr << "Document::setMainModel: inspecting model "
+        cerr << "Document::setMainModel: inspecting model "
                   << (model ? model->objectName(): "(null)") << " in layer "
-                  << layer->objectName() << std::endl;
+                  << layer->objectName() << endl;
 #endif
 
 	if (model == oldMainModel) {
 #ifdef DEBUG_DOCUMENT
-            std::cerr << "... it uses the old main model, replacing" << std::endl;
+            cerr << "... it uses the old main model, replacing" << endl;
 #endif
 	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
 	    continue;
 	}
 
         if (!model) {
-            std::cerr << "WARNING: Document::setMainModel: Null model in layer "
-                      << layer << std::endl;
+            cerr << "WARNING: Document::setMainModel: Null model in layer "
+                      << layer << endl;
 	    // get rid of this hideous degenerate
 	    obsoleteLayers.push_back(layer);
 	    continue;
 	}
 
 	if (m_models.find(model) == m_models.end()) {
-	    std::cerr << "WARNING: Document::setMainModel: Unknown model "
-		      << model << " in layer " << layer << std::endl;
+	    cerr << "WARNING: Document::setMainModel: Unknown model "
+		      << model << " in layer " << layer << endl;
 	    // and this one
 	    obsoleteLayers.push_back(layer);
 	    continue;
@@ -331,7 +331,7 @@ Document::setMainModel(WaveFileModel *model)
             (m_models[model].source == oldMainModel)) {
 
 #ifdef DEBUG_DOCUMENT
-            std::cerr << "... it uses a model derived from the old main model, regenerating" << std::endl;
+            cerr << "... it uses a model derived from the old main model, regenerating" << endl;
 #endif
 
 	    // This model was derived from the previous main
@@ -351,8 +351,8 @@ Document::setMainModel(WaveFileModel *model)
                                 message);
 	    
 	    if (!replacementModel) {
-		std::cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
-			  << transformId << "\"" << " in layer " << layer << std::endl;
+		cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
+			  << transformId << "\"" << " in layer " << layer << endl;
                 if (failedTransformers.find(transformId)
                     == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
@@ -368,20 +368,20 @@ Document::setMainModel(WaveFileModel *model)
                                                   message);
                 }
 #ifdef DEBUG_DOCUMENT
-                std::cerr << "Replacing model " << model << " (type "
+                cerr << "Replacing model " << model << " (type "
                           << typeid(*model).name() << ") with model "
                           << replacementModel << " (type "
                           << typeid(*replacementModel).name() << ") in layer "
                           << layer << " (name " << layer->objectName() << ")"
-                          << std::endl;
+                          << endl;
 #endif
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
 #ifdef DEBUG_DOCUMENT
                 if (rm) {
-                    std::cerr << "new model has " << rm->getChannelCount() << " channels " << std::endl;
+                    cerr << "new model has " << rm->getChannelCount() << " channels " << endl;
                 } else {
-                    std::cerr << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel!" << std::endl;
+                    cerr << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel!" << endl;
                 }
 #endif
 		setModel(layer, replacementModel);
@@ -433,16 +433,16 @@ Document::addDerivedModel(const Transform &transform,
                           Model *outputModelToAdd)
 {
     if (m_models.find(outputModelToAdd) != m_models.end()) {
-	std::cerr << "WARNING: Document::addDerivedModel: Model already added"
-		  << std::endl;
+	cerr << "WARNING: Document::addDerivedModel: Model already added"
+		  << endl;
 	return;
     }
 
 #ifdef DEBUG_DOCUMENT
     if (input.getModel()) {
-        std::cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << std::endl;
+        cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
     } else {
-        std::cerr << "Document::addDerivedModel: source is " << input.getModel() << std::endl;
+        cerr << "Document::addDerivedModel: source is " << input.getModel() << endl;
     }
 #endif
 
@@ -458,11 +458,11 @@ Document::addDerivedModel(const Transform &transform,
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::addDerivedModel: Added model " << outputModelToAdd << endl;
-    std::cerr << "Models now: ";
+    cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        std::cerr << i->first << " ";
+        cerr << i->first << " ";
     } 
-    std::cerr << std::endl;
+    cerr << endl;
 #endif
 
     emit modelAdded(outputModelToAdd);
@@ -473,8 +473,8 @@ void
 Document::addImportedModel(Model *model)
 {
     if (m_models.find(model) != m_models.end()) {
-	std::cerr << "WARNING: Document::addImportedModel: Model already added"
-		  << std::endl;
+	cerr << "WARNING: Document::addImportedModel: Model already added"
+		  << endl;
 	return;
     }
 
@@ -486,11 +486,11 @@ Document::addImportedModel(Model *model)
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::addImportedModel: Added model " << model << endl;
-    std::cerr << "Models now: ";
+    cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
-        std::cerr << i->first << " ";
+        cerr << i->first << " ";
     } 
-    std::cerr << std::endl;
+    cerr << endl;
 #endif
 
     if (m_autoAlignment) alignModel(model);
@@ -531,7 +531,7 @@ Document::addDerivedModel(const Transform &transform,
          .getPluginVersion());
 
     if (!model) {
-	std::cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier() << std::endl;
+	cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier() << endl;
     } else {
 	addDerivedModel(applied, input, model);
     }
@@ -555,16 +555,16 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
     if (m_models.find(model) != m_models.end()) {
 	
 	if (m_models[model].refcount == 0) {
-	    std::cerr << "WARNING: Document::releaseModel: model " << model
-		      << " reference count is zero already!" << std::endl;
+	    cerr << "WARNING: Document::releaseModel: model " << model
+		      << " reference count is zero already!" << endl;
 	} else {
 	    if (--m_models[model].refcount == 0) {
 		toDelete = true;
 	    }
 	}
     } else { 
-	std::cerr << "WARNING: Document::releaseModel: Unfound model "
-		  << model << std::endl;
+	cerr << "WARNING: Document::releaseModel: Unfound model "
+		  << model << endl;
 	toDelete = true;
     }
 
@@ -592,11 +592,11 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::releaseModel: Deleted model " << model << endl;
-        std::cerr << "Models now: ";
+        cerr << "Models now: ";
         for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
-            std::cerr << i->first << " ";
+            cerr << i->first << " ";
         } 
-        std::cerr << std::endl;
+        cerr << endl;
 #endif
 
 	delete model;
@@ -609,15 +609,15 @@ Document::deleteLayer(Layer *layer, bool force)
     if (m_layerViewMap.find(layer) != m_layerViewMap.end() &&
 	m_layerViewMap[layer].size() > 0) {
 
-	std::cerr << "WARNING: Document::deleteLayer: Layer "
+	cerr << "WARNING: Document::deleteLayer: Layer "
 		  << layer << " [" << layer->objectName() << "]"
 		  << " is still used in " << m_layerViewMap[layer].size()
-		  << " views!" << std::endl;
+		  << " views!" << endl;
 
 	if (force) {
 
 #ifdef DEBUG_DOCUMENT
-	    std::cerr << "(force flag set -- deleting from all views)" << std::endl;
+	    cerr << "(force flag set -- deleting from all views)" << endl;
 #endif
 
 	    for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
@@ -661,11 +661,11 @@ Document::setModel(Layer *layer, Model *model)
     if (model && 
 	model != m_mainModel &&
 	m_models.find(model) == m_models.end()) {
-	std::cerr << "ERROR: Document::setModel: Layer " << layer
+	cerr << "ERROR: Document::setModel: Layer " << layer
 		  << " (\"" << layer->objectName().toStdString()
                   << "\") wants to use unregistered model " << model
 		  << ": register the layer's model before setting it!"
-		  << std::endl;
+		  << endl;
 	return;
     }
 
@@ -715,9 +715,9 @@ Document::addLayerToView(View *view, Layer *layer)
     } else {
 	if (model != m_mainModel &&
 	    m_models.find(model) == m_models.end()) {
-	    std::cerr << "ERROR: Document::addLayerToView: Layer " << layer
+	    cerr << "ERROR: Document::addLayerToView: Layer " << layer
 		      << " has unregistered model " << model
-		      << " -- register the layer's model before adding the layer!" << std::endl;
+		      << " -- register the layer's model before adding the layer!" << endl;
 	    return;
 	}
     }
@@ -741,9 +741,9 @@ Document::addToLayerViewMap(Layer *layer, View *view)
 
     if (m_layerViewMap[layer].find(view) !=
 	m_layerViewMap[layer].end()) {
-	std::cerr << "WARNING: Document::addToLayerViewMap:"
+	cerr << "WARNING: Document::addToLayerViewMap:"
 		  << " Layer " << layer << " -> view " << view << " already in"
-		  << " layer view map -- internal inconsistency" << std::endl;
+		  << " layer view map -- internal inconsistency" << endl;
     }
 
     m_layerViewMap[layer].insert(view);
@@ -756,9 +756,9 @@ Document::removeFromLayerViewMap(Layer *layer, View *view)
 {
     if (m_layerViewMap[layer].find(view) ==
 	m_layerViewMap[layer].end()) {
-	std::cerr << "WARNING: Document::removeFromLayerViewMap:"
+	cerr << "WARNING: Document::removeFromLayerViewMap:"
 		  << " Layer " << layer << " -> view " << view << " not in"
-		  << " layer view map -- internal inconsistency" << std::endl;
+		  << " layer view map -- internal inconsistency" << endl;
     }
 
     m_layerViewMap[layer].erase(view);
@@ -923,7 +923,7 @@ Document::alignModel(Model *model)
         (transformOutput);
 
     if (!path) {
-        std::cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << std::endl;
+        cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
         emit alignmentFailed(id, message);
         delete transformOutput;
         delete aggregateModel;
