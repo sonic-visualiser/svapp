@@ -41,12 +41,12 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     m_done(false)
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget: Initialising for PulseAudio" << std::endl;
+    cerr << "AudioPulseAudioTarget: Initialising for PulseAudio" << endl;
 #endif
 
     m_loop = pa_mainloop_new();
     if (!m_loop) {
-        std::cerr << "ERROR: AudioPulseAudioTarget: Failed to create main loop" << std::endl;
+        cerr << "ERROR: AudioPulseAudioTarget: Failed to create main loop" << endl;
         return;
     }
 
@@ -64,33 +64,33 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     m_spec.format = PA_SAMPLE_FLOAT32NE;
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget: Creating context" << std::endl;
+    cerr << "AudioPulseAudioTarget: Creating context" << endl;
 #endif
 
     m_context = pa_context_new(m_api, source->getClientName().toLocal8Bit().data());
     if (!m_context) {
-        std::cerr << "ERROR: AudioPulseAudioTarget: Failed to create context object" << std::endl;
+        cerr << "ERROR: AudioPulseAudioTarget: Failed to create context object" << endl;
         return;
     }
 
     pa_context_set_state_callback(m_context, contextStateChangedStatic, this);
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget: Connecting to default server..." << std::endl;
+    cerr << "AudioPulseAudioTarget: Connecting to default server..." << endl;
 #endif
 
     pa_context_connect(m_context, 0, // default server
                        (pa_context_flags_t)PA_CONTEXT_NOAUTOSPAWN, 0);
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget: Starting main loop" << std::endl;
+    cerr << "AudioPulseAudioTarget: Starting main loop" << endl;
 #endif
 
     m_loopThread = new MainLoopThread(m_loop);
     m_loopThread->start();
 
 #ifdef DEBUG_PULSE_AUDIO_TARGET
-    std::cerr << "AudioPulseAudioTarget: initialised OK" << std::endl;
+    cerr << "AudioPulseAudioTarget: initialised OK" << endl;
 #endif
 }
 
@@ -166,7 +166,7 @@ void
 AudioPulseAudioTarget::streamWrite(size_t requested)
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
-    std::cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << std::endl;
+    cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << endl;
 #endif
     if (m_done) return;
 
@@ -192,11 +192,11 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
     size_t nframes = requested / (sourceChannels * sizeof(float));
 
     if (nframes > m_bufferSize) {
-        std::cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << std::endl;
+        cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << endl;
     }
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
-    std::cout << "AudioPulseAudioTarget::streamWrite: nframes = " << nframes << std::endl;
+    cout << "AudioPulseAudioTarget::streamWrite: nframes = " << nframes << endl;
 #endif
 
     if (!tmpbuf || tmpbufch != sourceChannels || int(tmpbufsz) < nframes) {
@@ -226,10 +226,10 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
     size_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
-    std::cerr << "requested " << nframes << ", received " << received << std::endl;
+    cerr << "requested " << nframes << ", received " << received << endl;
 
     if (received < nframes) {
-        std::cerr << "*** WARNING: Wrong number of frames received" << std::endl;
+        cerr << "*** WARNING: Wrong number of frames received" << endl;
     }
 #endif
 
@@ -319,11 +319,11 @@ AudioPulseAudioTarget::streamStateChanged()
             pa_usec_t latency = 0;
             int negative = 0;
             if (pa_stream_get_latency(m_stream, &latency, &negative)) {
-                std::cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << std::endl;
+                cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << endl;
             }
-            std::cerr << "Latency = " << latency << " usec" << std::endl;
+            cerr << "Latency = " << latency << " usec" << endl;
             int latframes = (latency / 1000000.f) * float(m_sampleRate);
-            std::cerr << "that's " << latframes << " frames" << std::endl;
+            cerr << "that's " << latframes << " frames" << endl;
 
             const pa_buffer_attr *attr;
             if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
@@ -337,7 +337,7 @@ AudioPulseAudioTarget::streamStateChanged()
                 m_source->setTarget(this, targetLength);
                 m_source->setTargetSampleRate(m_sampleRate);
                 if (latframes == 0) latframes = targetLength;
-                std::cerr << "latency = " << latframes << std::endl;
+                cerr << "latency = " << latframes << endl;
                 m_source->setTargetPlayLatency(latframes);
             }
         }
@@ -345,8 +345,8 @@ AudioPulseAudioTarget::streamStateChanged()
 
         case PA_STREAM_FAILED:
         default:
-            std::cerr << "AudioPulseAudioTarget::streamStateChanged: Error: "
-                      << pa_strerror(pa_context_errno(m_context)) << std::endl;
+            cerr << "AudioPulseAudioTarget::streamStateChanged: Error: "
+                      << pa_strerror(pa_context_errno(m_context)) << endl;
             //!!! do something...
             break;
     }
@@ -394,7 +394,7 @@ AudioPulseAudioTarget::contextStateChanged()
                  pa_stream_flags_t(PA_STREAM_INTERPOLATE_TIMING |
                                    PA_STREAM_AUTO_TIMING_UPDATE),
                  0, 0)) { //??? return value
-                std::cerr << "AudioPulseAudioTarget: Failed to connect playback stream" << std::endl;
+                cerr << "AudioPulseAudioTarget: Failed to connect playback stream" << endl;
             }
 
             break;
@@ -406,8 +406,8 @@ AudioPulseAudioTarget::contextStateChanged()
 
         case PA_CONTEXT_FAILED:
         default:
-            std::cerr << "AudioPulseAudioTarget::contextStateChanged: Error: "
-                      << pa_strerror(pa_context_errno(m_context)) << std::endl;
+            cerr << "AudioPulseAudioTarget::contextStateChanged: Error: "
+                      << pa_strerror(pa_context_errno(m_context)) << endl;
             //!!! do something...
             break;
     }

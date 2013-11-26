@@ -51,7 +51,7 @@ PlaySpeedRangeMapper::getPositionForFactor(float factor) const
         position = position + half;
     }
 
-//    std::cerr << "value = " << value << " slow = " << slow << " factor = " << factor << " position = " << position << std::endl;
+//    cerr << "value = " << value << " slow = " << slow << " factor = " << factor << " position = " << position << endl;
 
     return position;
 }
@@ -70,7 +70,7 @@ PlaySpeedRangeMapper::getValueForFactor(float factor) const
     float pc;
     if (factor < 1.0) pc = ((1.0 / factor) - 1.0) * 100.0;
     else pc = (1.0 - factor) * 100.0;
-//    std::cerr << "position = " << position << " percent = " << pc << std::endl;
+//    cerr << "position = " << position << " percent = " << pc << endl;
     return pc;
 }
 
@@ -87,7 +87,7 @@ PlaySpeedRangeMapper::getFactorForValue(float value) const
         factor = 1.0 / (1.0 + (value / 100.0));
     }
 
-//    std::cerr << "value = " << value << " factor = " << factor << std::endl;
+//    cerr << "value = " << value << " factor = " << factor << endl;
     return factor;
 }
 
@@ -121,7 +121,7 @@ PlaySpeedRangeMapper::getFactorForPosition(int position) const
 
     if (!slow) factor = 1.0 / factor;
 
-//    std::cerr << "position = " << position << " slow = " << slow << " factor = " << factor << std::endl;
+//    cerr << "position = " << position << " slow = " << slow << " factor = " << factor << endl;
 
     return factor;
 }
