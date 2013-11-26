@@ -236,12 +236,12 @@ SVFileReader::startElement(const QString &, const QString &,
 
     } else {
         cerr << "WARNING: SV-XML: Unexpected element \""
-                  << name.toLocal8Bit().data() << "\"" << endl;
+                  << name << "\"" << endl;
     }
 
     if (!ok) {
 	cerr << "WARNING: SV-XML: Failed to completely process element \""
-		  << name.toLocal8Bit().data() << "\"" << endl;
+		  << name << "\"" << endl;
     }
 
     return true;
@@ -362,7 +362,7 @@ SVFileReader::error(const QXmlParseException &exception)
 	.arg(exception.message())
 	.arg(exception.lineNumber())
 	.arg(exception.columnNumber());
-    cerr << m_errorString.toLocal8Bit().data() << endl;
+    cerr << m_errorString << endl;
     return QXmlDefaultHandler::error(exception);
 }
 
@@ -374,7 +374,7 @@ SVFileReader::fatalError(const QXmlParseException &exception)
 	.arg(exception.message())
 	.arg(exception.lineNumber())
 	.arg(exception.columnNumber());
-    cerr << m_errorString.toLocal8Bit().data() << endl;
+    cerr << m_errorString << endl;
     return QXmlDefaultHandler::fatalError(exception);
 }
 
@@ -706,7 +706,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     } else {
 
 	cerr << "WARNING: SV-XML: Unexpected model type \""
-		  << type.toLocal8Bit().data() << "\" for model id " << id << endl;
+		  << type << "\" for model id " << id << endl;
     }
 
     return false;
@@ -720,7 +720,7 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     
     if (type != "pane") {
 	cerr << "WARNING: SV-XML: Unexpected view type \""
-		  << type.toLocal8Bit().data() << "\"" << endl;
+		  << type << "\"" << endl;
 	return false;
     }
 
@@ -778,7 +778,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 
     if (!ok) {
 	cerr << "WARNING: SV-XML: No layer id for layer of type \""
-		  << type.toLocal8Bit().data()
+		  << type
 		  << "\"" << endl;
 	return false;
     }
@@ -837,7 +837,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	    
     if (!layer) {
 	cerr << "WARNING: SV-XML: Failed to add layer of type \""
-		  << type.toLocal8Bit().data()
+		  << type
 		  << "\"" << endl;
 	return false;
     }

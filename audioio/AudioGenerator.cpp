@@ -95,7 +95,7 @@ AudioGenerator::initialiseSampleDir()
 
         if (!file.copy(target)) {
             cerr << "WARNING: AudioGenerator::getSampleDir: "
-                      << "Unable to copy " << fileName.toStdString()
+                      << "Unable to copy " << fileName
                       << " into temporary directory \""
                       << m_sampleDir << "\"" << endl;
         } else {

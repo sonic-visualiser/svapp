@@ -662,7 +662,7 @@ Document::setModel(Layer *layer, Model *model)
 	model != m_mainModel &&
 	m_models.find(model) == m_models.end()) {
 	cerr << "ERROR: Document::setModel: Layer " << layer
-		  << " (\"" << layer->objectName().toStdString()
+		  << " (\"" << layer->objectName()
                   << "\") wants to use unregistered model " << model
 		  << ": register the layer's model before setting it!"
 		  << endl;

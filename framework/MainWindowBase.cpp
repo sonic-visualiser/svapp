@@ -1132,7 +1132,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         templateName = getDefaultSessionTemplate();
     }
 
-    cerr << "template is: \"" << templateName.toStdString() << "\"" << endl;
+    cerr << "template is: \"" << templateName << "\"" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1448,7 +1448,7 @@ MainWindowBase::openLayer(FileSource source)
         
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             cerr << "ERROR: MainWindowBase::openLayer("
-                      << source.getLocation().toStdString()
+                      << source.getLocation()
                       << "): Failed to open file for reading" << endl;
             return FileOpenFailed;
         }
@@ -1467,7 +1467,7 @@ MainWindowBase::openLayer(FileSource source)
         
         if (!reader.isOK()) {
             cerr << "ERROR: MainWindowBase::openLayer("
-                      << source.getLocation().toStdString()
+                      << source.getLocation()
                       << "): Failed to read XML file: "
                       << reader.getErrorString() << endl;
             return FileOpenFailed;
@@ -1726,7 +1726,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
     ResourceFinder rf;
     QString tfile = rf.getResourcePath("templates", templateName + ".svt");
     if (tfile != "") {
-        cerr << "SV loading template file " << tfile.toStdString() << endl;
+        cerr << "SV loading template file " << tfile << endl;
         return openSessionTemplate(FileSource("file:" + tfile));
     } else {
         return FileOpenFailed;
@@ -1736,7 +1736,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionTemplate(FileSource source)
 {
-    cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation().toStdString() << ")" << endl;
+    cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -2066,7 +2066,7 @@ MainWindowBase::saveSessionFile(QString path)
         BZipFileDevice bzFile(temp.getTemporaryFilename());
         if (!bzFile.open(QIODevice::WriteOnly)) {
             cerr << "Failed to open session file \""
-                      << temp.getTemporaryFilename().toStdString()
+                      << temp.getTemporaryFilename()
                       << "\" for writing: "
                       << bzFile.errorString() << endl;
             return false;
@@ -2111,9 +2111,9 @@ MainWindowBase::saveSessionTemplate(QString path)
         QFile file(temp.getTemporaryFilename());
         if (!file.open(QIODevice::WriteOnly)) {
             cerr << "Failed to open session template file \""
-                      << temp.getTemporaryFilename().toStdString()
+                      << temp.getTemporaryFilename()
                       << "\" for writing: "
-                      << file.errorString().toStdString() << endl;
+                      << file.errorString() << endl;
             return false;
         }
         
