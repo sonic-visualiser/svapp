@@ -41,6 +41,8 @@
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
 
+using std::vector;
+
 //#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
@@ -205,122 +207,86 @@ Document::createDerivedLayer(LayerFactory::LayerType type,
 
     return newLayer;
 }
+
 Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input)
 {
-    QString message;
-    Model *newModel = addDerivedModel(transform, input, message);
-    if (!newModel) {
-        emit modelGenerationFailed(transform.getIdentifier(), message);
-        return 0;
-    } else if (message != "") {
-        emit modelGenerationWarning(transform.getIdentifier(), message);
-    }
-
-    LayerFactory::LayerTypeSet types =
-	LayerFactory::getInstance()->getValidLayerTypes(newModel);
-
-    if (types.empty()) {
-	cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << endl;
-        newModel->aboutToDelete();
-        emit modelAboutToBeDeleted(newModel);
-        m_models.erase(newModel);
-	delete newModel;
-	return 0;
-    }
-
-    //!!! for now, just use the first suitable layer type
-
-    Layer *newLayer = createLayer(*types.begin());
-    setModel(newLayer, newModel);
-
-    //!!! We need to clone the model when adding the layer, so that it
-    //can be edited without affecting other layers that are based on
-    //the same model.  Unfortunately we can't just clone it now,
-    //because it probably hasn't been completed yet -- the transform
-    //runs in the background.  Maybe the transform has to handle
-    //cloning and cacheing models itself.
-    //
-    // Once we do clone models here, of course, we'll have to avoid
-    // leaking them too.
-    //
-    // We want the user to be able to add a model to a second layer
-    // _while it's still being calculated in the first_ and have it
-    // work quickly.  That means we need to put the same physical
-    // model pointer in both layers, so they can't actually be cloned.
-    
-    if (newLayer) {
-	newLayer->setObjectName(getUniqueLayerName
-                                (TransformFactory::getInstance()->
-                                 getTransformFriendlyName
-                                 (transform.getIdentifier())));
-    }
-
-    emit layerAdded(newLayer);
-    return newLayer;
+    Transforms transforms;
+    transforms.push_back(transform);
+    vector<Layer *> layers = createDerivedLayers(transforms, input);
+    if (layers.empty()) return 0;
+    else return layers[0];
 }
 
-Layer *
-Document::createDerivedLayer(const Transform &transform,
-                             const ModelTransformer::Input &input,
-                             const LayerFactory::LayerType type,
-							 const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
+vector<Layer *>
+Document::createDerivedLayers(const Transforms &transforms,
+                              const ModelTransformer::Input &input)
 {
-	// !!! THIS IS TOTALLY REDUNDANT CODE, EXCEPT FOR THE type SETTING
-	
-	    QString message;
-	    Model *newModel = addDerivedModel(transform, input, message, outputmodel);
-	    if (!newModel) {
-	        emit modelGenerationFailed(transform.getIdentifier(), message);
-	        return 0;
-	    } else if (message != "") {
-	        emit modelGenerationWarning(transform.getIdentifier(), message);
-	    }
-	
-	    LayerFactory::LayerTypeSet types =
-	LayerFactory::getInstance()->getValidLayerTypes(newModel);
-	
-	    if (types.empty()) {
-	std::cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transform.getIdentifier() << std::endl;
-	        newModel->aboutToDelete();
-	        emit modelAboutToBeDeleted(newModel);
-	        m_models.erase(newModel);
-	delete newModel;
-	return 0;
-	    }
+    QString message;
+    vector<Model *> newModels = addDerivedModels(transforms, input, message);
 
-    //!!! creating layer with the specified type
-
-    Layer *newLayer = createLayer(type);
-    setModel(newLayer, newModel);
-
-    //!!! We need to clone the model when adding the layer, so that it
-    //can be edited without affecting other layers that are based on
-    //the same model.  Unfortunately we can't just clone it now,
-    //because it probably hasn't been completed yet -- the transform
-    //runs in the background.  Maybe the transform has to handle
-    //cloning and cacheing models itself.
-    //
-    // Once we do clone models here, of course, we'll have to avoid
-    // leaking them too.
-    //
-    // We want the user to be able to add a model to a second layer
-    // _while it's still being calculated in the first_ and have it
-    // work quickly.  That means we need to put the same physical
-    // model pointer in both layers, so they can't actually be cloned.
-    
-    if (newLayer) {
-	newLayer->setObjectName(getUniqueLayerName
-                                (TransformFactory::getInstance()->
-                                 getTransformFriendlyName
-                                 (transform.getIdentifier())));
+    if (newModels.empty()) {
+        //!!! This identifier may be wrong!
+        emit modelGenerationFailed(transforms[0].getIdentifier(), message);
+        return vector<Layer *>();
+    } else if (message != "") {
+        //!!! This identifier may be wrong!
+        emit modelGenerationWarning(transforms[0].getIdentifier(), message);
     }
 
-    emit layerAdded(newLayer);
-    return newLayer;
-}
+    vector<Layer *> layers;
 
+    for (int i = 0; i < (int)newModels.size(); ++i) {
+
+        Model *newModel = newModels[i];
+
+        LayerFactory::LayerTypeSet types =
+            LayerFactory::getInstance()->getValidLayerTypes(newModel);
+
+        if (types.empty()) {
+            cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transforms[i].getIdentifier() << endl;
+            //!!! inadequate cleanup:
+            newModel->aboutToDelete();
+            emit modelAboutToBeDeleted(newModel);
+            m_models.erase(newModel);
+            delete newModel;
+            return vector<Layer *>();
+        }
+
+        //!!! for now, just use the first suitable layer type
+
+        Layer *newLayer = createLayer(*types.begin());
+        setModel(newLayer, newModel);
+
+        //!!! We need to clone the model when adding the layer, so that it
+        //can be edited without affecting other layers that are based on
+        //the same model.  Unfortunately we can't just clone it now,
+        //because it probably hasn't been completed yet -- the transform
+        //runs in the background.  Maybe the transform has to handle
+        //cloning and cacheing models itself.
+        //
+        // Once we do clone models here, of course, we'll have to avoid
+        // leaking them too.
+        //
+        // We want the user to be able to add a model to a second layer
+        // _while it's still being calculated in the first_ and have it
+        // work quickly.  That means we need to put the same physical
+        // model pointer in both layers, so they can't actually be cloned.
+    
+        if (newLayer) {
+            newLayer->setObjectName(getUniqueLayerName
+                                    (TransformFactory::getInstance()->
+                                     getTransformFriendlyName
+                                     (transforms[i].getIdentifier())));
+        }
+
+        emit layerAdded(newLayer);
+        layers.push_back(newLayer);
+    }
+
+    return layers;
+}
 
 void
 Document::setMainModel(WaveFileModel *model)
@@ -564,48 +530,60 @@ Document::addImportedModel(Model *model)
 Model *
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
-                          QString &message,
-						  const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
+                          QString &message)
 {
-    Model *model = 0;
-	// model = (Model) new FlexiNoteModel();
-	// return model;
-
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
-	if (i->second.transform == transform &&
-	    i->second.source == input.getModel() && 
+        if (i->second.transform == transform &&
+            i->second.source == input.getModel() && 
             i->second.channel == input.getChannel()) {
-				std::cerr << "derived model taken from map " << std::endl;
-	    return i->first;
-	}
+            std::cerr << "derived model taken from map " << std::endl;
+            return i->first;
+        }
     }
 
-	// GF: TODO: propagate preferredOutputModelSelection (done)
-    model = ModelTransformerFactory::getInstance()->transform
-        (transform, input, message, outputmodel); //e.g. FeatureExtractionModelTransformer::FlexiNoteOutputModel
+    Transforms tt;
+    tt.push_back(transform);
+    vector<Model *> mm = addDerivedModels(tt, input, message);
+    if (mm.empty()) return 0;
+    else return mm[0];
+}
 
-    // The transform we actually used was presumably identical to the
-    // one asked for, except that the version of the plugin may
-    // differ.  It's possible that the returned message contains a
-    // warning about this; that doesn't concern us here, but we do
-    // need to ensure that the transform we remember is correct for
-    // what was actually applied, with the current plugin version.
+vector<Model *>
+Document::addDerivedModels(const Transforms &transforms,
+                           const ModelTransformer::Input &input,
+                           QString &message)
+{
+    vector<Model *> mm = 
+        ModelTransformerFactory::getInstance()->transformMultiple
+        (transforms, input, message);
 
-    Transform applied = transform;
-    applied.setPluginVersion
-        (TransformFactory::getInstance()->
-         getDefaultTransformFor(transform.getIdentifier(),
-                                lrintf(transform.getSampleRate()))
-         .getPluginVersion());
+    for (int j = 0; j < (int)mm.size(); ++j) {
 
-    if (!model) {
-	cerr << "WARNING: Document::addDerivedModel: no output model for transform " << transform.getIdentifier() << endl;
-    } else {
-	addDerivedModel(applied, input, model);
+        Model *model = mm[j];
+
+        // The transform we actually used was presumably identical to
+        // the one asked for, except that the version of the plugin
+        // may differ.  It's possible that the returned message
+        // contains a warning about this; that doesn't concern us
+        // here, but we do need to ensure that the transform we
+        // remember is correct for what was actually applied, with the
+        // current plugin version.
+
+        Transform applied = transforms[j];
+        applied.setPluginVersion
+            (TransformFactory::getInstance()->
+             getDefaultTransformFor(applied.getIdentifier(),
+                                    lrintf(applied.getSampleRate()))
+             .getPluginVersion());
+
+        if (!model) {
+            cerr << "WARNING: Document::addDerivedModel: no output model for transform " << applied.getIdentifier() << endl;
+        } else {
+            addDerivedModel(applied, input, model);
+        }
     }
-	// std::cerr << "derived model name: " << model->getTypeName() << std::endl;
 	
-    return model;
+    return mm;
 }
 
 void
