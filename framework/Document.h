@@ -118,14 +118,13 @@ public:
                               const ModelTransformer::Input &);
 
     /**
-     * Exactly the same as above, but providing exactly the layer type
-     * for cases in which the first suitable layer type for a transform
-     * is not the desired one.
-     * WARNING: highly redundant code (with the above creation funciotn)
+     * Create and return suitable layers for the given transforms,
+     * which must be identical apart from the output (i.e. must use
+     * the same plugin and configuration). The layers are returned in
+     * the same order as the transformed are supplied.
      */
-    Layer *createDerivedLayer(const Transform &,
-                              const ModelTransformer::Input &,
-                              const LayerFactory::LayerType type);
+    std::vector<Layer *> createDerivedLayers(const Transforms &,
+                                             const ModelTransformer::Input &);
 
     /**
      * Delete the given layer, and also its associated model if no
@@ -163,6 +162,15 @@ public:
     Model *addDerivedModel(const Transform &transform,
                            const ModelTransformer::Input &input,
                            QString &returnedMessage);
+
+    /**
+     * Add derived models associated with the given set of related
+     * transforms, running the transforms and returning the resulting
+     * models.
+     */
+    std::vector<Model *> addDerivedModels(const Transforms &transforms,
+                                          const ModelTransformer::Input &input,
+                                          QString &returnedMessage);
 
     /**
      * Add a derived model associated with the given transform.  This
