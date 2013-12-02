@@ -103,22 +103,6 @@ protected:
     bool m_soloing;
     std::set<Model *> m_soloModelSet;
 
-    struct NoteData {
-
-        NoteData(size_t _start, size_t _dur, int _mp, int _vel) :
-            start(_start), duration(_dur), midiPitch(_mp), frequency(0),
-            isMidiPitchQuantized(true), velocity(_vel) { };
-            
-        size_t start;     // audio sample frame
-        size_t duration;  // in audio sample frames
-        int midiPitch; // 0-127
-        int frequency; // Hz, to be used if isMidiPitchQuantized false
-        bool isMidiPitchQuantized;
-        int velocity;  // MIDI-style 0-127
-    };
-
-    typedef std::vector<NoteData> NoteList;
-    
     struct NoteOff {
 
         NoteOff(int _p, size_t _f) : pitch(_p), frame(_f) { }
@@ -156,8 +140,6 @@ protected:
     (Model *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
     
-    NoteList getNotes(Model *model, size_t startFrame, size_t endFrame);
-
     static const size_t m_pluginBlockSize;
 };
 

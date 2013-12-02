@@ -25,6 +25,7 @@
 #include "data/model/FlexiNoteModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
+#include "data/model/NoteData.h"
 
 #include "plugin/RealTimePluginFactory.h"
 #include "plugin/RealTimePluginInstance.h"
@@ -551,9 +552,12 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
 	size_t reqStart = startFrame + i * m_pluginBlockSize;
 
-        NoteList notes = getNotes(model,
-                                  reqStart + latency,
-                                  reqStart + latency + m_pluginBlockSize);
+        NoteList notes;
+        NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
+        if (exportable) {
+            notes = exportable->getNotes(reqStart + latency,
+                                         reqStart + latency + m_pluginBlockSize);
+        }
 
         Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
 	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
@@ -652,113 +656,4 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
     }
 
     return got;
-}
-
-AudioGenerator::NoteList
-AudioGenerator::getNotes(Model *model,
-                         size_t startFrame,
-                         size_t endFrame)
-{
-    NoteList notes;
-
-    SparseOneDimensionalModel *sodm = 
-        qobject_cast<SparseOneDimensionalModel *>(model);
-
-    if (sodm) {
-        
-	SparseOneDimensionalModel::PointList points =
-	    sodm->getPoints(startFrame, endFrame);
-
-	for (SparseOneDimensionalModel::PointList::iterator pli =
-		 points.begin(); pli != points.end(); ++pli) {
-
-            notes.push_back
-                (NoteData(pli->frame,
-                          m_sourceSampleRate / 6, // arbitrary short duration
-                          64,   // default pitch
-                          100)); // default velocity
-        }
-
-        return notes;
-    }
-
-    NoteModel *nm = qobject_cast<NoteModel *>(model);
-
-    if (nm) {
-        
-	NoteModel::PointList points =
-	    nm->getPoints(startFrame, endFrame);
-
-        for (NoteModel::PointList::iterator pli =
-		 points.begin(); pli != points.end(); ++pli) {
-
-	    size_t duration = pli->duration;
-            if (duration == 0 || duration == 1) {
-                duration = m_sourceSampleRate / 20;
-            }
-
-            int pitch = lrintf(pli->value);
-
-            int velocity = 100;
-            if (pli->level > 0.f && pli->level <= 1.f) {
-                velocity = lrintf(pli->level * 127);
-            }
-
-            NoteData note(pli->frame,
-                          duration,
-                          pitch,
-                          velocity);
-
-            if (nm->getScaleUnits() == "Hz") {
-                note.frequency = pli->value;
-                note.isMidiPitchQuantized = false;
-            }
-        
-            notes.push_back(note);
-        }
-
-        return notes;
-    }
-
-    FlexiNoteModel *fnm = qobject_cast<FlexiNoteModel *>(model);
-
-    if (fnm) {
-        
-        // currently identical to NoteModel case above
-
-	FlexiNoteModel::PointList points =
-	    fnm->getPoints(startFrame, endFrame);
-
-        for (FlexiNoteModel::PointList::iterator pli =
-		 points.begin(); pli != points.end(); ++pli) {
-
-	    size_t duration = pli->duration;
-            if (duration == 0 || duration == 1) {
-                duration = m_sourceSampleRate / 20;
-            }
-
-            int pitch = lrintf(pli->value);
-
-            int velocity = 100;
-            if (pli->level > 0.f && pli->level <= 1.f) {
-                velocity = lrintf(pli->level * 127);
-            }
-
-            NoteData note(pli->frame,
-                          duration,
-                          pitch,
-                          velocity);
-
-            if (fnm->getScaleUnits() == "Hz") {
-                note.frequency = pli->value;
-                note.isMidiPitchQuantized = false;
-            }
-        
-            notes.push_back(note);
-        }
-
-        return notes;
-    }
-
-    return notes;
 }
