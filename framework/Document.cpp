@@ -264,13 +264,12 @@ Document::createDerivedLayer(const Transform &transform,
 Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input,
-                             const LayerFactory::LayerType type,
-							 const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
+                             const LayerFactory::LayerType type)
 {
 	// !!! THIS IS TOTALLY REDUNDANT CODE, EXCEPT FOR THE type SETTING
 	
 	    QString message;
-	    Model *newModel = addDerivedModel(transform, input, message, outputmodel);
+	    Model *newModel = addDerivedModel(transform, input, message);
 	    if (!newModel) {
 	        emit modelGenerationFailed(transform.getIdentifier(), message);
 	        return 0;
@@ -564,8 +563,7 @@ Document::addImportedModel(Model *model)
 Model *
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
-                          QString &message,
-						  const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel)
+                          QString &message)
 {
     Model *model = 0;
 	// model = (Model) new FlexiNoteModel();
@@ -580,9 +578,8 @@ Document::addDerivedModel(const Transform &transform,
 	}
     }
 
-	// GF: TODO: propagate preferredOutputModelSelection (done)
     model = ModelTransformerFactory::getInstance()->transform
-        (transform, input, message, outputmodel); //e.g. FeatureExtractionModelTransformer::FlexiNoteOutputModel
+        (transform, input, message);
 
     // The transform we actually used was presumably identical to the
     // one asked for, except that the version of the plugin may

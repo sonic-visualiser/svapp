@@ -125,8 +125,7 @@ public:
      */
     Layer *createDerivedLayer(const Transform &,
                               const ModelTransformer::Input &,
-                              const LayerFactory::LayerType type, 
-							  const FeatureExtractionModelTransformer::PreferredOutputModel outputmodel);
+                              const LayerFactory::LayerType type);
 
     /**
      * Delete the given layer, and also its associated model if no
@@ -160,12 +159,10 @@ public:
     /**
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.
-	 * In case the output model is a NoteModel, the preferred output model will be selected: {NoteModel | FlexiNoteModel}.
      */
     Model *addDerivedModel(const Transform &transform,
                            const ModelTransformer::Input &input,
-                           QString &returnedMessage,
-						   FeatureExtractionModelTransformer::PreferredOutputModel outputmodel = FeatureExtractionModelTransformer::NoteOutputModel);
+                           QString &returnedMessage);
 
     /**
      * Add a derived model associated with the given transform.  This
