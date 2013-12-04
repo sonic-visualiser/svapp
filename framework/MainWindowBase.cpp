@@ -2249,7 +2249,11 @@ void
 MainWindowBase::zoomDefault()
 {
     Pane *currentPane = m_paneStack->getCurrentPane();
-    if (currentPane) currentPane->setZoomLevel(1024);
+    QSettings settings;
+    settings.beginGroup("MainWindow");
+    int zoom = settings.value("zoom-default", 1024).toInt();
+    settings.endGroup();
+    if (currentPane) currentPane->setZoomLevel(zoom);
 }
 
 void
