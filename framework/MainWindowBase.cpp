@@ -309,6 +309,10 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::LayerFileNoMidi:
         return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNonSV:
+        return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNoMidiNonSV:
+        return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::SessionOrAudioFile:
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::ImageFile:
@@ -340,6 +344,10 @@ MainWindowBase::getSaveFileName(FileFinder::FileType type)
     case FileFinder::LayerFile:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::LayerFileNoMidi:
+        return ff->getSaveFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNonSV:
+        return ff->getSaveFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNoMidiNonSV:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::SessionOrAudioFile:
         return ff->getSaveFileName(type, m_sessionFile);
