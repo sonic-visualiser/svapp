@@ -40,15 +40,15 @@ public:
     //!!! AudioGenerator's NoteOff?
 
     struct NoteStart {
-	int frameOffset; // in current processing block
+	int frameOffset; // within current processing block
 	float frequency; // Hz
 	float level; // volume in range (0,1]
 	float pan; // range [-1,1]
     };
 
     struct NoteEnd {
-        float frequency; // matching note start
 	int frameOffset; // in current processing block
+        float frequency; // matching note start
     };
 
     void mix(float **toBuffers, 
@@ -67,6 +67,18 @@ private:
     int m_clipLength;
     float m_clipF0;
     float m_clipRate;
+
+    std::vector<NoteStart> m_playing;
+
+    float getResampleRatioFor(float frequency);
+    int getResampledClipDuration(float frequency);
+
+    void mixNote(float **toBuffers, 
+                 float *levels,
+                 float frequency,
+                 int sourceOffset, // within resampled note
+                 int targetOffset, // within target buffer
+                 int sampleCount);
 };
 
 

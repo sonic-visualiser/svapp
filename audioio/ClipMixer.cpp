@@ -16,6 +16,7 @@
 #include "ClipMixer.h"
 
 #include <sndfile.h>
+#include <cmath>
 
 #include "base/Debug.h"
 
@@ -89,12 +90,29 @@ ClipMixer::loadClipData(QString path, float f0)
     m_clipLength = info.frames;
     m_clipF0 = f0;
     m_clipRate = info.samplerate;
+
+    return true;
 }
 
 void
 ClipMixer::reset()
 {
-    //!!!
+    m_playing.clear();
+}
+
+float
+ClipMixer::getResampleRatioFor(float frequency)
+{
+    if (!m_clipData) return 1.0;
+    float pitchRatio = frequency / m_clipF0;
+    float resampleRatio = m_sampleRate / m_clipRate;
+    return pitchRatio * resampleRatio;
+}
+
+int
+ClipMixer::getResampledClipDuration(float frequency)
+{
+    return int(ceil(m_clipLength * getResampleRatioFor(frequency)));
 }
 
 void
@@ -103,6 +121,102 @@ ClipMixer::mix(float **toBuffers,
                std::vector<NoteStart> newNotes, 
                std::vector<NoteEnd> endingNotes)
 {
-    //!!! do this!
+    foreach (NoteStart note, newNotes) {
+        m_playing.push_back(note);
+    }
+
+    std::vector<NoteStart> remaining;
+
+    float *levels = new float[m_channels];
+
+    foreach (NoteStart note, m_playing) {
+
+        for (int c = 0; c < m_channels; ++c) {
+            levels[c] = gain;
+        }
+        if (note.pan != 0.0 && m_channels == 2) {
+            levels[0] *= 1.0 - note.pan;
+            levels[1] *= note.pan + 1.0;
+        }
+
+        int start = note.frameOffset;
+        int durationHere = m_blockSize;
+        if (start > 0) durationHere = m_blockSize - start;
+
+        bool ending = false;
+
+        foreach (NoteEnd end, endingNotes) {
+            if (end.frequency == note.frequency && 
+                end.frameOffset >= start &&
+                end.frameOffset <= m_blockSize) {
+                ending = true;
+                durationHere = end.frameOffset;
+                if (start > 0) durationHere = end.frameOffset - start;
+                break;
+            }
+        }
+
+        int clipDuration = getResampledClipDuration(note.frequency);
+        if (start + clipDuration > 0) {
+            if (start < 0 && start + clipDuration < durationHere) {
+                durationHere = clipDuration - start;
+            }
+            if (durationHere > 0) {
+                mixNote(toBuffers,
+                        levels,
+                        note.frequency,
+                        start < 0 ? -start : 0,
+                        start > 0 ?  start : 0,
+                        durationHere);
+            }
+        }
+
+        if (!ending) {
+            NoteStart adjusted = note;
+            adjusted.frameOffset -= m_blockSize;
+            remaining.push_back(adjusted);
+        }
+    }
+
+    m_playing = remaining;
 }
+
+void
+ClipMixer::mixNote(float **toBuffers,
+                   float *levels,
+                   float frequency,
+                   int sourceOffset,
+                   int targetOffset,
+                   int sampleCount)
+{
+    if (!m_clipData) return;
+
+    float ratio = getResampleRatioFor(frequency);
+    
+    //!!! todo: release time
+
+    for (int i = 0; i < sampleCount; ++i) {
+
+        int s = sourceOffset + i;
+
+        float os = s / ratio;
+        int osi = int(floor(os));
+
+        //!!! just linear interpolation for now (same as SV's sample
+        //!!! player). a small sinc kernel would be better and
+        //!!! probably "good enough"
+        float value = 0.f;
+        if (osi < m_clipLength) {
+            value += m_clipData[osi];
+        }
+        if (osi + 1 < m_clipLength) {
+            value += (m_clipData[osi + 1] - m_clipData[osi]) * (os - osi);
+        }
+        
+        for (int c = 0; c < m_channels; ++c) {
+            toBuffers[c][targetOffset + i] = levels[c] * value;
+        }
+    }
+}
+
 
