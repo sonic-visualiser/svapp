@@ -104,9 +104,9 @@ protected:
 
     struct NoteOff {
 
-        NoteOff(int _p, size_t _f) : pitch(_p), frame(_f) { }
+        NoteOff(float _freq, size_t _frame) : frequency(_freq), frame(_frame) { }
 
-	int pitch;
+        float frequency;
 	size_t frame;
 
 	struct Comparator {

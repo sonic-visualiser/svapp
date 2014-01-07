@@ -32,6 +32,12 @@ ClipMixer::~ClipMixer()
     delete[] m_clipData;
 }
 
+void
+ClipMixer::setChannelCount(int channels)
+{
+    m_channels = channels;
+}
+
 bool
 ClipMixer::loadClipData(QString path, float f0)
 {
@@ -49,8 +55,8 @@ ClipMixer::loadClipData(QString path, float f0)
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
     if (!file) {
-	cerr << "ClipMixer::loadClipData: Failed to open file "
-             << path << ": " << sf_strerror(file) << endl;
+	cerr << "ClipMixer::loadClipData: Failed to open file path \""
+             << path << "\": " << sf_strerror(file) << endl;
 	return false;
     }
 
@@ -86,7 +92,14 @@ ClipMixer::loadClipData(QString path, float f0)
 }
 
 void
+ClipMixer::reset()
+{
+    //!!!
+}
+
+void
 ClipMixer::mix(float **toBuffers, 
+               float gain,
                std::vector<NoteStart> newNotes, 
                std::vector<NoteEnd> endingNotes)
 {

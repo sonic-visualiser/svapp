@@ -145,9 +145,9 @@ AudioGenerator::playSampleIdChanged(const Playable *playable, QString)
     if (mixer) {
         QMutexLocker locker(&m_mutex);
         m_clipMixerMap[model] = mixer;
-        return true;
     }
 }
+
 /*!!!
 void
 AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
@@ -196,78 +196,31 @@ AudioGenerator::makeClipMixerFor(const Model *model)
         sampleId = parameters->getPlaySampleId();
     }
 
-    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): sample id = " << sampleId << std::endl;
+    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): sample id = " << sampleId << std::endl;
 
     if (sampleId == "") {
-        SVDEBUG << "AudioGenerator::loadPluginFor(" << model << "): no sample, skipping" << endl;
+        SVDEBUG << "AudioGenerator::makeClipMixerFor(" << model << "): no sample, skipping" << endl;
         return 0;
     }
 
+    ClipMixer *mixer = new ClipMixer(m_targetChannelCount,
+                                     m_sourceSampleRate,
+                                     m_processingBlockSize);
 
+    float clipF0 = Pitch::getFrequencyForPitch(60, 0, 440.0f); // required
 
+    QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(sampleId);
 
-
-
-    RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
-    if (!plugin) return 0;
-
-    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): loaded plugin "
-              << plugin << std::endl;
-
-    if (configurationXml != "") {
-        PluginXml(plugin).setParametersFromXml(configurationXml);
-        setSampleDir(plugin);
-    }
-
-    configurationXml = PluginXml(plugin).toXmlString();
-
-    if (parameters) {
-        parameters->setPlaySampleId(pluginId);
-        parameters->setPlayPluginConfiguration(configurationXml);
-    }
-
-    return plugin;
-}
-
-RealTimePluginInstance *
-AudioGenerator::loadPlugin(QString pluginId, QString program)
-{
-    RealTimePluginFactory *factory =
-	RealTimePluginFactory::instanceFor(pluginId);
-    
-    if (!factory) {
-	cerr << "Failed to get plugin factory" << endl;
-	return 0;
-    }
-	
-    RealTimePluginInstance *instance =
-	factory->instantiatePlugin
-	(pluginId, 0, 0, m_sourceSampleRate, m_processingBlockSize, m_targetChannelCount);
-
-    if (!instance) {
-	cerr << "Failed to instantiate plugin " << pluginId << endl;
+    if (!mixer->loadClipData(clipPath, clipF0)) {
+        delete mixer;
         return 0;
     }
 
-    setSampleDir(instance);
+    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): loaded clip " << sampleId << std::endl;
 
-    for (unsigned int i = 0; i < instance->getParameterCount(); ++i) {
-        instance->setParameterValue(i, instance->getParameterDefault(i));
-    }
-    std::string defaultProgram = instance->getProgram(0, 0);
-    if (defaultProgram != "") {
-        cerr << "first selecting default program " << defaultProgram << endl;
-        instance->selectProgram(defaultProgram);
-    }
-    if (program != "") {
-        cerr << "now selecting desired program " << program << endl;
-        instance->selectProgram(program.toStdString());
-    }
-    instance->setIdealChannelCount(m_targetChannelCount); // reset!
-
-    return instance;
+    return mixer;
 }
-*/
+
 void
 AudioGenerator::removeModel(Model *model)
 {
@@ -277,38 +230,35 @@ AudioGenerator::removeModel(Model *model)
 
     QMutexLocker locker(&m_mutex);
 
-    if (m_synthMap.find(sodm) == m_synthMap.end()) return;
+    if (m_clipMixerMap.find(sodm) == m_clipMixerMap.end()) return;
 
-//!!!    RealTimePluginInstance *instance = m_synthMap[sodm];
-//    m_synthMap.erase(sodm);
-    delete instance;
+    ClipMixer *mixer = m_clipMixerMap[sodm];
+    m_clipMixerMap.erase(sodm);
+    delete mixer;
 }
 
 void
 AudioGenerator::clearModels()
 {
     QMutexLocker locker(&m_mutex);
-/*!!!
-    while (!m_synthMap.empty()) {
-	RealTimePluginInstance *instance = m_synthMap.begin()->second;
-	m_synthMap.erase(m_synthMap.begin());
-	delete instance;
+
+    while (!m_clipMixerMap.empty()) {
+        ClipMixer *mixer = m_clipMixerMap.begin()->second;
+	m_clipMixerMap.erase(m_clipMixerMap.begin());
+	delete mixer;
     }
-*/
 }    
 
 void
 AudioGenerator::reset()
 {
     QMutexLocker locker(&m_mutex);
-/*!!!
-    for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
+
+    for (ClipMixerMap::iterator i = m_clipMixerMap.begin(); i != m_clipMixerMap.end(); ++i) {
 	if (i->second) {
-	    i->second->silence();
-	    i->second->discardEvents();
+	    i->second->reset();
 	}
     }
-*/
 
     m_noteOffs.clear();
 }
@@ -323,11 +273,9 @@ AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
 
-/*!!!
-    for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
-	if (i->second) i->second->setIdealChannelCount(targetChannelCount);
+    for (ClipMixerMap::iterator i = m_clipMixerMap.begin(); i != m_clipMixerMap.end(); ++i) {
+	if (i->second) i->second->setChannelCount(targetChannelCount);
     }
-*/
 }
 
 size_t
@@ -515,10 +463,9 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
                                       size_t /* fadeIn */,
                                       size_t /* fadeOut */)
 {
-    RealTimePluginInstance *plugin = m_synthMap[model];
-    if (!plugin) return 0;
+    ClipMixer *clipMixer = m_clipMixerMap[model];
+    if (!clipMixer) return 0;
 
-    size_t latency = plugin->getLatency();
     size_t blocks = frames / m_processingBlockSize;
     
     //!!! hang on -- the fact that the audio callback play source's
@@ -538,16 +485,12 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	      << ", blocks " << blocks << endl;
 #endif
 
-    snd_seq_event_t onEv;
-    onEv.type = SND_SEQ_EVENT_NOTEON;
-    onEv.data.note.channel = 0;
+    ClipMixer::NoteStart on;
+    ClipMixer::NoteEnd off;
 
-    snd_seq_event_t offEv;
-    offEv.type = SND_SEQ_EVENT_NOTEOFF;
-    offEv.data.note.channel = 0;
-    offEv.data.note.velocity = 0;
-    
     NoteOffSet &noteOffs = m_noteOffs[model];
+
+    float **bufferIndexes = new float *[m_targetChannelCount];
 
     for (size_t i = 0; i < blocks; ++i) {
 
@@ -556,19 +499,17 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
         NoteList notes;
         NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
         if (exportable) {
-            notes = exportable->getNotes(reqStart + latency,
-                                         reqStart + latency + m_processingBlockSize);
+            notes = exportable->getNotes(reqStart,
+                                         reqStart + m_processingBlockSize);
         }
 
-        Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
-	    (startFrame + i * m_processingBlockSize, m_sourceSampleRate);
+        std::vector<ClipMixer::NoteStart> starts;
+        std::vector<ClipMixer::NoteEnd> ends;
 
 	for (NoteList::const_iterator ni = notes.begin();
              ni != notes.end(); ++ni) {
 
 	    size_t noteFrame = ni->start;
-
-	    if (noteFrame >= latency) noteFrame -= latency;
 
 	    if (noteFrame < reqStart ||
 		noteFrame >= reqStart + m_processingBlockSize) continue;
@@ -576,85 +517,59 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= noteFrame) {
 
-                Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		    (noteOffs.begin()->frame, m_sourceSampleRate);
+                size_t eventFrame = noteOffs.begin()->frame;
+                if (eventFrame < reqStart) eventFrame = reqStart;
 
-		offEv.data.note.note = noteOffs.begin()->pitch;
+                off.frameOffset = eventFrame - reqStart;
+                off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		cerr << "mixModel [synthetic]: sending note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << endl;
+		cerr << "mixModel [synthetic]: adding note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
-		plugin->sendEvent(eventTime, &offEv);
+                ends.push_back(off);
 		noteOffs.erase(noteOffs.begin());
 	    }
 
-            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		(noteFrame, m_sourceSampleRate);
-	    
-            if (ni->isMidiPitchQuantized) {
-                onEv.data.note.note = ni->midiPitch;
-            } else {
-#ifdef DEBUG_AUDIO_GENERATOR
-                cerr << "mixModel [synthetic]: non-pitch-quantized notes are not supported [yet], quantizing" << endl;
-#endif
-                onEv.data.note.note = Pitch::getPitchForFrequency(ni->frequency);
-            }
-
-            onEv.data.note.velocity = ni->velocity;
-
-	    plugin->sendEvent(eventTime, &onEv);
+            on.frameOffset = noteFrame - reqStart;
+            on.frequency = ni->getFrequency();
+            on.level = float(ni->velocity) / 127.0;
+            on.pan = pan;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_processingBlockSize) << ", resulting time " << eventTime << endl;
+	    cout << "mixModel [synthetic]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << endl;
 #endif
 	    
+            starts.push_back(on);
 	    noteOffs.insert
-                (NoteOff(onEv.data.note.note, noteFrame + ni->duration));
+                (NoteOff(on.frequency, noteFrame + ni->duration));
 	}
 
 	while (noteOffs.begin() != noteOffs.end() &&
-	       noteOffs.begin()->frame <=
-	       startFrame + i * m_processingBlockSize + m_processingBlockSize) {
+	       noteOffs.begin()->frame <= reqStart + m_processingBlockSize) {
 
-            Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
-		(noteOffs.begin()->frame, m_sourceSampleRate);
+            size_t eventFrame = noteOffs.begin()->frame;
+            if (eventFrame < reqStart) eventFrame = reqStart;
 
-	    offEv.data.note.note = noteOffs.begin()->pitch;
+            off.frameOffset = eventFrame - reqStart;
+            off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            cerr << "mixModel [synthetic]: sending leftover note-off event at time " << eventTime << " frame " << noteOffs.begin()->frame << " pitch " << noteOffs.begin()->pitch << endl;
+            cerr << "mixModel [synthetic]: adding leftover note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
-	    plugin->sendEvent(eventTime, &offEv);
-	    noteOffs.erase(noteOffs.begin());
+            ends.push_back(off);
+            noteOffs.erase(noteOffs.begin());
 	}
-	
-	plugin->run(blockTime);
-	float **outs = plugin->getAudioOutputBuffers();
 
 	for (size_t c = 0; c < m_targetChannelCount; ++c) {
-#ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [synthetic]: adding " << m_processingBlockSize << " samples from plugin output " << c << endl;
-#endif
+            bufferIndexes[c] = buffer[c] + i * m_processingBlockSize;
+        }
 
-	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
-
-	    float channelGain = gain;
-	    if (pan != 0.0) {
-		if (c == 0) {
-		    if (pan > 0.0) channelGain *= 1.0 - pan;
-		} else {
-		    if (pan < 0.0) channelGain *= pan + 1.0;
-		}
-	    }
-
-	    for (size_t j = 0; j < m_processingBlockSize; ++j) {
-		buffer[c][i * m_processingBlockSize + j] +=
-		    channelGain * outs[sourceChannel][j];
-	    }
-	}
+        clipMixer->mix(bufferIndexes, gain, starts, ends);
     }
+
+    delete[] bufferIndexes;
 
     return got;
 }

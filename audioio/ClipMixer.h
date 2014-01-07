@@ -30,13 +30,16 @@ public:
     ClipMixer(int channels, int sampleRate, int blockSize);
     ~ClipMixer();
 
+    void setChannelCount(int channels);
+    
     bool loadClipData(QString clipFilePath, float clipF0);
+
+    void reset(); // discarding any playing notes
 
     //!!! what can we find in common with the NoteData type and
     //!!! AudioGenerator's NoteOff?
 
     struct NoteStart {
-	int id; // unique to match note end
 	int frameOffset; // in current processing block
 	float frequency; // Hz
 	float level; // volume in range (0,1]
@@ -44,11 +47,12 @@ public:
     };
 
     struct NoteEnd {
-	int id; // matching note start
+        float frequency; // matching note start
 	int frameOffset; // in current processing block
     };
 
     void mix(float **toBuffers, 
+             float gain,
 	     std::vector<NoteStart> newNotes, 
 	     std::vector<NoteEnd> endingNotes);
 
