@@ -22,6 +22,7 @@ class FlexiNoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class Playable;
+class ClipMixer;
 
 #include <QObject>
 #include <QMutex>
@@ -115,22 +116,20 @@ protected:
 	};
     };
 
-//!!!    typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
+
+    typedef std::map<const Model *, ClipMixer *> ClipMixerMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
     QMutex m_mutex;
-//!!!    PluginMap m_synthMap;
+    ClipMixerMap m_clipMixerMap;
     NoteOffMap m_noteOffs;
     static QString m_sampleDir;
 
-/*!!!
-    virtual RealTimePluginInstance *loadPluginFor(const Model *model);
-    virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
-*/
+    ClipMixer *makeClipMixerFor(const Model *model);
+
     static void initialiseSampleDir();
-//!!!    static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,

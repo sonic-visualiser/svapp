@@ -27,6 +27,8 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteData.h"
 
+#include "ClipMixer.h"
+
 #include <iostream>
 #include <cmath>
 
@@ -115,14 +117,14 @@ AudioGenerator::addModel(Model *model)
 	    return true;
 	}
     }
-/*!!!
-    RealTimePluginInstance *plugin = loadPluginFor(model);
-    if (plugin) {
+
+    ClipMixer *mixer = makeClipMixerFor(model);
+    if (mixer) {
         QMutexLocker locker(&m_mutex);
-        m_synthMap[model] = plugin;
+        m_clipMixerMap[model] = mixer;
         return true;
     }
-*/
+
     return false;
 }
 
@@ -137,15 +139,14 @@ AudioGenerator::playSampleIdChanged(const Playable *playable, QString)
         return;
     }
 
-    if (m_synthMap.find(model) == m_synthMap.end()) return;
-/*!!!    
-    RealTimePluginInstance *plugin = loadPluginFor(model);
-    if (plugin) {
+    if (m_clipMixerMap.find(model) == m_clipMixerMap.end()) return;
+
+    ClipMixer *mixer = makeClipMixerFor(model);
+    if (mixer) {
         QMutexLocker locker(&m_mutex);
-        delete m_synthMap[model];
-        m_synthMap[model] = plugin;
+        m_clipMixerMap[model] = mixer;
+        return true;
     }
-*/
 }
 /*!!!
 void
@@ -180,11 +181,11 @@ AudioGenerator::setSampleDir(RealTimePluginInstance *plugin)
         plugin->configure("sampledir", m_sampleDir.toStdString());
     }
 } 
-
-RealTimePluginInstance *
-AudioGenerator::loadPluginFor(const Model *model)
+*/
+ClipMixer *
+AudioGenerator::makeClipMixerFor(const Model *model)
 {
-    QString pluginId, configurationXml;
+    QString sampleId;
 
     const Playable *playable = model;
     if (!playable || !playable->canPlay()) return 0;
@@ -192,16 +193,20 @@ AudioGenerator::loadPluginFor(const Model *model)
     PlayParameters *parameters =
 	PlayParameterRepository::getInstance()->getPlayParameters(playable);
     if (parameters) {
-        pluginId = parameters->getPlaySampleId();
-        configurationXml = parameters->getPlayPluginConfiguration();
+        sampleId = parameters->getPlaySampleId();
     }
 
-    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): id = " << pluginId << std::endl;
+    std::cerr << "AudioGenerator::loadPluginFor(" << model << "): sample id = " << sampleId << std::endl;
 
-    if (pluginId == "") {
-        SVDEBUG << "AudioGenerator::loadPluginFor(" << model << "): parameters contain empty plugin ID, skipping" << endl;
+    if (sampleId == "") {
+        SVDEBUG << "AudioGenerator::loadPluginFor(" << model << "): no sample, skipping" << endl;
         return 0;
     }
+
+
+
+
+
 
     RealTimePluginInstance *plugin = loadPlugin(pluginId, "");
     if (!plugin) return 0;

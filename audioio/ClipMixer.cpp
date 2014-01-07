@@ -36,7 +36,7 @@ bool
 ClipMixer::loadClipData(QString path, float f0)
 {
     if (m_clipData) {
-        cerr << "ClipPlayer::loadClipData: Already have clip loaded" << endl;
+        cerr << "ClipMixer::loadClipData: Already have clip loaded" << endl;
         return false;
     }
 
@@ -49,14 +49,14 @@ ClipMixer::loadClipData(QString path, float f0)
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
     if (!file) {
-	cerr << "ClipPlayer::loadClipData: Failed to open file "
+	cerr << "ClipMixer::loadClipData: Failed to open file "
              << path << ": " << sf_strerror(file) << endl;
 	return false;
     }
 
     tmpFrames = (float *)malloc(info.frames * info.channels * sizeof(float));
     if (!tmpFrames) {
-        cerr << "ClipPlayer::loadClipData: malloc(" << info.frames * info.channels * sizeof(float) << ") failed" << endl;
+        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * info.channels * sizeof(float) << ") failed" << endl;
         return false;
     }
 
@@ -65,7 +65,7 @@ ClipMixer::loadClipData(QString path, float f0)
 
     m_clipData = (float *)malloc(info.frames * sizeof(float));
     if (!m_clipData) {
-        cerr << "ClipPlayer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
+        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
 	free(tmpFrames);
 	return false;
     }
@@ -84,3 +84,12 @@ ClipMixer::loadClipData(QString path, float f0)
     m_clipF0 = f0;
     m_clipRate = info.samplerate;
 }
+
+void
+ClipMixer::mix(float **toBuffers, 
+               std::vector<NoteStart> newNotes, 
+               std::vector<NoteEnd> endingNotes)
+{
+    //!!! do this!
+}
+

@@ -38,17 +38,15 @@ HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/ClipMixer.h \
            audioio/PlaySpeedRangeMapper.h
 
-
-#!!! todo: move ClipMixer down 
 SOURCES += audioio/AudioCallbackPlaySource.cpp \
            audioio/AudioCallbackPlayTarget.cpp \
            audioio/AudioCoreAudioTarget.cpp \
-           audioio/ClipMixer.cpp \
            audioio/AudioGenerator.cpp \
            audioio/AudioJACKTarget.cpp \
            audioio/AudioPortAudioTarget.cpp \
            audioio/AudioPulseAudioTarget.cpp \
            audioio/AudioTargetFactory.cpp \
+           audioio/ClipMixer.cpp \
            audioio/PlaySpeedRangeMapper.cpp
 
 HEADERS += framework/Document.h \
