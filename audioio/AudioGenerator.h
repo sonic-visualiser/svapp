@@ -93,7 +93,7 @@ public:
     virtual void clearSoloModelSet();
 
 protected slots:
-    void playSampleIdChanged(const Playable *, QString);
+    void playClipIdChanged(const Playable *, QString);
 
 protected:
     size_t m_sourceSampleRate;

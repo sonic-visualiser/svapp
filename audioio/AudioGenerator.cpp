@@ -51,9 +51,9 @@ AudioGenerator::AudioGenerator() :
     initialiseSampleDir();
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playSampleIdChanged(const Playable *, QString)),
+            SIGNAL(playClipIdChanged(const Playable *, QString)),
             this,
-            SLOT(playSampleIdChanged(const Playable *, QString)));
+            SLOT(playClipIdChanged(const Playable *, QString)));
 }
 
 AudioGenerator::~AudioGenerator()
@@ -129,11 +129,11 @@ AudioGenerator::addModel(Model *model)
 }
 
 void
-AudioGenerator::playSampleIdChanged(const Playable *playable, QString)
+AudioGenerator::playClipIdChanged(const Playable *playable, QString)
 {
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        cerr << "WARNING: AudioGenerator::playSampleIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playClipIdChanged: playable "
                   << playable << " is not a supported model type"
                   << endl;
         return;
@@ -157,7 +157,7 @@ AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
 
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        cerr << "WARNING: AudioGenerator::playSampleIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playClipIdChanged: playable "
                   << playable << " is not a supported model type"
                   << endl;
         return;
@@ -185,7 +185,7 @@ AudioGenerator::setSampleDir(RealTimePluginInstance *plugin)
 ClipMixer *
 AudioGenerator::makeClipMixerFor(const Model *model)
 {
-    QString sampleId;
+    QString clipId;
 
     const Playable *playable = model;
     if (!playable || !playable->canPlay()) return 0;
@@ -193,12 +193,12 @@ AudioGenerator::makeClipMixerFor(const Model *model)
     PlayParameters *parameters =
 	PlayParameterRepository::getInstance()->getPlayParameters(playable);
     if (parameters) {
-        sampleId = parameters->getPlaySampleId();
+        clipId = parameters->getPlayClipId();
     }
 
-    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): sample id = " << sampleId << std::endl;
+    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): sample id = " << clipId << std::endl;
 
-    if (sampleId == "") {
+    if (clipId == "") {
         SVDEBUG << "AudioGenerator::makeClipMixerFor(" << model << "): no sample, skipping" << endl;
         return 0;
     }
@@ -209,14 +209,14 @@ AudioGenerator::makeClipMixerFor(const Model *model)
 
     float clipF0 = Pitch::getFrequencyForPitch(60, 0, 440.0f); // required
 
-    QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(sampleId);
+    QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(clipId);
 
     if (!mixer->loadClipData(clipPath, clipF0)) {
         delete mixer;
         return 0;
     }
 
-    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): loaded clip " << sampleId << std::endl;
+    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): loaded clip " << clipId << std::endl;
 
     return mixer;
 }

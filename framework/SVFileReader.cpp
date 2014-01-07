@@ -1271,8 +1271,8 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
         float gain = attributes.value("gain").toFloat(&ok);
         if (ok) parameters->setPlayGain(gain);
         
-        QString sampleId = attributes.value("sampleId");
-        if (sampleId != "") parameters->setPlaySampleId(sampleId);
+        QString clipId = attributes.value("clipId");
+        if (clipId != "") parameters->setPlayClipId(clipId);
         
         m_currentPlayParameters = parameters;
 
@@ -1332,8 +1332,8 @@ SVFileReader::readPluginForPlayback(const QXmlAttributes &attributes)
 
     QString ident = attributes.value("identifier");
     if (ident == "sample_player") {
-        QString sampleId = attributes.value("program");
-        if (sampleId != "") m_currentPlayParameters->setPlaySampleId(sampleId);
+        QString clipId = attributes.value("program");
+        if (clipId != "") m_currentPlayParameters->setPlayClipId(clipId);
     }
 
     return true;
