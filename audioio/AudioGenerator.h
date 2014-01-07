@@ -21,7 +21,6 @@ class NoteModel;
 class FlexiNoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
-class RealTimePluginInstance;
 class Playable;
 
 #include <QObject>
@@ -58,7 +57,7 @@ public:
     virtual void clearModels();
 
     /**
-     * Reset playback, clearing plugins and the like.
+     * Reset playback, clearing buffers and the like.
      */
     virtual void reset();
 
@@ -93,12 +92,11 @@ public:
     virtual void clearSoloModelSet();
 
 protected slots:
-    void playPluginIdChanged(const Playable *, QString);
-    void playPluginConfigurationChanged(const Playable *, QString);
+    void playSampleIdChanged(const Playable *, QString);
 
 protected:
-    size_t       m_sourceSampleRate;
-    size_t       m_targetChannelCount;
+    size_t m_sourceSampleRate;
+    size_t m_targetChannelCount;
 
     bool m_soloing;
     std::set<Model *> m_soloModelSet;
@@ -117,20 +115,22 @@ protected:
 	};
     };
 
-    typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
+//!!!    typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
     QMutex m_mutex;
-    PluginMap m_synthMap;
+//!!!    PluginMap m_synthMap;
     NoteOffMap m_noteOffs;
     static QString m_sampleDir;
 
+/*!!!
     virtual RealTimePluginInstance *loadPluginFor(const Model *model);
     virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
+*/
     static void initialiseSampleDir();
-    static void setSampleDir(RealTimePluginInstance *plugin);
+//!!!    static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
@@ -140,7 +140,7 @@ protected:
     (Model *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
     
-    static const size_t m_pluginBlockSize;
+    static const size_t m_processingBlockSize;
 };
 
 #endif

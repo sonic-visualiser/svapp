@@ -35,10 +35,15 @@ HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioPortAudioTarget.h \
            audioio/AudioPulseAudioTarget.h \
            audioio/AudioTargetFactory.h \
+           audioio/ClipMixer.h \
            audioio/PlaySpeedRangeMapper.h
+
+
+#!!! todo: move ClipMixer down 
 SOURCES += audioio/AudioCallbackPlaySource.cpp \
            audioio/AudioCallbackPlayTarget.cpp \
            audioio/AudioCoreAudioTarget.cpp \
+           audioio/ClipMixer.cpp \
            audioio/AudioGenerator.cpp \
            audioio/AudioJACKTarget.cpp \
            audioio/AudioPortAudioTarget.cpp \

@@ -27,12 +27,6 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteData.h"
 
-#include "plugin/RealTimePluginFactory.h"
-#include "plugin/RealTimePluginInstance.h"
-#include "plugin/PluginIdentifier.h"
-#include "plugin/PluginXml.h"
-#include "plugin/api/alsa/seq_event.h"
-
 #include <iostream>
 #include <cmath>
 
@@ -40,7 +34,7 @@
 #include <QFile>
 
 const size_t
-AudioGenerator::m_pluginBlockSize = 2048;
+AudioGenerator::m_processingBlockSize = 2048;
 
 QString
 AudioGenerator::m_sampleDir = "";
@@ -55,14 +49,9 @@ AudioGenerator::AudioGenerator() :
     initialiseSampleDir();
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playPluginIdChanged(const Playable *, QString)),
+            SIGNAL(playSampleIdChanged(const Playable *, QString)),
             this,
-            SLOT(playPluginIdChanged(const Playable *, QString)));
-
-    connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playPluginConfigurationChanged(const Playable *, QString)),
-            this,
-            SLOT(playPluginConfigurationChanged(const Playable *, QString)));
+            SLOT(playSampleIdChanged(const Playable *, QString)));
 }
 
 AudioGenerator::~AudioGenerator()
@@ -126,38 +115,39 @@ AudioGenerator::addModel(Model *model)
 	    return true;
 	}
     }
-
+/*!!!
     RealTimePluginInstance *plugin = loadPluginFor(model);
     if (plugin) {
         QMutexLocker locker(&m_mutex);
         m_synthMap[model] = plugin;
         return true;
     }
-
+*/
     return false;
 }
 
 void
-AudioGenerator::playPluginIdChanged(const Playable *playable, QString)
+AudioGenerator::playSampleIdChanged(const Playable *playable, QString)
 {
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playSampleIdChanged: playable "
                   << playable << " is not a supported model type"
                   << endl;
         return;
     }
 
     if (m_synthMap.find(model) == m_synthMap.end()) return;
-    
+/*!!!    
     RealTimePluginInstance *plugin = loadPluginFor(model);
     if (plugin) {
         QMutexLocker locker(&m_mutex);
         delete m_synthMap[model];
         m_synthMap[model] = plugin;
     }
+*/
 }
-
+/*!!!
 void
 AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
                                                QString configurationXml)
@@ -166,7 +156,7 @@ AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
 
     const Model *model = dynamic_cast<const Model *>(playable);
     if (!model) {
-        cerr << "WARNING: AudioGenerator::playPluginIdChanged: playable "
+        cerr << "WARNING: AudioGenerator::playSampleIdChanged: playable "
                   << playable << " is not a supported model type"
                   << endl;
         return;
@@ -202,7 +192,7 @@ AudioGenerator::loadPluginFor(const Model *model)
     PlayParameters *parameters =
 	PlayParameterRepository::getInstance()->getPlayParameters(playable);
     if (parameters) {
-        pluginId = parameters->getPlayPluginId();
+        pluginId = parameters->getPlaySampleId();
         configurationXml = parameters->getPlayPluginConfiguration();
     }
 
@@ -227,7 +217,7 @@ AudioGenerator::loadPluginFor(const Model *model)
     configurationXml = PluginXml(plugin).toXmlString();
 
     if (parameters) {
-        parameters->setPlayPluginId(pluginId);
+        parameters->setPlaySampleId(pluginId);
         parameters->setPlayPluginConfiguration(configurationXml);
     }
 
@@ -247,7 +237,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 	
     RealTimePluginInstance *instance =
 	factory->instantiatePlugin
-	(pluginId, 0, 0, m_sourceSampleRate, m_pluginBlockSize, m_targetChannelCount);
+	(pluginId, 0, 0, m_sourceSampleRate, m_processingBlockSize, m_targetChannelCount);
 
     if (!instance) {
 	cerr << "Failed to instantiate plugin " << pluginId << endl;
@@ -272,7 +262,7 @@ AudioGenerator::loadPlugin(QString pluginId, QString program)
 
     return instance;
 }
-
+*/
 void
 AudioGenerator::removeModel(Model *model)
 {
@@ -284,8 +274,8 @@ AudioGenerator::removeModel(Model *model)
 
     if (m_synthMap.find(sodm) == m_synthMap.end()) return;
 
-    RealTimePluginInstance *instance = m_synthMap[sodm];
-    m_synthMap.erase(sodm);
+//!!!    RealTimePluginInstance *instance = m_synthMap[sodm];
+//    m_synthMap.erase(sodm);
     delete instance;
 }
 
@@ -293,23 +283,27 @@ void
 AudioGenerator::clearModels()
 {
     QMutexLocker locker(&m_mutex);
+/*!!!
     while (!m_synthMap.empty()) {
 	RealTimePluginInstance *instance = m_synthMap.begin()->second;
 	m_synthMap.erase(m_synthMap.begin());
 	delete instance;
     }
+*/
 }    
 
 void
 AudioGenerator::reset()
 {
     QMutexLocker locker(&m_mutex);
+/*!!!
     for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
 	if (i->second) {
 	    i->second->silence();
 	    i->second->discardEvents();
 	}
     }
+*/
 
     m_noteOffs.clear();
 }
@@ -324,15 +318,17 @@ AudioGenerator::setTargetChannelCount(size_t targetChannelCount)
     QMutexLocker locker(&m_mutex);
     m_targetChannelCount = targetChannelCount;
 
+/*!!!
     for (PluginMap::iterator i = m_synthMap.begin(); i != m_synthMap.end(); ++i) {
 	if (i->second) i->second->setIdealChannelCount(targetChannelCount);
     }
+*/
 }
 
 size_t
 AudioGenerator::getBlockSize() const
 {
-    return m_pluginBlockSize;
+    return m_processingBlockSize;
 }
 
 void
@@ -518,7 +514,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
     if (!plugin) return 0;
 
     size_t latency = plugin->getLatency();
-    size_t blocks = frames / m_pluginBlockSize;
+    size_t blocks = frames / m_processingBlockSize;
     
     //!!! hang on -- the fact that the audio callback play source's
     //buffer is a multiple of the plugin's buffer size doesn't mean
@@ -530,7 +526,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
     //callback play source has to use that as a multiple for all the
     //calls to mixModel
 
-    size_t got = blocks * m_pluginBlockSize;
+    size_t got = blocks * m_processingBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
     cout << "mixModel [synthetic note]: frames " << frames
@@ -550,17 +546,17 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
     for (size_t i = 0; i < blocks; ++i) {
 
-	size_t reqStart = startFrame + i * m_pluginBlockSize;
+	size_t reqStart = startFrame + i * m_processingBlockSize;
 
         NoteList notes;
         NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
         if (exportable) {
             notes = exportable->getNotes(reqStart + latency,
-                                         reqStart + latency + m_pluginBlockSize);
+                                         reqStart + latency + m_processingBlockSize);
         }
 
         Vamp::RealTime blockTime = Vamp::RealTime::frame2RealTime
-	    (startFrame + i * m_pluginBlockSize, m_sourceSampleRate);
+	    (startFrame + i * m_processingBlockSize, m_sourceSampleRate);
 
 	for (NoteList::const_iterator ni = notes.begin();
              ni != notes.end(); ++ni) {
@@ -570,7 +566,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	    if (noteFrame >= latency) noteFrame -= latency;
 
 	    if (noteFrame < reqStart ||
-		noteFrame >= reqStart + m_pluginBlockSize) continue;
+		noteFrame >= reqStart + m_processingBlockSize) continue;
 
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= noteFrame) {
@@ -605,7 +601,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 	    plugin->sendEvent(eventTime, &onEv);
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_pluginBlockSize) << ", resulting time " << eventTime << endl;
+	    cout << "mixModel [synthetic]: note at frame " << noteFrame << ", block start " << (startFrame + i * m_processingBlockSize) << ", resulting time " << eventTime << endl;
 #endif
 	    
 	    noteOffs.insert
@@ -614,7 +610,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
 	while (noteOffs.begin() != noteOffs.end() &&
 	       noteOffs.begin()->frame <=
-	       startFrame + i * m_pluginBlockSize + m_pluginBlockSize) {
+	       startFrame + i * m_processingBlockSize + m_processingBlockSize) {
 
             Vamp::RealTime eventTime = Vamp::RealTime::frame2RealTime
 		(noteOffs.begin()->frame, m_sourceSampleRate);
@@ -634,7 +630,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
 	for (size_t c = 0; c < m_targetChannelCount; ++c) {
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [synthetic]: adding " << m_pluginBlockSize << " samples from plugin output " << c << endl;
+	    cout << "mixModel [synthetic]: adding " << m_processingBlockSize << " samples from plugin output " << c << endl;
 #endif
 
 	    size_t sourceChannel = (c % plugin->getAudioOutputCount());
@@ -648,8 +644,8 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 		}
 	    }
 
-	    for (size_t j = 0; j < m_pluginBlockSize; ++j) {
-		buffer[c][i * m_pluginBlockSize + j] +=
+	    for (size_t j = 0; j < m_processingBlockSize; ++j) {
+		buffer[c][i * m_processingBlockSize + j] +=
 		    channelGain * outs[sourceChannel][j];
 	    }
 	}
