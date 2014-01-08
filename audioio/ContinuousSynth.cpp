@@ -50,7 +50,7 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
 	return;
     }
 
-    int fadeLength = 20; // samples
+    int fadeLength = 100; // samples
 
     float *levels = new float[m_channels];
     
@@ -62,20 +62,30 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
 	levels[1] *= pan + 1.0;
     }
 
-    double phasor = (f0 * 2 * M_PI) / m_sampleRate;
-    double p = m_phase;
-
-    cerr << "ContinuousSynth::mix: f0 = " << f0 << " (from " << m_prevF0 << "), phase = " << m_phase << ", phasor = " << phasor << endl;
+//    cerr << "ContinuousSynth::mix: f0 = " << f0 << " (from " << m_prevF0 << "), phase = " << m_phase << endl;
 
     for (int i = 0; i < m_blockSize; ++i) {
 
-	p = m_phase + i * phasor;
-	
-	double v = sin(p);
+        double fHere = (nowOn ? f0 : m_prevF0);
 
-	if (!wasOn && i < fadeLength) { // fade in
+        if (wasOn && nowOn && (f0 != m_prevF0) && (i < fadeLength)) {
+            // interpolate the frequency shift
+            fHere = m_prevF0 + ((f0 - m_prevF0) * i) / fadeLength;
+        }
+
+        double phasor = (fHere * 2 * M_PI) / m_sampleRate;
+    
+//        cerr << "phasor = " << phasor << endl;
+        
+	m_phase = m_phase + phasor;
+	
+	double v = sin(m_phase);
+
+	if (!wasOn && i < fadeLength) {
+            // fade in
 	    v = v * (i / double(fadeLength));
 	} else if (!nowOn) {
+            // fade out
 	    if (i > fadeLength) v = 0;
 	    else v = v * (1.0 - (i / double(fadeLength)));
 	}
@@ -86,7 +96,6 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
     }	
 
     m_prevF0 = f0;
-    m_phase = p;
 
     delete[] levels;
 }

@@ -38,7 +38,7 @@
 #include <QFile>
 
 const size_t
-AudioGenerator::m_processingBlockSize = 2048;
+AudioGenerator::m_processingBlockSize = 1024;
 
 QString
 AudioGenerator::m_sampleDir = "";
@@ -652,7 +652,7 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
             }
         }
 
-        cerr << "f0 = " << f0 << endl;
+//        cerr << "f0 = " << f0 << endl;
 
         synth->mix(bufferIndexes,
                    gain,
