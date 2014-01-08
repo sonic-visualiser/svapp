@@ -639,6 +639,19 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
             }
         }
 
+        // if we found no such frequency and the next point is further
+        // away than twice the model resolution, go silent (same
+        // criterion TimeValueLayer uses for ending a discrete curve
+        // segment)
+        if (f0 == 0.f) {
+            SparseTimeValueModel::PointList nextPoints = 
+                stvm->getNextPoints(reqStart + m_processingBlockSize);
+            if (nextPoints.empty() ||
+                nextPoints.begin()->frame > reqStart + 2 * stvm->getResolution()) {
+                f0 = -1.f;
+            }
+        }
+
         cerr << "f0 = " << f0 << endl;
 
         synth->mix(bufferIndexes,
