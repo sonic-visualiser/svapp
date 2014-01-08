@@ -178,6 +178,8 @@ ClipMixer::mix(float **toBuffers,
         }
     }
 
+    delete[] levels;
+
     m_playing = remaining;
 }
 

@@ -23,6 +23,7 @@ class DenseTimeValueModel;
 class SparseOneDimensionalModel;
 class Playable;
 class ClipMixer;
+class ContinuousSynth;
 
 #include <QObject>
 #include <QMutex>
@@ -122,12 +123,21 @@ protected:
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
+    typedef std::map<const Model *, ContinuousSynth *> ContinuousSynthMap;
+
     QMutex m_mutex;
+
     ClipMixerMap m_clipMixerMap;
     NoteOffMap m_noteOffs;
     static QString m_sampleDir;
 
+    ContinuousSynthMap m_continuousSynthMap;
+
+    bool usesClipMixer(const Model *);
+    bool usesContinuousSynth(const Model *);
+
     ClipMixer *makeClipMixerFor(const Model *model);
+    ContinuousSynth *makeSynthFor(const Model *model);
 
     static void initialiseSampleDir();
 
@@ -135,9 +145,13 @@ protected:
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
-    virtual size_t mixSyntheticNoteModel
+    virtual size_t mixClipModel
     (Model *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
+     float **buffer, float gain, float pan);
+
+    virtual size_t mixContinuousSynthModel
+    (Model *model, size_t startFrame, size_t frameCount,
+     float **buffer, float gain, float pan);
     
     static const size_t m_processingBlockSize;
 };

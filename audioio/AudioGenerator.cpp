@@ -24,10 +24,12 @@
 #include "data/model/NoteModel.h"
 #include "data/model/FlexiNoteModel.h"
 #include "data/model/DenseTimeValueModel.h"
+#include "data/model/SparseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteData.h"
 
 #include "ClipMixer.h"
+#include "ContinuousSynth.h"
 
 #include <iostream>
 #include <cmath>
@@ -118,11 +120,22 @@ AudioGenerator::addModel(Model *model)
 	}
     }
 
-    ClipMixer *mixer = makeClipMixerFor(model);
-    if (mixer) {
-        QMutexLocker locker(&m_mutex);
-        m_clipMixerMap[model] = mixer;
-        return true;
+    if (usesClipMixer(model)) {
+        ClipMixer *mixer = makeClipMixerFor(model);
+        if (mixer) {
+            QMutexLocker locker(&m_mutex);
+            m_clipMixerMap[model] = mixer;
+            return true;
+        }
+    }
+
+    if (usesContinuousSynth(model)) {
+        ContinuousSynth *synth = makeSynthFor(model);
+        if (synth) {
+            QMutexLocker locker(&m_mutex);
+            m_continuousSynthMap[model] = synth;
+            return true;
+        }
     }
 
     return false;
@@ -148,40 +161,24 @@ AudioGenerator::playClipIdChanged(const Playable *playable, QString)
     }
 }
 
-/*!!!
-void
-AudioGenerator::playPluginConfigurationChanged(const Playable *playable,
-                                               QString configurationXml)
+bool
+AudioGenerator::usesClipMixer(const Model *model)
 {
-//    SVDEBUG << "AudioGenerator::playPluginConfigurationChanged" << endl;
-
-    const Model *model = dynamic_cast<const Model *>(playable);
-    if (!model) {
-        cerr << "WARNING: AudioGenerator::playClipIdChanged: playable "
-                  << playable << " is not a supported model type"
-                  << endl;
-        return;
-    }
-
-    if (m_synthMap.find(model) == m_synthMap.end()) {
-        SVDEBUG << "AudioGenerator::playPluginConfigurationChanged: We don't know about this plugin" << endl;
-        return;
-    }
-
-    RealTimePluginInstance *plugin = m_synthMap[model];
-    if (plugin) {
-        PluginXml(plugin).setParametersFromXml(configurationXml);
-    }
+    bool clip = 
+        (qobject_cast<const SparseOneDimensionalModel *>(model) ||
+         qobject_cast<const NoteModel *>(model) ||
+         qobject_cast<const FlexiNoteModel *>(model));
+    return clip;
 }
 
-void
-AudioGenerator::setSampleDir(RealTimePluginInstance *plugin)
+bool
+AudioGenerator::usesContinuousSynth(const Model *model)
 {
-    if (m_sampleDir != "") {
-        plugin->configure("sampledir", m_sampleDir.toStdString());
-    }
-} 
-*/
+    bool cont = 
+        (qobject_cast<const SparseTimeValueModel *>(model));
+    return cont;
+}
+
 ClipMixer *
 AudioGenerator::makeClipMixerFor(const Model *model)
 {
@@ -219,6 +216,21 @@ AudioGenerator::makeClipMixerFor(const Model *model)
     std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): loaded clip " << clipId << std::endl;
 
     return mixer;
+}
+
+ContinuousSynth *
+AudioGenerator::makeSynthFor(const Model *model)
+{
+    const Playable *playable = model;
+    if (!playable || !playable->canPlay()) return 0;
+
+    ContinuousSynth *synth = new ContinuousSynth(m_targetChannelCount,
+                                                 m_sourceSampleRate,
+                                                 m_processingBlockSize);
+
+    std::cerr << "AudioGenerator::makeSynthFor(" << model << "): created synth" << std::endl;
+
+    return synth;
 }
 
 void
@@ -346,14 +358,14 @@ AudioGenerator::mixModel(Model *model, size_t startFrame, size_t frameCount,
 				      buffer, gain, pan, fadeIn, fadeOut);
     }
 
-    bool synthetic = 
-        (qobject_cast<SparseOneDimensionalModel *>(model) ||
-         qobject_cast<NoteModel *>(model) ||
-         qobject_cast<FlexiNoteModel *>(model));
+    if (usesClipMixer(model)) {
+        return mixClipModel(model, startFrame, frameCount,
+                            buffer, gain, pan);
+    }
 
-    if (synthetic) {
-        return mixSyntheticNoteModel(model, startFrame, frameCount,
-                                     buffer, gain, pan, fadeIn, fadeOut);
+    if (usesContinuousSynth(model)) {
+        return mixContinuousSynthModel(model, startFrame, frameCount,
+                                       buffer, gain, pan);
     }
 
     std::cerr << "AudioGenerator::mixModel: WARNING: Model " << model << " of type " << model->getTypeName() << " is marked as playable, but I have no mechanism to play it" << std::endl;
@@ -457,17 +469,17 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 }
   
 size_t
-AudioGenerator::mixSyntheticNoteModel(Model *model,
-                                      size_t startFrame, size_t frames,
-                                      float **buffer, float gain, float pan,
-                                      size_t /* fadeIn */,
-                                      size_t /* fadeOut */)
+AudioGenerator::mixClipModel(Model *model,
+                             size_t startFrame, size_t frames,
+                             float **buffer, float gain, float pan)
 {
     ClipMixer *clipMixer = m_clipMixerMap[model];
     if (!clipMixer) return 0;
 
     size_t blocks = frames / m_processingBlockSize;
     
+    //!!! todo: the below -- it matters
+
     //!!! hang on -- the fact that the audio callback play source's
     //buffer is a multiple of the plugin's buffer size doesn't mean
     //that we always get called for a multiple of it here (because it
@@ -481,7 +493,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
     size_t got = blocks * m_processingBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    cout << "mixModel [synthetic note]: frames " << frames
+    cout << "mixModel [clip]: frames " << frames
 	      << ", blocks " << blocks << endl;
 #endif
 
@@ -524,7 +536,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
                 off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-		cerr << "mixModel [synthetic]: adding note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
+		cerr << "mixModel [clip]: adding note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
                 ends.push_back(off);
@@ -537,7 +549,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
             on.pan = pan;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [synthetic]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << endl;
+	    cout << "mixModel [clip]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << endl;
 #endif
 	    
             starts.push_back(on);
@@ -555,7 +567,7 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
             off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            cerr << "mixModel [synthetic]: adding leftover note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
+            cerr << "mixModel [clip]: adding leftover note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
             ends.push_back(off);
@@ -573,3 +585,70 @@ AudioGenerator::mixSyntheticNoteModel(Model *model,
 
     return got;
 }
+
+size_t
+AudioGenerator::mixContinuousSynthModel(Model *model,
+                                        size_t startFrame,
+                                        size_t frames,
+                                        float **buffer,
+                                        float gain, 
+                                        float pan)
+{
+    ContinuousSynth *synth = m_continuousSynthMap[model];
+    if (!synth) return 0;
+
+    // only type we support here at the moment
+    SparseTimeValueModel *stvm = qobject_cast<SparseTimeValueModel *>(model);
+    if (stvm->getScaleUnits() != "Hz") return 0;
+
+    size_t blocks = frames / m_processingBlockSize;
+
+    //!!! todo: see comment in mixClipModel
+
+    size_t got = blocks * m_processingBlockSize;
+
+#ifdef DEBUG_AUDIO_GENERATOR
+    cout << "mixModel [synth]: frames " << frames
+	      << ", blocks " << blocks << endl;
+#endif
+    
+    float **bufferIndexes = new float *[m_targetChannelCount];
+
+    for (size_t i = 0; i < blocks; ++i) {
+
+	size_t reqStart = startFrame + i * m_processingBlockSize;
+
+	for (size_t c = 0; c < m_targetChannelCount; ++c) {
+            bufferIndexes[c] = buffer[c] + i * m_processingBlockSize;
+        }
+
+        SparseTimeValueModel::PointList points = 
+            stvm->getPoints(reqStart, reqStart + m_processingBlockSize);
+
+        // by default, repeat last frequency
+        float f0 = 0.f;
+
+        // go straight to the last freq that is genuinely in this range
+        for (SparseTimeValueModel::PointList::const_iterator itr = points.end();
+             itr != points.begin(); ) {
+            --itr;
+            if (itr->frame >= reqStart &&
+                itr->frame < reqStart + m_processingBlockSize) {
+                f0 = itr->value;
+                break;
+            }
+        }
+
+        cerr << "f0 = " << f0 << endl;
+
+        synth->mix(bufferIndexes,
+                   gain,
+                   pan,
+                   f0);
+    }
+
+    delete[] bufferIndexes;
+
+    return got;
+}
+

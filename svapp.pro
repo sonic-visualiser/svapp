@@ -36,6 +36,7 @@ HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioPulseAudioTarget.h \
            audioio/AudioTargetFactory.h \
            audioio/ClipMixer.h \
+           audioio/ContinuousSynth.h \
            audioio/PlaySpeedRangeMapper.h
 
 SOURCES += audioio/AudioCallbackPlaySource.cpp \
@@ -47,6 +48,7 @@ SOURCES += audioio/AudioCallbackPlaySource.cpp \
            audioio/AudioPulseAudioTarget.cpp \
            audioio/AudioTargetFactory.cpp \
            audioio/ClipMixer.cpp \
+           audioio/ContinuousSynth.cpp \
            audioio/PlaySpeedRangeMapper.cpp
 
 HEADERS += framework/Document.h \
