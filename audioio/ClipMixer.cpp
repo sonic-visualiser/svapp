@@ -104,7 +104,7 @@ float
 ClipMixer::getResampleRatioFor(float frequency)
 {
     if (!m_clipData) return 1.0;
-    float pitchRatio = frequency / m_clipF0;
+    float pitchRatio = m_clipF0 / frequency;
     float resampleRatio = m_sampleRate / m_clipRate;
     return pitchRatio * resampleRatio;
 }
@@ -159,7 +159,7 @@ ClipMixer::mix(float **toBuffers,
         int clipDuration = getResampledClipDuration(note.frequency);
         if (start + clipDuration > 0) {
             if (start < 0 && start + clipDuration < durationHere) {
-                durationHere = clipDuration - start;
+                durationHere = start + clipDuration;
             }
             if (durationHere > 0) {
                 mixNote(toBuffers,
@@ -214,7 +214,7 @@ ClipMixer::mixNote(float **toBuffers,
         }
         
         for (int c = 0; c < m_channels; ++c) {
-            toBuffers[c][targetOffset + i] = levels[c] * value;
+            toBuffers[c][targetOffset + i] += levels[c] * value;
         }
     }
 }
