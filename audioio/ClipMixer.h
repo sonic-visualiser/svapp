@@ -13,15 +13,17 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _CLIP_MIXER_H_
-#define _CLIP_MIXER_H_
+#ifndef CLIP_MIXER_H
+#define CLIP_MIXER_H
 
 #include <QString>
 #include <vector>
 
 /**
  * Mix in synthetic notes produced by resampling a prerecorded
- * clip. That is, this is a sampler.
+ * clip. (i.e. this is an implementation of a digital sampler in the
+ * musician's sense.) This can mix any number of notes of arbitrary
+ * frequency, so long as they all use the same sample clip.
  */
 
 class ClipMixer
@@ -31,13 +33,14 @@ public:
     ~ClipMixer();
 
     void setChannelCount(int channels);
-    
+
+    /**
+     * Load a sample clip from a wav file. This can only happen once:
+     * construct a new ClipMixer if you want a different clip.
+     */
     bool loadClipData(QString clipFilePath, float clipF0);
 
     void reset(); // discarding any playing notes
-
-    //!!! what can we find in common with the NoteData type and
-    //!!! AudioGenerator's NoteOff?
 
     struct NoteStart {
 	int frameOffset; // within current processing block
