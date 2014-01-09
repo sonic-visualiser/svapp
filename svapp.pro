@@ -22,7 +22,7 @@ exists(config.pri) {
         DEFINES += HAVE_PORTAUDIO_2_0
     }
     macx* {
-        DEFINES += HAVE_COREAUDIO
+        DEFINES += HAVE_COREAUDIO HAVE_PORTAUDIO_2_0
     }
 }
 
@@ -38,7 +38,6 @@ MOC_DIR = o
 
 HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioCallbackPlayTarget.h \
-           audioio/AudioCoreAudioTarget.h \
            audioio/AudioGenerator.h \
            audioio/AudioJACKTarget.h \
            audioio/AudioPortAudioTarget.h \
@@ -50,7 +49,6 @@ HEADERS += audioio/AudioCallbackPlaySource.h \
 
 SOURCES += audioio/AudioCallbackPlaySource.cpp \
            audioio/AudioCallbackPlayTarget.cpp \
-           audioio/AudioCoreAudioTarget.cpp \
            audioio/AudioGenerator.cpp \
            audioio/AudioJACKTarget.cpp \
            audioio/AudioPortAudioTarget.cpp \
