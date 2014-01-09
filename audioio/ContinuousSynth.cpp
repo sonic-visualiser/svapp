@@ -15,6 +15,7 @@
 #include "ContinuousSynth.h"
 
 #include "base/Debug.h"
+#include "system/System.h"
 
 #include <cmath>
 
@@ -75,24 +76,30 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
 
         double phasor = (fHere * 2 * M_PI) / m_sampleRate;
     
-//        cerr << "phasor = " << phasor << endl;
-        
 	m_phase = m_phase + phasor;
-	
-	double v = sin(m_phase);
 
-	if (!wasOn && i < fadeLength) {
-            // fade in
-	    v = v * (i / double(fadeLength));
-	} else if (!nowOn) {
-            // fade out
-	    if (i > fadeLength) v = 0;
-	    else v = v * (1.0 - (i / double(fadeLength)));
-	}
+        int harmonics = (m_sampleRate / 4) / fHere - 1;
+        if (harmonics < 1) harmonics = 1;
 
-	for (int c = 0; c < m_channels; ++c) {
-	    toBuffers[c][i] += levels[c] * v;
-	}
+        for (int h = 0; h < harmonics; ++h) {
+            
+            double hn = h*2 + 1;
+            double hp = m_phase * hn;
+            double v = sin(hp) / hn;
+
+            if (!wasOn && i < fadeLength) {
+                // fade in
+                v = v * (i / double(fadeLength));
+            } else if (!nowOn) {
+                // fade out
+                if (i > fadeLength) v = 0;
+                else v = v * (1.0 - (i / double(fadeLength)));
+            }
+
+            for (int c = 0; c < m_channels; ++c) {
+                toBuffers[c][i] += levels[c] * v;
+            }
+        }
     }	
 
     m_prevF0 = f0;
