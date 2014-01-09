@@ -30,7 +30,7 @@ ClipMixer::ClipMixer(int channels, int sampleRate, int blockSize) :
 
 ClipMixer::~ClipMixer()
 {
-    delete[] m_clipData;
+    if (m_clipData) free(m_clipData);
 }
 
 void
