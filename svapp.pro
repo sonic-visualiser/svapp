@@ -4,9 +4,25 @@ TEMPLATE = lib
 exists(config.pri) {
     include(config.pri)
 }
-win* {
-    !exists(config.pri) {
+!exists(config.pri) {
+    win32-g++ {
+        INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
+        LIBS += -L../sv-dependency-builds/win32-mingw/lib
+    }
+    win32-msvc* {
+        INCLUDEPATH += ../sv-dependency-builds/win32-msvc/include
+        LIBS += -L../sv-dependency-builds/win32-msvc/lib
+    }
+    macx* {
+        INCLUDEPATH += ../sv-dependency-builds/osx/include
+        LIBS += -L../sv-dependency-builds/osx/lib
+    }
+
+    win* {
         DEFINES += HAVE_PORTAUDIO_2_0
+    }
+    macx* {
+        DEFINES += HAVE_COREAUDIO
     }
 }
 
@@ -19,13 +35,6 @@ DEPENDPATH += . ../svcore ../svgui
 INCLUDEPATH += . ../svcore ../svgui
 OBJECTS_DIR = o
 MOC_DIR = o
-
-win32-g++ {
-    INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
-}
-win32-msvc* {
-    INCLUDEPATH += ../sv-dependency-builds/win32-msvc/include
-}
 
 HEADERS += audioio/AudioCallbackPlaySource.h \
            audioio/AudioCallbackPlayTarget.h \
