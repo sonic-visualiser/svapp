@@ -48,6 +48,7 @@ AudioGenerator::m_sampleDir = "";
 AudioGenerator::AudioGenerator() :
     m_sourceSampleRate(0),
     m_targetChannelCount(1),
+	m_waveType(0),
     m_soloing(false)
 {
     initialiseSampleDir();
@@ -226,7 +227,8 @@ AudioGenerator::makeSynthFor(const Model *model)
 
     ContinuousSynth *synth = new ContinuousSynth(m_targetChannelCount,
                                                  m_sourceSampleRate,
-                                                 m_processingBlockSize);
+                                                 m_processingBlockSize,
+                                                 m_waveType);
 
     std::cerr << "AudioGenerator::makeSynthFor(" << model << "): created synth" << std::endl;
 

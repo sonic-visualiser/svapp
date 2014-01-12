@@ -99,6 +99,7 @@ protected slots:
 protected:
     size_t m_sourceSampleRate;
     size_t m_targetChannelCount;
+    size_t m_waveType;
 
     bool m_soloing;
     std::set<Model *> m_soloModelSet;

@@ -19,12 +19,13 @@
 
 #include <cmath>
 
-ContinuousSynth::ContinuousSynth(int channels, int sampleRate, int blockSize) :
+ContinuousSynth::ContinuousSynth(int channels, int sampleRate, int blockSize, int waveType) :
     m_channels(channels),
     m_sampleRate(sampleRate),
     m_blockSize(blockSize),
     m_prevF0(-1.f),
-    m_phase(0.0)
+    m_phase(0.0),
+	m_wavetype(waveType) // 0: 3 sinusoids, 1: 1 sinusoid, 2: sawtooth, 3: square
 {
 }
 
@@ -76,16 +77,55 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
 
         double phasor = (fHere * 2 * M_PI) / m_sampleRate;
     
-	m_phase = m_phase + phasor;
+        m_phase = m_phase + phasor;
 
         int harmonics = (m_sampleRate / 4) / fHere - 1;
         if (harmonics < 1) harmonics = 1;
 
+    	switch (m_wavetype) {
+			case 1:
+				harmonics = 1;
+				break;
+			case 2:
+				break;
+			case 3:
+				break;
+			default:
+				harmonics = 3;
+				break;
+    	}
+
+
         for (int h = 0; h < harmonics; ++h) {
-            
-            double hn = h*2 + 1;
-            double hp = m_phase * hn;
-            double v = sin(hp) / hn;
+
+        	double v = 0;
+        	double hn = 0;
+        	double hp = 0;
+
+        	switch (m_wavetype) {
+        		case 1: // single sinusoid
+        			v = sin(m_phase);
+        			break;
+        		case 2: // sawtooth
+        			if (h != 0) {
+						hn = h + 1;
+						hp = m_phase * hn;
+						v = -(1.0 / M_PI) * sin(hp) / hn;
+        			} else {
+        				v = 0.5;
+        			}
+        			break;
+        		case 3: // square
+                    hn = h*2 + 1;
+                    hp = m_phase * hn;
+                    v = sin(hp) / hn;
+                    break;
+        		default: // 3 sinusoids
+                    hn = h*2 + 1;
+                    hp = m_phase * hn;
+                    v = sin(hp) / hn;
+                    break;
+        	}
 
             if (!wasOn && i < fadeLength) {
                 // fade in

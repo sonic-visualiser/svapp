@@ -24,7 +24,7 @@
 class ContinuousSynth
 {
 public:
-    ContinuousSynth(int channels, int sampleRate, int blockSize);
+    ContinuousSynth(int channels, int sampleRate, int blockSize, int waveType);
     ~ContinuousSynth();
     
     void setChannelCount(int channels);
@@ -56,6 +56,8 @@ private:
 
     double m_prevF0;
     double m_phase;
+
+    int m_wavetype;
 };
 
 #endif
