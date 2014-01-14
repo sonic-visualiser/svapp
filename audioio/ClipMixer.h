@@ -81,7 +81,8 @@ private:
                  float frequency,
                  int sourceOffset, // within resampled note
                  int targetOffset, // within target buffer
-                 int sampleCount);
+                 int sampleCount,
+                 bool isEnd);
 };
 
 
