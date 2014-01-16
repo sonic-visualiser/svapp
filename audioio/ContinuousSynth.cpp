@@ -121,7 +121,7 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
                     v = sin(hp) / hn;
                     break;
         		default: // 3 sinusoids
-                    hn = h*2 + 1;
+                    hn = h + 1;
                     hp = m_phase * hn;
                     v = sin(hp) / hn;
                     break;
