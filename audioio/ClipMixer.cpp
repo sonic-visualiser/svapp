@@ -123,7 +123,7 @@ ClipMixer::mix(float **toBuffers,
 {
     foreach (NoteStart note, newNotes) {
         if (note.frequency > 20 && 
-            note.frequency < 2000) {
+            note.frequency < 5000) {
             m_playing.push_back(note);
         }
     }
