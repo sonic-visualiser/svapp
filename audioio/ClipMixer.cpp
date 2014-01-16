@@ -122,7 +122,10 @@ ClipMixer::mix(float **toBuffers,
                std::vector<NoteEnd> endingNotes)
 {
     foreach (NoteStart note, newNotes) {
-        m_playing.push_back(note);
+        if (note.frequency > 20 && 
+            note.frequency < 5000) {
+            m_playing.push_back(note);
+        }
     }
 
     std::vector<NoteStart> remaining;
@@ -167,7 +170,8 @@ ClipMixer::mix(float **toBuffers,
                         note.frequency,
                         start < 0 ? -start : 0,
                         start > 0 ?  start : 0,
-                        durationHere);
+                        durationHere,
+                        ending);
             }
         }
 
@@ -189,13 +193,19 @@ ClipMixer::mixNote(float **toBuffers,
                    float frequency,
                    int sourceOffset,
                    int targetOffset,
-                   int sampleCount)
+                   int sampleCount,
+                   bool isEnd)
 {
     if (!m_clipData) return;
 
     float ratio = getResampleRatioFor(frequency);
     
-    //!!! todo: release time
+    float releaseTime = 0.01;
+    int releaseSampleCount = round(releaseTime * m_sampleRate);
+    if (releaseSampleCount > sampleCount) {
+        releaseSampleCount = sampleCount;
+    }
+    float releaseFraction = 1.f/releaseSampleCount;
 
     for (int i = 0; i < sampleCount; ++i) {
 
@@ -214,7 +224,11 @@ ClipMixer::mixNote(float **toBuffers,
         if (osi + 1 < m_clipLength) {
             value += (m_clipData[osi + 1] - m_clipData[osi]) * (os - osi);
         }
-        
+         
+        if (isEnd && i + releaseSampleCount > sampleCount) {
+            value *= releaseFraction * (sampleCount - i); // linear ramp for release
+        }
+
         for (int c = 0; c < m_channels; ++c) {
             toBuffers[c][targetOffset + i] += levels[c] * value;
         }
