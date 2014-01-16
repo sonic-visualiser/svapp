@@ -122,7 +122,10 @@ ClipMixer::mix(float **toBuffers,
                std::vector<NoteEnd> endingNotes)
 {
     foreach (NoteStart note, newNotes) {
-        m_playing.push_back(note);
+        if (note.frequency > 20 && 
+            note.frequency < 2000) {
+            m_playing.push_back(note);
+        }
     }
 
     std::vector<NoteStart> remaining;
