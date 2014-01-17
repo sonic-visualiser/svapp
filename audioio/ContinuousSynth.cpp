@@ -48,8 +48,8 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
     bool nowOn = (f0 > 0.f);
 
     if (!nowOn && !wasOn) {
-	m_phase = 0;
-	return;
+    m_phase = 0;
+    return;
     }
 
     int fadeLength = 100; // samples
@@ -57,11 +57,11 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
     float *levels = new float[m_channels];
     
     for (int c = 0; c < m_channels; ++c) {
-	levels[c] = gain;
+    levels[c] = gain * 0.5; // scale gain otherwise too loud compared to source
     }
     if (pan != 0.0 && m_channels == 2) {
-	levels[0] *= 1.0 - pan;
-	levels[1] *= pan + 1.0;
+    levels[0] *= 1.0 - pan;
+    levels[1] *= pan + 1.0;
     }
 
 //    cerr << "ContinuousSynth::mix: f0 = " << f0 << " (from " << m_prevF0 << "), phase = " << m_phase << endl;
@@ -82,7 +82,7 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
         int harmonics = (m_sampleRate / 4) / fHere - 1;
         if (harmonics < 1) harmonics = 1;
 
-    	switch (m_wavetype) {
+        switch (m_wavetype) {
         case 1:
             harmonics = 1;
             break;
@@ -93,7 +93,7 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
         default:
             harmonics = 3;
             break;
-    	}
+        }
 
 
         for (int h = 0; h < harmonics; ++h) {
@@ -140,7 +140,7 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0)
                 toBuffers[c][i] += levels[c] * v;
             }
         }
-    }	
+    }    
 
     m_prevF0 = f0;
 

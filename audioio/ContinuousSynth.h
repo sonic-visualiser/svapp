@@ -45,9 +45,9 @@ public:
      * sound switches on and off cleanly.
      */
     void mix(float **toBuffers,
-	     float gain,
-	     float pan,
-	     float f0);
+         float gain,
+         float pan,
+         float f0);
 
 private:
     int m_channels;
