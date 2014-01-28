@@ -16,7 +16,6 @@
 #include "AudioTargetFactory.h"
 
 #include "AudioJACKTarget.h"
-#include "AudioCoreAudioTarget.h"
 #include "AudioPortAudioTarget.h"
 #include "AudioPulseAudioTarget.h"
 
@@ -54,10 +53,6 @@ AudioTargetFactory::getCallbackTargetNames(bool includeAuto) const
     names.push_back("pulse");
 #endif
 
-#ifdef HAVE_COREAUDIO
-    names.push_back("core");
-#endif
-
 #ifdef HAVE_PORTAUDIO_2_0
     names.push_back("port");
 #endif
@@ -79,10 +74,6 @@ AudioTargetFactory::getCallbackTargetDescription(QString name) const
     if (name == "pulse") {
         return QCoreApplication::translate("AudioTargetFactory",
                                            "PulseAudio Server");
-    }
-    if (name == "core") {
-        return QCoreApplication::translate("AudioTargetFactory",
-                                           "Core Audio Device");
     }
     if (name == "port") {
         return QCoreApplication::translate("AudioTargetFactory",
@@ -126,10 +117,6 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
         if (m_default == "pulse") target = new AudioPulseAudioTarget(source);
 #endif
 
-#ifdef HAVE_COREAUDIO
-        if (m_default == "core") target = new AudioCoreAudioTarget(source);
-#endif
-
 #ifdef HAVE_PORTAUDIO_2_0
         if (m_default == "port") target = new AudioPortAudioTarget(source);
 #endif
@@ -157,15 +144,6 @@ AudioTargetFactory::createCallbackTarget(AudioCallbackPlaySource *source)
     if (target->isOK()) return target;
     else {
 	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open PulseAudio target" << endl;
-	delete target;
-    }
-#endif
-
-#ifdef HAVE_COREAUDIO
-    target = new AudioCoreAudioTarget(source);
-    if (target->isOK()) return target;
-    else {
-	cerr << "WARNING: AudioTargetFactory::createCallbackTarget: Failed to open CoreAudio target" << endl;
 	delete target;
     }
 #endif

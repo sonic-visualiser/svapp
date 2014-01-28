@@ -19,6 +19,7 @@
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 #include "transform/ModelTransformer.h"
+#include "transform/FeatureExtractionModelTransformer.h"
 #include "base/Command.h"
 
 #include <map>
@@ -117,6 +118,15 @@ public:
                               const ModelTransformer::Input &);
 
     /**
+     * Create and return suitable layers for the given transforms,
+     * which must be identical apart from the output (i.e. must use
+     * the same plugin and configuration). The layers are returned in
+     * the same order as the transformed are supplied.
+     */
+    std::vector<Layer *> createDerivedLayers(const Transforms &,
+                                             const ModelTransformer::Input &);
+
+    /**
      * Delete the given layer, and also its associated model if no
      * longer used by any other layer.  In general, this should be the
      * only method used to delete layers -- doing so directly is a bit
@@ -152,6 +162,15 @@ public:
     Model *addDerivedModel(const Transform &transform,
                            const ModelTransformer::Input &input,
                            QString &returnedMessage);
+
+    /**
+     * Add derived models associated with the given set of related
+     * transforms, running the transforms and returning the resulting
+     * models.
+     */
+    std::vector<Model *> addDerivedModels(const Transforms &transforms,
+                                          const ModelTransformer::Input &input,
+                                          QString &returnedMessage);
 
     /**
      * Add a derived model associated with the given transform.  This

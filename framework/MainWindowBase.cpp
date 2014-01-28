@@ -22,6 +22,7 @@
 #include "data/model/WaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
+#include "data/model/FlexiNoteModel.h"
 #include "data/model/Labeller.h"
 #include "data/model/TabularModel.h"
 #include "view/ViewManager.h"
@@ -35,6 +36,7 @@
 #include "layer/SliceableLayer.h"
 #include "layer/ImageLayer.h"
 #include "layer/NoteLayer.h"
+#include "layer/FlexiNoteLayer.h"
 #include "layer/RegionLayer.h"
 
 #include "widgets/ListInputDialog.h"
@@ -309,6 +311,10 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::LayerFileNoMidi:
         return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNonSV:
+        return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNoMidiNonSV:
+        return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::SessionOrAudioFile:
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::ImageFile:
@@ -340,6 +346,10 @@ MainWindowBase::getSaveFileName(FileFinder::FileType type)
     case FileFinder::LayerFile:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::LayerFileNoMidi:
+        return ff->getSaveFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNonSV:
+        return ff->getSaveFileName(type, m_sessionFile);
+    case FileFinder::LayerFileNoMidiNonSV:
         return ff->getSaveFileName(type, m_sessionFile);
     case FileFinder::SessionOrAudioFile:
         return ff->getSaveFileName(type, m_sessionFile);
@@ -430,6 +440,7 @@ MainWindowBase::updateMenuStates()
     bool haveCurrentDurationLayer = 
 	(haveCurrentLayer &&
 	 (dynamic_cast<NoteLayer *>(currentLayer) ||
+	  dynamic_cast<FlexiNoteLayer *>(currentLayer) ||
           dynamic_cast<RegionLayer *>(currentLayer)));
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
@@ -1006,6 +1017,25 @@ MainWindowBase::insertItemAt(size_t frame, size_t duration)
                                "");
         NoteModel::EditCommand *command =
             new NoteModel::EditCommand(nm, tr("Add Point"));
+        command->addPoint(point);
+        command->setName(name);
+        c = command->finish();
+    }
+
+    if (c) {
+        CommandHistory::getInstance()->addCommand(c, false);
+        return;
+    }
+
+    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
+    if (fnm) {
+        FlexiNoteModel::Point point(alignedStart,
+                               rm->getValueMinimum(),
+                               alignedDuration,
+                               1.f,
+                               "");
+        FlexiNoteModel::EditCommand *command =
+            new FlexiNoteModel::EditCommand(fnm, tr("Add Point"));
         command->addPoint(point);
         command->setName(name);
         c = command->finish();
@@ -2229,7 +2259,11 @@ void
 MainWindowBase::zoomDefault()
 {
     Pane *currentPane = m_paneStack->getCurrentPane();
-    if (currentPane) currentPane->setZoomLevel(1024);
+    QSettings settings;
+    settings.beginGroup("MainWindow");
+    int zoom = settings.value("zoom-default", 1024).toInt();
+    settings.endGroup();
+    if (currentPane) currentPane->setZoomLevel(zoom);
 }
 
 void
@@ -3091,6 +3125,7 @@ void
 MainWindowBase::modelAdded(Model *model)
 {
 //    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
+	std::cerr << "\nAdding model " << model->getTypeName() << " to playsource " << std::endl;
     m_playSource->addModel(model);
 }
 

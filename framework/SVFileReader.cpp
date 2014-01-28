@@ -1271,8 +1271,8 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
         float gain = attributes.value("gain").toFloat(&ok);
         if (ok) parameters->setPlayGain(gain);
         
-        QString pluginId = attributes.value("pluginId");
-        if (pluginId != "") parameters->setPlayPluginId(pluginId);
+        QString clipId = attributes.value("clipId");
+        if (clipId != "") parameters->setPlayClipId(clipId);
         
         m_currentPlayParameters = parameters;
 
@@ -1291,17 +1291,26 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 bool
 SVFileReader::readPlugin(const QXmlAttributes &attributes)
 {
-    if (m_currentDerivedModelId < 0 && !m_currentPlayParameters) {
+    if (m_currentDerivedModelId >= 0) {
+        return readPluginForTransform(attributes);
+    } else if (m_currentPlayParameters) {
+        return readPluginForPlayback(attributes);
+    } else {
         cerr << "WARNING: SV-XML: Plugin found outside derivation or play parameters" << endl;
         return false;
     }
+}
 
-    if (!m_currentPlayParameters && m_currentTransformIsNewStyle) {
+bool
+SVFileReader::readPluginForTransform(const QXmlAttributes &attributes)
+{
+    if (m_currentTransformIsNewStyle) {
+        // Not needed, we have the transform element instead
         return true;
     }
 
     QString configurationXml = "<plugin";
-    
+
     for (int i = 0; i < attributes.length(); ++i) {
         configurationXml += QString(" %1=\"%2\"")
             .arg(attributes.qName(i))
@@ -1310,12 +1319,21 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
 
     configurationXml += "/>";
 
-    if (m_currentPlayParameters) {
-        m_currentPlayParameters->setPlayPluginConfiguration(configurationXml);
-    } else {
-        TransformFactory::getInstance()->
-            setParametersFromPluginConfigurationXml(m_currentTransform,
-                                                    configurationXml);
+    TransformFactory::getInstance()->
+        setParametersFromPluginConfigurationXml(m_currentTransform,
+                                                configurationXml);
+    return true;
+}
+
+bool
+SVFileReader::readPluginForPlayback(const QXmlAttributes &attributes)
+{
+    // Obsolete but supported for compatibility
+
+    QString ident = attributes.value("identifier");
+    if (ident == "sample_player") {
+        QString clipId = attributes.value("program");
+        if (clipId != "") m_currentPlayParameters->setPlayClipId(clipId);
     }
 
     return true;
