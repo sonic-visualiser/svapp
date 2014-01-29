@@ -224,7 +224,7 @@ Document::createDerivedLayers(const Transforms &transforms,
                               const ModelTransformer::Input &input)
 {
     QString message;
-    vector<Model *> newModels = addDerivedModels(transforms, input, message);
+    vector<Model *> newModels = addDerivedModels(transforms, input, message, 0);
 
     if (newModels.empty()) {
         //!!! This identifier may be wrong!
@@ -235,8 +235,101 @@ Document::createDerivedLayers(const Transforms &transforms,
         emit modelGenerationWarning(transforms[0].getIdentifier(), message);
     }
 
-    vector<Layer *> layers;
+    QStringList names;
+    for (int i = 0; i < newModels.size(); ++i) {
+        names.push_back(getUniqueLayerName
+                        (TransformFactory::getInstance()->
+                         getTransformFriendlyName
+                         (transforms[i].getIdentifier())));
+    }
 
+    vector<Layer *> layers = createLayersForDerivedModels(newModels, names);
+    return layers;
+}
+
+class AdditionalModelConverter : 
+    public ModelTransformerFactory::AdditionalModelHandler
+{
+public:
+    AdditionalModelConverter(Document *doc, 
+                             Document::LayerCreationHandler *handler) :
+        m_doc(doc),
+        m_handler(handler) {
+    }
+
+    virtual ~AdditionalModelConverter() { }
+
+    void
+    setPrimaryLayers(vector<Layer *> layers) {
+        m_primary = layers;
+    }
+
+    void
+    moreModelsAvailable(vector<Model *> models) {
+        std::cerr << "AdditionalModelConverter::moreModelsAvailable: " << models.size() << " model(s)" << std::endl;
+        // We can't automatically regenerate the additional models on
+        // reload -- we should delete them instead
+        QStringList names;
+        foreach (Model *model, models) {
+            m_doc->addAdditionalModel(model);
+            names.push_back(QString());
+        }
+        vector<Layer *> layers = m_doc->createLayersForDerivedModels
+            (models, names);
+        m_handler->layersCreated(m_primary, layers);
+        delete this;
+    }
+
+    void
+    noMoreModelsAvailable() {
+        std::cerr << "AdditionalModelConverter::noMoreModelsAvailable" << std::endl;
+        delete this;
+    }
+
+private:
+    Document *m_doc;
+    vector<Layer *> m_primary;
+    Document::LayerCreationHandler *m_handler; //!!! how to handle destruction of this?
+};
+
+void
+Document::createDerivedLayersAsync(const Transforms &transforms,
+                                   const ModelTransformer::Input &input,
+                                   LayerCreationHandler *handler)
+{
+    QString message;
+
+    AdditionalModelConverter *amc = new AdditionalModelConverter(this, handler);
+    
+    vector<Model *> newModels = addDerivedModels
+        (transforms, input, message, amc);
+
+    QStringList names;
+    for (int i = 0; i < newModels.size(); ++i) {
+        names.push_back(getUniqueLayerName
+                        (TransformFactory::getInstance()->
+                         getTransformFriendlyName
+                         (transforms[i].getIdentifier())));
+    }
+
+    vector<Layer *> layers = createLayersForDerivedModels(newModels, names);
+    amc->setPrimaryLayers(layers);
+
+    if (newModels.empty()) {
+        //!!! This identifier may be wrong!
+        emit modelGenerationFailed(transforms[0].getIdentifier(), message);
+    } else if (message != "") {
+        //!!! This identifier may be wrong!
+        emit modelGenerationWarning(transforms[0].getIdentifier(), message);
+    }
+}
+
+vector<Layer *>
+Document::createLayersForDerivedModels(vector<Model *> newModels, 
+                                       QStringList names)
+{
+    vector<Layer *> layers;
+    
     for (int i = 0; i < (int)newModels.size(); ++i) {
 
         Model *newModel = newModels[i];
@@ -245,7 +338,7 @@ Document::createDerivedLayers(const Transforms &transforms,
             LayerFactory::getInstance()->getValidLayerTypes(newModel);
 
         if (types.empty()) {
-            cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << transforms[i].getIdentifier() << endl;
+            cerr << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << names[i] << endl;
             //!!! inadequate cleanup:
             newModel->aboutToDelete();
             emit modelAboutToBeDeleted(newModel);
@@ -275,10 +368,7 @@ Document::createDerivedLayers(const Transforms &transforms,
         // model pointer in both layers, so they can't actually be cloned.
     
         if (newLayer) {
-            newLayer->setObjectName(getUniqueLayerName
-                                    (TransformFactory::getInstance()->
-                                     getTransformFriendlyName
-                                     (transforms[i].getIdentifier())));
+            newLayer->setObjectName(names[i]);
         }
 
         emit layerAdded(newLayer);
@@ -423,6 +513,14 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        if (i->second.additional) {
+            Model *m = i->first;
+            emit modelAboutToBeDeleted(m);
+            delete m;
+        }
+    }
+
+    for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
 
         Model *m = i->first;
 
@@ -457,21 +555,21 @@ Document::setMainModel(WaveFileModel *model)
 }
 
 void
-Document::addDerivedModel(const Transform &transform,
-                          const ModelTransformer::Input &input,
-                          Model *outputModelToAdd)
+Document::addAlreadyDerivedModel(const Transform &transform,
+                                 const ModelTransformer::Input &input,
+                                 Model *outputModelToAdd)
 {
     if (m_models.find(outputModelToAdd) != m_models.end()) {
-	cerr << "WARNING: Document::addDerivedModel: Model already added"
+	cerr << "WARNING: Document::addAlreadyDerivedModel: Model already added"
 		  << endl;
 	return;
     }
 
 #ifdef DEBUG_DOCUMENT
     if (input.getModel()) {
-        cerr << "Document::addDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
+        cerr << "Document::addAlreadyDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
     } else {
-        cerr << "Document::addDerivedModel: source is " << input.getModel() << endl;
+        cerr << "Document::addAlreadyDerivedModel: source is " << input.getModel() << endl;
     }
 #endif
 
@@ -479,6 +577,7 @@ Document::addDerivedModel(const Transform &transform,
     rec.source = input.getModel();
     rec.channel = input.getChannel();
     rec.transform = transform;
+    rec.additional = false;
     rec.refcount = 0;
 
     outputModelToAdd->setSourceModel(input.getModel());
@@ -486,7 +585,7 @@ Document::addDerivedModel(const Transform &transform,
     m_models[outputModelToAdd] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::addDerivedModel: Added model " << outputModelToAdd << endl;
+    cerr << "Document::addAlreadyDerivedModel: Added model " << outputModelToAdd << endl;
     cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         cerr << i->first << " ";
@@ -510,11 +609,42 @@ Document::addImportedModel(Model *model)
     ModelRecord rec;
     rec.source = 0;
     rec.refcount = 0;
+    rec.additional = false;
 
     m_models[model] = rec;
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::addImportedModel: Added model " << model << endl;
+    cerr << "Models now: ";
+    for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
+        cerr << i->first << " ";
+    } 
+    cerr << endl;
+#endif
+
+    if (m_autoAlignment) alignModel(model);
+
+    emit modelAdded(model);
+}
+
+void
+Document::addAdditionalModel(Model *model)
+{
+    if (m_models.find(model) != m_models.end()) {
+	cerr << "WARNING: Document::addAdditionalModel: Model already added"
+		  << endl;
+	return;
+    }
+
+    ModelRecord rec;
+    rec.source = 0;
+    rec.refcount = 0;
+    rec.additional = true;
+
+    m_models[model] = rec;
+
+#ifdef DEBUG_DOCUMENT
+    SVDEBUG << "Document::addAdditionalModel: Added model " << model << endl;
     cerr << "Models now: ";
     for (ModelMap::const_iterator i = m_models.begin(); i != m_models.end(); ++i) {
         cerr << i->first << " ";
@@ -543,7 +673,7 @@ Document::addDerivedModel(const Transform &transform,
 
     Transforms tt;
     tt.push_back(transform);
-    vector<Model *> mm = addDerivedModels(tt, input, message);
+    vector<Model *> mm = addDerivedModels(tt, input, message, 0);
     if (mm.empty()) return 0;
     else return mm[0];
 }
@@ -551,11 +681,12 @@ Document::addDerivedModel(const Transform &transform,
 vector<Model *>
 Document::addDerivedModels(const Transforms &transforms,
                            const ModelTransformer::Input &input,
-                           QString &message)
+                           QString &message,
+                           AdditionalModelConverter *amc)
 {
     vector<Model *> mm = 
         ModelTransformerFactory::getInstance()->transformMultiple
-        (transforms, input, message);
+        (transforms, input, message, amc);
 
     for (int j = 0; j < (int)mm.size(); ++j) {
 
@@ -579,7 +710,7 @@ Document::addDerivedModels(const Transforms &transforms,
         if (!model) {
             cerr << "WARNING: Document::addDerivedModel: no output model for transform " << applied.getIdentifier() << endl;
         } else {
-            addDerivedModel(applied, input, model);
+            addAlreadyDerivedModel(applied, input, model);
         }
     }
 	
