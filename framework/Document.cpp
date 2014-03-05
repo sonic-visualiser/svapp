@@ -283,6 +283,7 @@ public:
     void
     noMoreModelsAvailable() {
         std::cerr << "AdditionalModelConverter::noMoreModelsAvailable" << std::endl;
+        m_handler->layersCreated(m_primary, vector<Layer *>());
         delete this;
     }
 
