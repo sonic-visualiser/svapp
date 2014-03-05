@@ -239,7 +239,9 @@ public:
     void addLayerToView(View *, Layer *);
 
     /**
-     * Remove the given layer from the given view.
+     * Remove the given layer from the given view. Ownership of the
+     * layer is transferred to a command object on the undo stack, and
+     * the layer will be deleted when the undo stack is pruned.
      */
     void removeLayerFromView(View *, Layer *);
 
