@@ -2315,7 +2315,7 @@ MainWindowBase::showNoOverlays()
 void
 MainWindowBase::showMinimalOverlays()
 {
-    m_viewManager->setOverlayMode(ViewManager::MinimalOverlays);
+    m_viewManager->setOverlayMode(ViewManager::StandardOverlays);
 }
 
 void
