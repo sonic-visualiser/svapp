@@ -24,7 +24,10 @@ public:
     PlaySpeedRangeMapper(int minpos, int maxpos);
 
     virtual int getPositionForValue(float value) const;
+    virtual int getPositionForValueUnclamped(float value) const;
+
     virtual float getValueForPosition(int position) const;
+    virtual float getValueForPositionUnclamped(int position) const;
 
     int getPositionForFactor(float factor) const;
     float getValueForFactor(float factor) const;
