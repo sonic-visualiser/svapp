@@ -60,17 +60,21 @@ VersionTester::isVersionNewerThan(QString a, QString b)
     int be = blist.size();
     int e = std::max(ae, be);
     for (int i = 0; i < e; ++i) {
-    int an = 0, bn = 0;
-    if (i < ae) {
-        an = alist[i].toInt();
-        if (an == 0) an = -1; // non-numeric field -> "-pre1" etc
-    }
-    if (i < be) {
-        bn = blist[i].toInt();
-        if (bn == 0) bn = -1;
-    }
-    if (an < bn) return false;
-    if (an > bn) return true;
+        int an = 0, bn = 0;
+        if (i < ae) {
+            an = alist[i].toInt();
+            if (an == 0 && alist[i] != "0") {
+                an = -1; // non-numeric field -> "-pre1" etc
+            }
+        }
+        if (i < be) {
+            bn = blist[i].toInt();
+            if (bn == 0 && blist[i] != "0") {
+                bn = -1;
+            }
+        }
+        if (an < bn) return false;
+        if (an > bn) return true;
     }
     return false;
 }
@@ -103,8 +107,9 @@ VersionTester::finished()
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
-    SVDEBUG << "Comparing current version \"" << m_myVersion              << "\" with latest version \"" << latestVersion	      << "\"" << endl;
+    cerr << "Comparing current version \"" << m_myVersion << "\" with latest version \"" << latestVersion << "\"" << endl;
     if (isVersionNewerThan(latestVersion, m_myVersion)) {
+        cerr << "Latest version \"" << latestVersion << "\" is newer than current version \"" << m_myVersion << "\"" << endl;
         emit newerVersionAvailable(latestVersion);
     }
 }
