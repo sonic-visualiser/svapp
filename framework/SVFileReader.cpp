@@ -325,7 +325,7 @@ SVFileReader::endElement(const QString &, const QString &,
                 }                    
             }
         } else {
-            m_document->addDerivedModel
+            m_document->addAlreadyDerivedModel
                 (m_currentTransform,
                  ModelTransformer::Input(m_currentTransformSource,
                                          m_currentTransformChannel),

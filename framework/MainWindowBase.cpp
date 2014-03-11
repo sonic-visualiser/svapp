@@ -2317,7 +2317,7 @@ MainWindowBase::showNoOverlays()
 void
 MainWindowBase::showMinimalOverlays()
 {
-    m_viewManager->setOverlayMode(ViewManager::MinimalOverlays);
+    m_viewManager->setOverlayMode(ViewManager::StandardOverlays);
 }
 
 void
@@ -3207,7 +3207,10 @@ MainWindowBase::inProgressSelectionChanged()
 {
     Pane *currentPane = 0;
     if (m_paneStack) currentPane = m_paneStack->getCurrentPane();
-    if (currentPane) updateVisibleRangeDisplay(currentPane);
+    if (currentPane) {
+        //cerr << "JTEST: mouse event on selection pane" << endl;
+        updateVisibleRangeDisplay(currentPane);
+    }
 }
 
 void
