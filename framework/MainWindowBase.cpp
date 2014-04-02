@@ -45,6 +45,7 @@
 #include "widgets/MIDIFileImportDialog.h"
 #include "widgets/CSVFormatDialog.h"
 #include "widgets/ModelDataTableDialog.h"
+#include "widgets/InteractiveFileFinder.h"
 
 #include "audioio/AudioCallbackPlaySource.h"
 #include "audioio/AudioCallbackPlayTarget.h"
@@ -1635,7 +1636,10 @@ MainWindowBase::openSession(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    if (source.getExtension().toLower() != "sv") {
+    QString sessionExt = 
+        InteractiveFileFinder::getInstance()->getApplicationSessionExtension();
+
+    if (source.getExtension().toLower() != sessionExt) {
 
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
@@ -1666,7 +1670,7 @@ MainWindowBase::openSession(FileSource source)
     BZipFileDevice *bzFile = 0;
     QFile *rawFile = 0;
 
-    if (source.getExtension().toLower() == "sv") {
+    if (source.getExtension().toLower() == sessionExt) {
         bzFile = new BZipFileDevice(source.getLocalFilename());
         if (!bzFile->open(QIODevice::ReadOnly)) {
             delete bzFile;
