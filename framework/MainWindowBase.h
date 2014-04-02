@@ -153,6 +153,8 @@ signals:
     void canSelectNextLayer(bool);
     void canSave(bool);
     void hideSplash();
+    void sessionLoaded();
+    void audioFileLoaded();
     void replacedDocument();
     void activity(QString);
 

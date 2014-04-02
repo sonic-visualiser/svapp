@@ -1392,6 +1392,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     currentPaneChanged(m_paneStack->getCurrentPane());
 
+    emit audioFileLoaded();
+
     return FileOpenSucceeded;
 }
 
@@ -1744,6 +1746,8 @@ MainWindowBase::openSession(FileSource source)
                                        source.getLocalFilename());
         }
 
+        emit sessionLoaded();
+
     } else {
 	setWindowTitle(QApplication::applicationName());
     }
@@ -1826,6 +1830,8 @@ MainWindowBase::openSessionTemplate(FileSource source)
 	CommandHistory::getInstance()->documentSaved();
 	m_documentModified = false;
 	updateMenuStates();
+
+        emit sessionLoaded();
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
@@ -1856,6 +1862,8 @@ MainWindowBase::openSessionFromRDF(FileSource source)
     CommandHistory::getInstance()->clear();
     CommandHistory::getInstance()->documentSaved();
     m_documentModified = false;
+
+    emit sessionLoaded();
 
     return status;
 }
@@ -2211,6 +2219,7 @@ MainWindowBase::toXml(QTextStream &out, bool asTemplate)
 Pane *
 MainWindowBase::addPaneToStack()
 {
+    cerr << "MainWindowBase::addPaneToStack()" << endl;
     AddPaneCommand *command = new AddPaneCommand(this);
     CommandHistory::getInstance()->addCommand(command);
     Pane *pane = command->getPane();
