@@ -377,6 +377,7 @@ protected:
 	Document *m_d;
 	View *m_view; // I don't own this
 	Layer *m_layer; // Document owns this, but I determine its lifespan
+        bool m_wasDormant;
 	QString m_name;
 	bool m_added;
     };

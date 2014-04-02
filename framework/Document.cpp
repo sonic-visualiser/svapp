@@ -1193,6 +1193,7 @@ Document::RemoveLayerCommand::RemoveLayerCommand(Document *d,
     m_d(d),
     m_view(view),
     m_layer(layer),
+    m_wasDormant(layer->isLayerDormant(view)),
     m_name(qApp->translate("RemoveLayerCommand", "Delete %1 Layer").arg(layer->objectName())),
     m_added(true)
 {
@@ -1246,7 +1247,7 @@ void
 Document::RemoveLayerCommand::unexecute()
 {
     m_view->addLayer(m_layer);
-    m_layer->setLayerDormant(m_view, false);
+    m_layer->setLayerDormant(m_view, m_wasDormant);
 
     m_d->addToLayerViewMap(m_layer, m_view);
     m_added = true;
