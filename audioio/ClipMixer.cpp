@@ -135,7 +135,7 @@ ClipMixer::mix(float **toBuffers,
     foreach (NoteStart note, m_playing) {
 
         for (int c = 0; c < m_channels; ++c) {
-            levels[c] = gain;
+            levels[c] = note.level * gain;
         }
         if (note.pan != 0.0 && m_channels == 2) {
             levels[0] *= 1.0 - note.pan;
