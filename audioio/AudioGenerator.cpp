@@ -551,7 +551,7 @@ AudioGenerator::mixClipModel(Model *model,
             on.pan = pan;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [clip]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << endl;
+	    cout << "mixModel [clip]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << ", level " << on.level << endl;
 #endif
 	    
             starts.push_back(on);
