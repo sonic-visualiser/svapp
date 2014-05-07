@@ -48,7 +48,7 @@ AudioGenerator::m_sampleDir = "";
 AudioGenerator::AudioGenerator() :
     m_sourceSampleRate(0),
     m_targetChannelCount(1),
-	m_waveType(0),
+    m_waveType(0),
     m_soloing(false)
 {
     initialiseSampleDir();
