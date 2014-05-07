@@ -105,7 +105,6 @@ Document::~Document()
 
     emit mainModelChanged(0);
     delete m_mainModel;
-
 }
 
 Layer *
