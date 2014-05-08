@@ -40,7 +40,7 @@ ClipMixer::setChannelCount(int channels)
 }
 
 bool
-ClipMixer::loadClipData(QString path, float f0)
+ClipMixer::loadClipData(QString path, float f0, float level)
 {
     if (m_clipData) {
         cerr << "ClipMixer::loadClipData: Already have clip loaded" << endl;
@@ -81,7 +81,7 @@ ClipMixer::loadClipData(QString path, float f0)
 	int j;
 	m_clipData[i] = 0.0f;
 	for (j = 0; j < info.channels; ++j) {
-	    m_clipData[i] += tmpFrames[i * info.channels + j];
+	    m_clipData[i] += tmpFrames[i * info.channels + j] * level;
 	}
     }
 

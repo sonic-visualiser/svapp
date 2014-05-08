@@ -135,6 +135,7 @@ protected:
     ContinuousSynthMap m_continuousSynthMap;
 
     bool usesClipMixer(const Model *);
+    bool wantsQuieterClips(const Model *);
     bool usesContinuousSynth(const Model *);
 
     ClipMixer *makeClipMixerFor(const Model *model);
