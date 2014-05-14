@@ -48,7 +48,7 @@ AudioGenerator::m_sampleDir = "";
 AudioGenerator::AudioGenerator() :
     m_sourceSampleRate(0),
     m_targetChannelCount(1),
-	m_waveType(0),
+    m_waveType(0),
     m_soloing(false)
 {
     initialiseSampleDir();
@@ -173,6 +173,18 @@ AudioGenerator::usesClipMixer(const Model *model)
 }
 
 bool
+AudioGenerator::wantsQuieterClips(const Model *model)
+{
+    // basically, anything that usually has sustain (like notes) or
+    // often has multiple sounds at once (like notes) wants to use a
+    // quieter level than simple click tracks
+    bool does = 
+        (qobject_cast<const NoteModel *>(model) ||
+         qobject_cast<const FlexiNoteModel *>(model));
+    return does;
+}
+
+bool
 AudioGenerator::usesContinuousSynth(const Model *model)
 {
     bool cont = 
@@ -209,7 +221,8 @@ AudioGenerator::makeClipMixerFor(const Model *model)
 
     QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(clipId);
 
-    if (!mixer->loadClipData(clipPath, clipF0)) {
+    float level = wantsQuieterClips(model) ? 0.5 : 1.0;
+    if (!mixer->loadClipData(clipPath, clipF0, level)) {
         delete mixer;
         return 0;
     }
@@ -551,7 +564,7 @@ AudioGenerator::mixClipModel(Model *model,
             on.pan = pan;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-	    cout << "mixModel [clip]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << endl;
+	    cout << "mixModel [clip]: adding note at frame " << noteFrame << ", frame offset " << on.frameOffset << " frequency " << on.frequency << ", level " << on.level << endl;
 #endif
 	    
             starts.push_back(on);

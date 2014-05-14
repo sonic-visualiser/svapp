@@ -134,7 +134,6 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #endif
 
 MainWindowBase::MainWindowBase(bool withAudioOutput,
-                               bool withOSCSupport,
                                bool withMIDIInput) :
     m_document(0),
     m_paneStack(0),
@@ -255,12 +254,6 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     if (withMIDIInput) {
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
-
-    if (withOSCSupport) {
-        m_oscQueueStarter = new OSCQueueStarter(this);
-        connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
-        m_oscQueueStarter->start();
-    }
 }
 
 MainWindowBase::~MainWindowBase()
@@ -271,6 +264,7 @@ MainWindowBase::~MainWindowBase()
     delete m_playSource;
     delete m_viewManager;
     delete m_oscQueue;
+    delete m_oscQueueStarter;
     delete m_midiInput;
     Profiles::getInstance()->dump();
 }
@@ -283,6 +277,14 @@ MainWindowBase::resizeConstrained(QSize size)
     QSize actual(std::min(size.width(), available.width()),
                  std::min(size.height(), available.height()));
     resize(actual);
+}
+
+void
+MainWindowBase::startOSCQueue()
+{
+    m_oscQueueStarter = new OSCQueueStarter(this);
+    connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
+    m_oscQueueStarter->start();
 }
 
 void

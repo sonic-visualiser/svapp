@@ -34,6 +34,13 @@ PlaySpeedRangeMapper::getPositionForValue(float value) const
 }
 
 int
+PlaySpeedRangeMapper::getPositionForValueUnclamped(float value) const
+{
+    // We don't really provide this
+    return getPositionForValue(value);
+}
+
+int
 PlaySpeedRangeMapper::getPositionForFactor(float factor) const
 {
     bool slow = (factor > 1.0);
@@ -62,6 +69,13 @@ PlaySpeedRangeMapper::getValueForPosition(int position) const
     float factor = getFactorForPosition(position);
     float pc = getValueForFactor(factor);
     return pc;
+}
+
+float
+PlaySpeedRangeMapper::getValueForPositionUnclamped(int position) const
+{
+    // We don't really provide this
+    return getValueForPosition(position);
 }
 
 float

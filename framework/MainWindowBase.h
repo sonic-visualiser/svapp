@@ -75,7 +75,7 @@ class MainWindowBase : public QMainWindow, public FrameTimer
     Q_OBJECT
 
 public:
-    MainWindowBase(bool withAudioOutput, bool withOSCSupport, bool withMIDIInput);
+    MainWindowBase(bool withAudioOutput, bool withMIDIInput);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
@@ -311,6 +311,7 @@ protected:
 
     OSCQueue                *m_oscQueue;
     OSCQueueStarter         *m_oscQueueStarter;
+    void startOSCQueue();
 
     MIDIInput               *m_midiInput;
 

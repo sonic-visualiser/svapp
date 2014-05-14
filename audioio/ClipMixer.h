@@ -36,9 +36,12 @@ public:
 
     /**
      * Load a sample clip from a wav file. This can only happen once:
-     * construct a new ClipMixer if you want a different clip.
+     * construct a new ClipMixer if you want a different clip. The
+     * clip was recorded at a pitch with fundamental frequency clipF0,
+     * and should be scaled by level (in the range 0-1) when playing
+     * back.
      */
-    bool loadClipData(QString clipFilePath, float clipF0);
+    bool loadClipData(QString clipFilePath, float clipF0, float level);
 
     void reset(); // discarding any playing notes
 
