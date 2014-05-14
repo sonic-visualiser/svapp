@@ -19,6 +19,7 @@
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 #include "transform/ModelTransformer.h"
+#include "transform/FeatureExtractionModelTransformer.h"
 #include "base/Command.h"
 
 #include <map>
@@ -28,6 +29,8 @@ class Model;
 class Layer;
 class View;
 class WaveFileModel;
+
+class AdditionalModelConverter;
 
 /**
  * A Sonic Visualiser document consists of a set of data models, and
@@ -117,6 +120,41 @@ public:
                               const ModelTransformer::Input &);
 
     /**
+     * Create and return suitable layers for the given transforms,
+     * which must be identical apart from the output (i.e. must use
+     * the same plugin and configuration). The layers are returned in
+     * the same order as the transforms are supplied.
+     */
+    std::vector<Layer *> createDerivedLayers(const Transforms &,
+                                             const ModelTransformer::Input &);
+
+    class LayerCreationHandler {
+    public:
+        virtual ~LayerCreationHandler() { }
+
+        /**
+         * The primary layers are those corresponding 1-1 to the input
+         * models, listed in the same order as the input models. The
+         * additional layers vector contains any layers (from all
+         * models) that were returned separately at the end of
+         * processing.
+         */
+        virtual void layersCreated(std::vector<Layer *> primary,
+                                   std::vector<Layer *> additional) = 0;
+    };
+
+    /**
+     * Create suitable layers for the given transforms, which must be
+     * identical apart from the output (i.e. must use the same plugin
+     * and configuration). This method returns after initialising the
+     * transformer process, and the layers are returned through a
+     * subsequent call to the provided handler (which must be non-null).
+     */
+    void createDerivedLayersAsync(const Transforms &,
+                                  const ModelTransformer::Input &,
+                                  LayerCreationHandler *handler);
+
+    /**
      * Delete the given layer, and also its associated model if no
      * longer used by any other layer.  In general, this should be the
      * only method used to delete layers -- doing so directly is a bit
@@ -154,13 +192,24 @@ public:
                            QString &returnedMessage);
 
     /**
+     * Add derived models associated with the given set of related
+     * transforms, running the transforms and returning the resulting
+     * models.
+     */
+    friend class AdditionalModelConverter;
+    std::vector<Model *> addDerivedModels(const Transforms &transforms,
+                                          const ModelTransformer::Input &input,
+                                          QString &returnedMessage,
+                                          AdditionalModelConverter *);
+
+    /**
      * Add a derived model associated with the given transform.  This
      * is necessary to register any derived model that was not created
      * by the document using createDerivedModel or createDerivedLayer.
      */
-    void addDerivedModel(const Transform &transform,
-                         const ModelTransformer::Input &input,
-                         Model *outputModelToAdd);
+    void addAlreadyDerivedModel(const Transform &transform,
+                                const ModelTransformer::Input &input,
+                                Model *outputModelToAdd);
 
     /**
      * Add an imported (non-derived, non-main) model.  This is
@@ -190,7 +239,9 @@ public:
     void addLayerToView(View *, Layer *);
 
     /**
-     * Remove the given layer from the given view.
+     * Remove the given layer from the given view. Ownership of the
+     * layer is transferred to a command object on the undo stack, and
+     * the layer will be deleted when the undo stack is pruned.
      */
     void removeLayerFromView(View *, Layer *);
 
@@ -279,6 +330,7 @@ protected:
 	const Model *source;
         int channel;
         Transform transform;
+        bool additional;
 
 	// Count of the number of layers using this model.
 	int refcount;
@@ -286,6 +338,12 @@ protected:
 
     typedef std::map<Model *, ModelRecord> ModelMap;
     ModelMap m_models;
+
+    /**
+     * Add an extra derived model (returned at the end of processing a
+     * transform).
+     */
+    void addAdditionalModel(Model *);
 
     class AddLayerCommand : public Command
     {
@@ -319,6 +377,7 @@ protected:
 	Document *m_d;
 	View *m_view; // I don't own this
 	Layer *m_layer; // Document owns this, but I determine its lifespan
+        bool m_wasDormant;
 	QString m_name;
 	bool m_added;
     };
@@ -337,6 +396,9 @@ protected:
     
     void toXml(QTextStream &, QString, QString, bool asTemplate) const;
     void writePlaceholderMainModel(QTextStream &, QString) const;
+
+    std::vector<Layer *> createLayersForDerivedModels(std::vector<Model *>,
+                                                      QStringList names);
 
     /**
      * And these are the layers.  We also control the lifespans of

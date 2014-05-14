@@ -18,10 +18,12 @@
 
 class Model;
 class NoteModel;
+class FlexiNoteModel;
 class DenseTimeValueModel;
 class SparseOneDimensionalModel;
-class RealTimePluginInstance;
 class Playable;
+class ClipMixer;
+class ContinuousSynth;
 
 #include <QObject>
 #include <QMutex>
@@ -57,7 +59,7 @@ public:
     virtual void clearModels();
 
     /**
-     * Reset playback, clearing plugins and the like.
+     * Reset playback, clearing buffers and the like.
      */
     virtual void reset();
 
@@ -92,37 +94,21 @@ public:
     virtual void clearSoloModelSet();
 
 protected slots:
-    void playPluginIdChanged(const Playable *, QString);
-    void playPluginConfigurationChanged(const Playable *, QString);
+    void playClipIdChanged(const Playable *, QString);
 
 protected:
-    size_t       m_sourceSampleRate;
-    size_t       m_targetChannelCount;
+    size_t m_sourceSampleRate;
+    size_t m_targetChannelCount;
+    size_t m_waveType;
 
     bool m_soloing;
     std::set<Model *> m_soloModelSet;
 
-    struct NoteData {
-
-        NoteData(size_t _start, size_t _dur, int _mp, int _vel) :
-            start(_start), duration(_dur), midiPitch(_mp), frequency(0),
-            isMidiPitchQuantized(true), velocity(_vel) { };
-            
-        size_t start;     // audio sample frame
-        size_t duration;  // in audio sample frames
-        int midiPitch; // 0-127
-        int frequency; // Hz, to be used if isMidiPitchQuantized false
-        bool isMidiPitchQuantized;
-        int velocity;  // MIDI-style 0-127
-    };
-
-    typedef std::vector<NoteData> NoteList;
-    
     struct NoteOff {
 
-        NoteOff(int _p, size_t _f) : pitch(_p), frame(_f) { }
+        NoteOff(float _freq, size_t _frame) : frequency(_freq), frame(_frame) { }
 
-	int pitch;
+        float frequency;
 	size_t frame;
 
 	struct Comparator {
@@ -132,32 +118,44 @@ protected:
 	};
     };
 
-    typedef std::map<const Model *, RealTimePluginInstance *> PluginMap;
+
+    typedef std::map<const Model *, ClipMixer *> ClipMixerMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
     typedef std::map<const Model *, NoteOffSet> NoteOffMap;
 
+    typedef std::map<const Model *, ContinuousSynth *> ContinuousSynthMap;
+
     QMutex m_mutex;
-    PluginMap m_synthMap;
+
+    ClipMixerMap m_clipMixerMap;
     NoteOffMap m_noteOffs;
     static QString m_sampleDir;
 
-    virtual RealTimePluginInstance *loadPluginFor(const Model *model);
-    virtual RealTimePluginInstance *loadPlugin(QString id, QString program);
+    ContinuousSynthMap m_continuousSynthMap;
+
+    bool usesClipMixer(const Model *);
+    bool wantsQuieterClips(const Model *);
+    bool usesContinuousSynth(const Model *);
+
+    ClipMixer *makeClipMixerFor(const Model *model);
+    ContinuousSynth *makeSynthFor(const Model *model);
+
     static void initialiseSampleDir();
-    static void setSampleDir(RealTimePluginInstance *plugin);
 
     virtual size_t mixDenseTimeValueModel
     (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
      float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
 
-    virtual size_t mixSyntheticNoteModel
+    virtual size_t mixClipModel
     (Model *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
-    
-    NoteList getNotes(Model *model, size_t startFrame, size_t endFrame);
+     float **buffer, float gain, float pan);
 
-    static const size_t m_pluginBlockSize;
+    virtual size_t mixContinuousSynthModel
+    (Model *model, size_t startFrame, size_t frameCount,
+     float **buffer, float gain, float pan);
+    
+    static const size_t m_processingBlockSize;
 };
 
 #endif

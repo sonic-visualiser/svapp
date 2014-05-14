@@ -153,6 +153,8 @@ signals:
     void canSelectNextLayer(bool);
     void canSave(bool);
     void hideSplash();
+    void sessionLoaded();
+    void audioFileLoaded();
     void replacedDocument();
     void activity(QString);
 
@@ -352,7 +354,7 @@ protected:
 	    m_mw->resizeConstrained(QSize(width, height));
 	}
 	virtual void addSelection(int start, int end) {
-	    m_mw->m_viewManager->addSelection(Selection(start, end));
+	    m_mw->m_viewManager->addSelectionQuietly(Selection(start, end));
 	}
     protected:
 	MainWindowBase *m_mw;

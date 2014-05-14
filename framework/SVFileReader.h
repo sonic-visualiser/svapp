@@ -222,6 +222,8 @@ protected:
     bool readDerivation(const QXmlAttributes &);
     bool readPlayParameters(const QXmlAttributes &);
     bool readPlugin(const QXmlAttributes &);
+    bool readPluginForTransform(const QXmlAttributes &);
+    bool readPluginForPlayback(const QXmlAttributes &);
     bool readTransform(const QXmlAttributes &);
     bool readParameter(const QXmlAttributes &);
     bool readSelection(const QXmlAttributes &);
