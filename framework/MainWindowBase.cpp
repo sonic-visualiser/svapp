@@ -925,14 +925,14 @@ MainWindowBase::insertInstantAt(size_t frame)
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (m_labeller->actingOnPrevPoint()) {
+                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
                     command->deletePoint(prevPoint);
                 }
 
                 m_labeller->label<SparseOneDimensionalModel::Point>
                     (point, havePrevPoint ? &prevPoint : 0);
 
-                if (m_labeller->actingOnPrevPoint()) {
+                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
                     command->addPoint(prevPoint);
                 }
             }
