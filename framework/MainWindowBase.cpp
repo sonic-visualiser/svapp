@@ -283,7 +283,11 @@ MainWindowBase::finaliseMenus()
 }
 
 void
-MainWindowBase::finaliseMenu(QMenu *menu)
+MainWindowBase::finaliseMenu(QMenu *
+#ifdef Q_OS_MAC
+                             menu
+#endif
+    )
 {
 #ifdef Q_OS_MAC
     // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
@@ -370,26 +374,8 @@ QString
 MainWindowBase::getOpenFileName(FileFinder::FileType type)
 {
     FileFinder *ff = FileFinder::getInstance();
-    switch (type) {
-    case FileFinder::SessionFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::AudioFile:
-        return ff->getOpenFileName(type, m_audioFile);
-    case FileFinder::LayerFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidi:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNonSV:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidiNonSV:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::SessionOrAudioFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::ImageFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::CSVFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::AnyFile:
+
+    if (type == FileFinder::AnyFile) {
         if (getMainModel() != 0 &&
             m_paneStack != 0 &&
             m_paneStack->getCurrentPane() != 0) { // can import a layer
@@ -398,37 +384,28 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
             return ff->getOpenFileName(FileFinder::SessionOrAudioFile,
                                        m_sessionFile);
         }
+    }        
+
+    QString lastPath = m_sessionFile;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
     }
-    return "";
+
+    return ff->getOpenFileName(type, lastPath);
 }
 
 QString
 MainWindowBase::getSaveFileName(FileFinder::FileType type)
 {
-    FileFinder *ff = FileFinder::getInstance();
-    switch (type) {
-    case FileFinder::SessionFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::AudioFile:
-        return ff->getSaveFileName(type, m_audioFile);
-    case FileFinder::LayerFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidi:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNonSV:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidiNonSV:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::SessionOrAudioFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::ImageFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::CSVFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::AnyFile:
-        return ff->getSaveFileName(type, m_sessionFile);
+    QString lastPath = m_sessionFile;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
     }
-    return "";
+
+    FileFinder *ff = FileFinder::getInstance();
+    return ff->getSaveFileName(type, lastPath);
 }
 
 void
@@ -824,7 +801,7 @@ MainWindowBase::pasteAtPlaybackPosition()
         long offset = 0;
         if (firstEventFrame < 0) {
             offset = (long)pos - firstEventFrame;
-        } else if (firstEventFrame < pos) {
+        } else if ((unsigned long)firstEventFrame < pos) {
             offset = pos - (unsigned long)firstEventFrame;
         } else {
             offset = -((unsigned long)firstEventFrame - pos);
@@ -1850,7 +1827,6 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
     QXmlInputSource *inputSource = 0;
     QFile *file = 0;
-    bool isTemplate = false;
 
     file = new QFile(source.getLocalFilename());
     inputSource = new QXmlInputSource(file);
@@ -2576,7 +2552,7 @@ MainWindowBase::ffwd()
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == getMainModel()->getEndFrame() &&
+    if (frame == (int)getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2613,8 +2589,6 @@ MainWindowBase::ffwdSimilar()
     if (!layer) { ffwd(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-    size_t sr = getMainModel()->getSampleRate();
-
     int frame = m_viewManager->getPlaybackFrame();
 
     size_t resolution = 0;
@@ -2634,7 +2608,7 @@ MainWindowBase::ffwdSimilar()
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == getMainModel()->getEndFrame() &&
+    if (frame == (int)getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2651,8 +2625,9 @@ MainWindowBase::rewind()
     if (frame > 0) --frame;
 
     Pane *pane = m_paneStack->getCurrentPane();
-    Layer *layer = getSnapLayer();
     size_t sr = getMainModel()->getSampleRate();
+
+    Layer *layer = getSnapLayer();
     
     // when rewinding during playback, we want to allow a period
     // following a rewind target point at which the rewind will go to
@@ -2716,8 +2691,6 @@ MainWindowBase::rewindSimilar()
     if (!layer) { rewind(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-    size_t sr = getMainModel()->getSampleRate();
-
     int frame = m_viewManager->getPlaybackFrame();
 
     size_t resolution = 0;
@@ -3318,15 +3291,12 @@ MainWindowBase::openHelpUrl(QString url)
     process->start("open", args);
 #else
 #ifdef Q_OS_WIN32
+    QString pf(getenv("ProgramFiles"));
+    QString command = pf + QString("\\Internet Explorer\\IEXPLORE.EXE");
 
-	QString pf(getenv("ProgramFiles"));
-	QString command = pf + QString("\\Internet Explorer\\IEXPLORE.EXE");
-
-	args.append(url);
-	process->start(command, args);
-
+    args.append(url);
+    process->start(command, args);
 #else
-#ifdef Q_WS_X11
     if (!qgetenv("KDE_FULL_SESSION").isEmpty()) {
         args.append("exec");
         args.append(url);
@@ -3338,7 +3308,6 @@ MainWindowBase::openHelpUrl(QString url)
         args.append(url);
         process->start("firefox", args);
     }
-#endif
 #endif
 #endif
 }

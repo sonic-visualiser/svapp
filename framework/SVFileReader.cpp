@@ -300,7 +300,7 @@ SVFileReader::endElement(const QString &, const QString &,
     } else if (name == "derivation") {
 
         if (!m_currentDerivedModel) {
-            if (m_currentDerivedModel < 0) {
+            if (m_currentDerivedModelId < 0) {
                 cerr << "WARNING: SV-XML: Bad derivation output model id "
                           << m_currentDerivedModelId << endl;
             } else if (haveModel(m_currentDerivedModelId)) {
@@ -1150,7 +1150,7 @@ SVFileReader::readRowData(const QString &text)
 
 	for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
 
-	    if (values.size() == dtdm->getHeight()) {
+	    if (values.size() == (int)dtdm->getHeight()) {
 		if (!warned) {
 		    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
 			      << m_rowNumber << endl;
