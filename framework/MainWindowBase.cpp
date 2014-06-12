@@ -152,7 +152,9 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_openingAudioFile(false),
     m_abandoning(false),
     m_labeller(0),
-    m_lastPlayStatusSec(0)
+    m_lastPlayStatusSec(0),
+    m_initialDarkBackground(false),
+    m_defaultFfwdRwdStep(2, 0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -2549,7 +2551,7 @@ MainWindowBase::ffwd()
     if (!layer) {
 
         frame = RealTime::realTime2Frame
-            (RealTime::frame2RealTime(frame, sr) + RealTime(2, 0), sr);
+            (RealTime::frame2RealTime(frame, sr) + m_defaultFfwdRwdStep, sr);
         if (frame > int(getMainModel()->getEndFrame())) {
             frame = getMainModel()->getEndFrame();
         }
@@ -2657,7 +2659,7 @@ MainWindowBase::rewind()
     // the prior point instead of the immediately neighbouring one
     if (m_playSource && m_playSource->isPlaying()) {
         RealTime ct = RealTime::frame2RealTime(frame, sr);
-        ct = ct - RealTime::fromSeconds(0.25);
+        ct = ct - RealTime::fromSeconds(0.15);
         if (ct < RealTime::zeroTime) ct = RealTime::zeroTime;
         frame = RealTime::realTime2Frame(ct, sr);
     }
@@ -2665,7 +2667,7 @@ MainWindowBase::rewind()
     if (!layer) {
         
         frame = RealTime::realTime2Frame
-            (RealTime::frame2RealTime(frame, sr) - RealTime(2, 0), sr);
+            (RealTime::frame2RealTime(frame, sr) - m_defaultFfwdRwdStep, sr);
         if (frame < int(getMainModel()->getStartFrame())) {
             frame = getMainModel()->getStartFrame();
         }

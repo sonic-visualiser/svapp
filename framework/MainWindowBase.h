@@ -112,6 +112,10 @@ public:
     /// Implementation of FrameTimer interface method
     virtual unsigned long getFrame() const;
 
+    void setDefaultFfwdRwdStep(RealTime step) {
+        m_defaultFfwdRwdStep = step;
+    }
+
 signals:
     // Used to toggle the availability of menu actions
     void canAddPane(bool);
@@ -330,6 +334,8 @@ protected:
     mutable QString          m_myStatusMessage;
 
     bool                     m_initialDarkBackground;
+
+    RealTime                 m_defaultFfwdRwdStep;
 
     WaveFileModel *getMainModel();
     const WaveFileModel *getMainModel() const;
