@@ -1219,7 +1219,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     size_t rate = 0;
 
-    if (Preferences::getInstance()->getResampleOnLoad()) {
+    if (Preferences::getInstance()->getFixedSampleRate() != 0) {
+        rate = Preferences::getInstance()->getFixedSampleRate();
+    } else if (Preferences::getInstance()->getResampleOnLoad()) {
         rate = m_playSource->getSourceSampleRate();
     }
 
@@ -3189,7 +3191,9 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 //    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
-    if (model && !m_playTarget && m_audioOutput) createPlayTarget();
+    if (model && !m_playTarget && m_audioOutput) {
+        createPlayTarget();
+    }
 }
 
 void
