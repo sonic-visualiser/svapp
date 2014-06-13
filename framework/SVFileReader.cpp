@@ -448,7 +448,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     READ_MANDATORY(int, sampleRate, toInt);
 
     QString type = attributes.value("type").trimmed();
-    bool mainModel = (attributes.value("mainModel").trimmed() == "true");
+    bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
 
     if (type == "wavefile") {
 	
@@ -475,12 +475,13 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             size_t rate = sampleRate;
 
-            if (rate == 0) {
-                if (!mainModel &&
-                    Preferences::getInstance()->getResampleOnLoad()) {
-                    WaveFileModel *mm = m_document->getMainModel();
-                    if (mm) rate = mm->getSampleRate();
-                }
+            if (Preferences::getInstance()->getFixedSampleRate() != 0) {
+                rate = Preferences::getInstance()->getFixedSampleRate();
+            } else if (rate == 0 &&
+                       !isMainModel &&
+                       Preferences::getInstance()->getResampleOnLoad()) {
+                WaveFileModel *mm = m_document->getMainModel();
+                if (mm) rate = mm->getSampleRate();
             }
 
             model = new WaveFileModel(file, rate);
@@ -494,7 +495,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         model->setObjectName(name);
 	m_models[id] = model;
-	if (mainModel) {
+	if (isMainModel) {
 	    m_document->setMainModel(model);
 	    m_addedModels.insert(model);
 	}
