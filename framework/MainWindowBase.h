@@ -156,6 +156,7 @@ signals:
     void canSelectPreviousLayer(bool);
     void canSelectNextLayer(bool);
     void canSave(bool);
+    void canSaveAs(bool);
     void hideSplash();
     void sessionLoaded();
     void audioFileLoaded();

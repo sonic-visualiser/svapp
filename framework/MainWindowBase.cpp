@@ -528,6 +528,7 @@ MainWindowBase::updateMenuStates()
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
     emit canSave(m_sessionFile != "" && m_documentModified);
+    emit canSaveAs(haveMainModel);
     emit canSelectPreviousPane(havePrevPane);
     emit canSelectNextPane(haveNextPane);
     emit canSelectPreviousLayer(havePrevLayer);
