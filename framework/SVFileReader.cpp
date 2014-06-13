@@ -473,12 +473,14 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             file.waitForData();
 
-            size_t rate = 0;
+            size_t rate = sampleRate;
 
-            if (!mainModel &&
-                Preferences::getInstance()->getResampleOnLoad()) {
-                WaveFileModel *mm = m_document->getMainModel();
-                if (mm) rate = mm->getSampleRate();
+            if (rate == 0) {
+                if (!mainModel &&
+                    Preferences::getInstance()->getResampleOnLoad()) {
+                    WaveFileModel *mm = m_document->getMainModel();
+                    if (mm) rate = mm->getSampleRate();
+                }
             }
 
             model = new WaveFileModel(file, rate);
