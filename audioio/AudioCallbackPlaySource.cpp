@@ -255,8 +255,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 	emit modelReplaced();
     }
 
-    connect(model, SIGNAL(modelChanged(int, int)),
-            this, SLOT(modelChanged(int, int)));
+    connect(model, SIGNAL(modelChangedWithin(int, int)),
+            this, SLOT(modelChangedWithin(int, int)));
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::addModel: awakening thread" << endl;
@@ -266,10 +266,14 @@ AudioCallbackPlaySource::addModel(Model *model)
 }
 
 void
-AudioCallbackPlaySource::modelChanged(int , int endFrame)
+AudioCallbackPlaySource::modelChangedWithin(int 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+                                            startFrame
+#endif
+                                            , int endFrame)
 {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    SVDEBUG << "AudioCallbackPlaySource::modelChanged(" << startFrame << "," << endFrame << ")" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::modelChangedWithin(" << startFrame << "," << endFrame << ")" << endl;
 #endif
     if (endFrame > m_lastModelEndFrame) {
         m_lastModelEndFrame = endFrame;
@@ -286,8 +290,8 @@ AudioCallbackPlaySource::removeModel(Model *model)
     cout << "AudioCallbackPlaySource::removeModel(" << model << ")" << endl;
 #endif
 
-    disconnect(model, SIGNAL(modelChanged(int, int)),
-               this, SLOT(modelChanged(int, int)));
+    disconnect(model, SIGNAL(modelChangedWithin(int, int)),
+               this, SLOT(modelChangedWithin(int, int)));
 
     m_models.erase(model);
 
@@ -307,7 +311,9 @@ AudioCallbackPlaySource::removeModel(Model *model)
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << endl;
 #endif
-	if ((*i)->getEndFrame() > lastEnd) lastEnd = (*i)->getEndFrame();
+	if ((*i)->getEndFrame() > lastEnd) {
+            lastEnd = (*i)->getEndFrame();
+        }
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
 	cout << "(done, lastEnd now " << lastEnd << ")" << endl;
 #endif
