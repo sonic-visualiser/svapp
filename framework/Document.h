@@ -128,6 +128,8 @@ public:
     std::vector<Layer *> createDerivedLayers(const Transforms &,
                                              const ModelTransformer::Input &);
 
+    typedef void *LayerCreationAsyncHandle;
+
     class LayerCreationHandler {
     public:
         virtual ~LayerCreationHandler() { }
@@ -137,9 +139,12 @@ public:
          * models, listed in the same order as the input models. The
          * additional layers vector contains any layers (from all
          * models) that were returned separately at the end of
-         * processing.
+         * processing. The handle indicates which async process this
+         * callback was initiated by. It must not be used again after
+         * this function returns.
          */
-        virtual void layersCreated(std::vector<Layer *> primary,
+        virtual void layersCreated(LayerCreationAsyncHandle handle,
+                                   std::vector<Layer *> primary,
                                    std::vector<Layer *> additional) = 0;
     };
 
@@ -148,11 +153,21 @@ public:
      * identical apart from the output (i.e. must use the same plugin
      * and configuration). This method returns after initialising the
      * transformer process, and the layers are returned through a
-     * subsequent call to the provided handler (which must be non-null).
+     * subsequent call to the provided handler (which must be
+     * non-null). The handle returned will be passed through to the
+     * handler callback, and may be also used for cancelling the task.
      */
-    void createDerivedLayersAsync(const Transforms &,
-                                  const ModelTransformer::Input &,
-                                  LayerCreationHandler *handler);
+    LayerCreationAsyncHandle createDerivedLayersAsync(const Transforms &,
+                                                      const ModelTransformer::Input &,
+                                                      LayerCreationHandler *handler);
+
+    /**
+     * Indicate that the async layer creation task associated with the
+     * given handle should be cancelled. There is no guarantee about
+     * what this will mean, and the handler callback may still be
+     * called.
+     */
+    void cancelAsyncLayerCreation(LayerCreationAsyncHandle handle);
 
     /**
      * Delete the given layer, and also its associated model if no
