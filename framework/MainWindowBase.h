@@ -284,6 +284,8 @@ protected slots:
 
     virtual void newerVersionAvailable(QString) { }
 
+    virtual void menuActionMapperInvoked(QObject *);
+
 protected:
     QString                  m_sessionFile;
     QString                  m_audioFile;
@@ -411,6 +413,11 @@ protected:
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
     virtual void updatePositionStatusDisplays() const = 0;
+
+    // Call this after setting up the menu bar, to fix up single-key
+    // shortcuts on OS/X
+    virtual void finaliseMenus();
+    virtual void finaliseMenu(QMenu *);
 
     virtual bool shouldCreateNewSessionForRDFAudio(bool *) { return true; }
 

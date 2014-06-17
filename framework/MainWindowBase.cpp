@@ -99,6 +99,7 @@
 #include <QRegExp>
 #include <QScrollArea>
 #include <QDesktopWidget>
+#include <QSignalMapper>
 
 #include <iostream>
 #include <cstdio>
@@ -267,6 +268,70 @@ MainWindowBase::~MainWindowBase()
     delete m_oscQueueStarter;
     delete m_midiInput;
     Profiles::getInstance()->dump();
+}
+
+void
+MainWindowBase::finaliseMenus()
+{
+    QMenuBar *mb = menuBar();
+    QList<QMenu *> menus = mb->findChildren<QMenu *>();
+    foreach (QMenu *menu, menus) {
+        if (menu) finaliseMenu(menu);
+    }
+}
+
+void
+MainWindowBase::finaliseMenu(QMenu *menu)
+{
+#ifdef Q_OS_MAC
+    // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
+    // our issue #890 http://code.soundsoftware.ac.uk/issues/890 --
+    // single-key shortcuts that are associated only with a menu
+    // action do not work with Qt 5.x under OS/X.
+    // 
+    // Apparently Cocoa never handled them as a matter of course, but
+    // earlier versions of Qt picked them up as widget shortcuts and
+    // handled them anyway. That behaviour was removed to fix a crash
+    // when invoking a menu while its window was overridden by a modal
+    // dialog (https://bugreports.qt-project.org/browse/QTBUG-30657).
+    //
+    // This workaround restores the single-key shortcut behaviour by
+    // searching for single-key shortcuts in menus and replacing them
+    // with global application shortcuts that invoke the relevant
+    // actions, testing whether the actions are enabled on invocation.
+    // As it happens, it also replaces some shortcuts that were
+    // working fine (because they were also associated with toolbar
+    // buttons) but that seems to be OK so long as we remove the
+    // shortcuts from the actions as well as adding the new global
+    // shortcuts, to avoid an ambiguous shortcut error.
+    //
+    // If the Qt developers ever fix this in Qt (I couldn't think of
+    // an obvious fix myself) then presumably we can remove this.
+
+    QSignalMapper *mapper = new QSignalMapper(this);
+
+    connect(mapper, SIGNAL(mapped(QObject *)),
+            this, SLOT(menuActionMapperInvoked(QObject *)));
+
+    foreach (QAction *a, menu->actions()) {
+        QKeySequence sc = a->shortcut();
+        if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
+            QShortcut *newSc = new QShortcut(sc, a->parentWidget());
+            QObject::connect(newSc, SIGNAL(activated()), mapper, SLOT(map()));
+            mapper->setMapping(newSc, a);
+            a->setShortcut(QKeySequence()); // avoid ambiguous shortcut error
+        }
+    }
+#endif
+}
+
+void
+MainWindowBase::menuActionMapperInvoked(QObject *o)
+{
+    QAction *a = qobject_cast<QAction *>(o);
+    if (a && a->isEnabled()) {
+        a->trigger();
+    }
 }
 
 void
@@ -925,14 +990,14 @@ MainWindowBase::insertInstantAt(size_t frame)
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (m_labeller->actingOnPrevPoint()) {
+                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
                     command->deletePoint(prevPoint);
                 }
 
                 m_labeller->label<SparseOneDimensionalModel::Point>
                     (point, havePrevPoint ? &prevPoint : 0);
 
-                if (m_labeller->actingOnPrevPoint()) {
+                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
                     command->addPoint(prevPoint);
                 }
             }
