@@ -110,7 +110,7 @@ public:
     virtual bool saveSessionTemplate(QString path);
 
     /// Implementation of FrameTimer interface method
-    virtual unsigned long getFrame() const;
+    virtual int getFrame() const;
 
 signals:
     // Used to toggle the availability of menu actions
@@ -207,14 +207,14 @@ protected slots:
     virtual void playSelectionToggled();
     virtual void playSoloToggled();
 
-    virtual void sampleRateMismatch(size_t, size_t, bool) = 0;
+    virtual void sampleRateMismatch(int, int, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
     virtual void audioTimeStretchMultiChannelDisabled() = 0;
 
-    virtual void playbackFrameChanged(unsigned long);
-    virtual void globalCentreFrameChanged(unsigned long);
-    virtual void viewCentreFrameChanged(View *, unsigned long);
-    virtual void viewZoomLevelChanged(View *, unsigned long, bool);
+    virtual void playbackFrameChanged(int);
+    virtual void globalCentreFrameChanged(int);
+    virtual void viewCentreFrameChanged(View *, int);
+    virtual void viewZoomLevelChanged(View *, int, bool);
     virtual void outputLevelsChanged(float, float) = 0;
 
     virtual void currentPaneChanged(Pane *);
@@ -234,10 +234,10 @@ protected slots:
     virtual void deleteSelected();
 
     virtual void insertInstant();
-    virtual void insertInstantAt(size_t);
+    virtual void insertInstantAt(int);
     virtual void insertInstantsAtBoundaries();
     virtual void insertItemAtSelection();
-    virtual void insertItemAt(size_t, size_t);
+    virtual void insertItemAt(int, int);
     virtual void renumberInstants();
 
     virtual void documentModified();

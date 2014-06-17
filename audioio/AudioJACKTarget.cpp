@@ -171,6 +171,20 @@ static int dynamic_jack_port_unregister(jack_client_t *client,
     return f(client, port);
 }
 
+static void dynamic_jack_port_get_latency_range(jack_port_t *port,
+                                                jack_latency_callback_mode_t mode,
+                                                jack_latency_range_t *range)
+{
+    typedef void (*func)(jack_port_t *, jack_latency_callback_mode_t, jack_latency_range_t *);
+    void *s = symbol("jack_port_get_latency_range");
+    if (!s) {
+        range.min = range.max = 0;
+        return;
+    }
+    func f = (func)s;
+    f(port, mode, range);
+}
+
 #define dynamic1(rv, name, argtype, failval) \
     static rv dynamic_##name(argtype arg) { \
         typedef rv (*func) (argtype); \
@@ -187,7 +201,6 @@ dynamic1(int, jack_activate, jack_client_t *, 1);
 dynamic1(int, jack_deactivate, jack_client_t *, 1);
 dynamic1(int, jack_client_close, jack_client_t *, 1);
 dynamic1(jack_nframes_t, jack_frame_time, jack_client_t *, 0);
-dynamic1(jack_nframes_t, jack_port_get_latency, jack_port_t *, 0);
 dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 
 #define jack_client_new dynamic_jack_client_new
@@ -203,7 +216,6 @@ dynamic1(const char *, jack_port_name, const jack_port_t *, 0);
 #define jack_get_ports dynamic_jack_get_ports
 #define jack_port_register dynamic_jack_port_register
 #define jack_port_unregister dynamic_jack_port_unregister
-#define jack_port_get_latency dynamic_jack_port_get_latency
 #define jack_port_name dynamic_jack_port_name
 #define jack_connect dynamic_jack_connect
 #define jack_port_get_buffer dynamic_jack_port_get_buffer
@@ -334,12 +346,12 @@ AudioJACKTarget::sourceModelReplaced()
     m_source->setTarget(this, m_bufferSize);
     m_source->setTargetSampleRate(m_sampleRate);
 
-    size_t channels = m_source->getSourceChannelCount();
+    int channels = m_source->getSourceChannelCount();
 
     // Because we offer pan, we always want at least 2 channels
     if (channels < 2) channels = 2;
 
-    if (channels == m_outputs.size() || !m_client) {
+    if (channels == (int)m_outputs.size() || !m_client) {
 	m_mutex.unlock();
 	return;
     }
@@ -347,14 +359,14 @@ AudioJACKTarget::sourceModelReplaced()
     const char **ports =
 	jack_get_ports(m_client, NULL, NULL,
 		       JackPortIsPhysical | JackPortIsInput);
-    size_t physicalPortCount = 0;
+    int physicalPortCount = 0;
     while (ports[physicalPortCount]) ++physicalPortCount;
 
 #ifdef DEBUG_AUDIO_JACK_TARGET    
     SVDEBUG << "AudioJACKTarget::sourceModelReplaced: have " << channels << " channels and " << physicalPortCount << " physical ports" << endl;
 #endif
 
-    while (m_outputs.size() < channels) {
+    while ((int)m_outputs.size() < channels) {
 	
 	char name[20];
 	jack_port_t *port;
@@ -372,17 +384,20 @@ AudioJACKTarget::sourceModelReplaced()
 		<< "ERROR: AudioJACKTarget: Failed to create JACK output port "
 		<< m_outputs.size() << endl;
 	} else {
-	    m_source->setTargetPlayLatency(jack_port_get_latency(port));
+            jack_latency_range_t range;
+            jack_port_get_latency_range(port, JackPlaybackLatency, &range);
+	    m_source->setTargetPlayLatency(range.max);
+            cerr << "AudioJACKTarget: output latency is " << range.max << endl;
 	}
 
-	if (m_outputs.size() < physicalPortCount) {
+	if ((int)m_outputs.size() < physicalPortCount) {
 	    jack_connect(m_client, jack_port_name(port), ports[m_outputs.size()]);
 	}
 
 	m_outputs.push_back(port);
     }
 
-    while (m_outputs.size() > channels) {
+    while ((int)m_outputs.size() > channels) {
 	std::vector<jack_port_t *>::iterator itr = m_outputs.end();
 	--itr;
 	jack_port_t *port = *itr;
@@ -419,29 +434,29 @@ AudioJACKTarget::process(jack_nframes_t nframes)
 
     float **buffers = (float **)alloca(m_outputs.size() * sizeof(float *));
 
-    for (size_t ch = 0; ch < m_outputs.size(); ++ch) {
+    for (int ch = 0; ch < (int)m_outputs.size(); ++ch) {
 	buffers[ch] = (float *)jack_port_get_buffer(m_outputs[ch], nframes);
     }
 
-    size_t received = 0;
+    int received = 0;
 
     if (m_source) {
 	received = m_source->getSourceSamples(nframes, buffers);
     }
 
-    for (size_t ch = 0; ch < m_outputs.size(); ++ch) {
-        for (size_t i = received; i < nframes; ++i) {
+    for (int ch = 0; ch < (int)m_outputs.size(); ++ch) {
+        for (int i = received; i < (int)nframes; ++i) {
             buffers[ch][i] = 0.0;
         }
     }
 
     float peakLeft = 0.0, peakRight = 0.0;
 
-    for (size_t ch = 0; ch < m_outputs.size(); ++ch) {
+    for (int ch = 0; ch < (int)m_outputs.size(); ++ch) {
 
 	float peak = 0.0;
 
-	for (size_t i = 0; i < nframes; ++i) {
+	for (int i = 0; i < (int)nframes; ++i) {
 	    buffers[ch][i] *= m_outputGain;
 	    float sample = fabsf(buffers[ch][i]);
 	    if (sample > peak) peak = sample;

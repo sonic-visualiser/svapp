@@ -27,8 +27,8 @@ public:
                            Vamp::PluginBase *plugin,
                            Model *&inputModel,
 			   AudioPlaySource *source,
-			   size_t startFrame,
-			   size_t duration,
+			   int startFrame,
+			   int duration,
 			   const QMap<QString, Model *> &modelMap,
                            QStringList candidateModelNames,
                            QString defaultModelName);

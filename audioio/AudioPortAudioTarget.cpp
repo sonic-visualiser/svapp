@@ -218,10 +218,10 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
     assert(nframes <= m_bufferSize);
 
     static float **tmpbuf = 0;
-    static size_t tmpbufch = 0;
-    static size_t tmpbufsz = 0;
+    static int tmpbufch = 0;
+    static int tmpbufsz = 0;
 
-    size_t sourceChannels = m_source->getSourceChannelCount();
+    int sourceChannels = m_source->getSourceChannelCount();
 
     // Because we offer pan, we always want at least 2 channels
     if (sourceChannels < 2) sourceChannels = 2;
@@ -229,7 +229,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
     if (!tmpbuf || tmpbufch != sourceChannels || int(tmpbufsz) < m_bufferSize) {
 
 	if (tmpbuf) {
-	    for (size_t i = 0; i < tmpbufch; ++i) {
+	    for (int i = 0; i < tmpbufch; ++i) {
 		delete[] tmpbuf[i];
 	    }
 	    delete[] tmpbuf;
@@ -239,23 +239,23 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
 	tmpbufsz = m_bufferSize;
 	tmpbuf = new float *[tmpbufch];
 
-	for (size_t i = 0; i < tmpbufch; ++i) {
+	for (int i = 0; i < tmpbufch; ++i) {
 	    tmpbuf[i] = new float[tmpbufsz];
 	}
     }
 	
-    size_t received = m_source->getSourceSamples(nframes, tmpbuf);
+    int received = m_source->getSourceSamples(nframes, tmpbuf);
 
     float peakLeft = 0.0, peakRight = 0.0;
 
-    for (size_t ch = 0; ch < 2; ++ch) {
+    for (int ch = 0; ch < 2; ++ch) {
 	
 	float peak = 0.0;
 
 	if (ch < sourceChannels) {
 
 	    // PortAudio samples are interleaved
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
                 if (i < received) {
                     output[i * 2 + ch] = tmpbuf[ch][i] * m_outputGain;
                     float sample = fabsf(output[i * 2 + ch]);
@@ -267,7 +267,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
 
 	} else if (ch == 1 && sourceChannels == 1) {
 
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
                 if (i < received) {
                     output[i * 2 + ch] = tmpbuf[0][i] * m_outputGain;
                     float sample = fabsf(output[i * 2 + ch]);
@@ -278,7 +278,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
 	    }
 
 	} else {
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
 		output[i * 2 + ch] = 0;
 	    }
 	}

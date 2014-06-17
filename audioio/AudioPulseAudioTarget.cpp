@@ -163,7 +163,7 @@ AudioPulseAudioTarget::streamWriteStatic(pa_stream *stream,
 }
 
 void
-AudioPulseAudioTarget::streamWrite(size_t requested)
+AudioPulseAudioTarget::streamWrite(int requested)
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << endl;
@@ -181,15 +181,15 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 
     static float *output = 0;
     static float **tmpbuf = 0;
-    static size_t tmpbufch = 0;
-    static size_t tmpbufsz = 0;
+    static int tmpbufch = 0;
+    static int tmpbufsz = 0;
 
-    size_t sourceChannels = m_source->getSourceChannelCount();
+    int sourceChannels = m_source->getSourceChannelCount();
 
     // Because we offer pan, we always want at least 2 channels
     if (sourceChannels < 2) sourceChannels = 2;
 
-    size_t nframes = requested / (sourceChannels * sizeof(float));
+    int nframes = requested / (sourceChannels * sizeof(float));
 
     if (nframes > m_bufferSize) {
         cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << endl;
@@ -202,7 +202,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
     if (!tmpbuf || tmpbufch != sourceChannels || int(tmpbufsz) < nframes) {
 
 	if (tmpbuf) {
-	    for (size_t i = 0; i < tmpbufch; ++i) {
+	    for (int i = 0; i < tmpbufch; ++i) {
 		delete[] tmpbuf[i];
 	    }
 	    delete[] tmpbuf;
@@ -216,14 +216,14 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 	tmpbufsz = nframes;
 	tmpbuf = new float *[tmpbufch];
 
-	for (size_t i = 0; i < tmpbufch; ++i) {
+	for (int i = 0; i < tmpbufch; ++i) {
 	    tmpbuf[i] = new float[tmpbufsz];
 	}
 
         output = new float[tmpbufsz * tmpbufch];
     }
 	
-    size_t received = m_source->getSourceSamples(nframes, tmpbuf);
+    int received = m_source->getSourceSamples(nframes, tmpbuf);
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     cerr << "requested " << nframes << ", received " << received << endl;
@@ -235,14 +235,14 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 
     float peakLeft = 0.0, peakRight = 0.0;
 
-    for (size_t ch = 0; ch < 2; ++ch) {
+    for (int ch = 0; ch < 2; ++ch) {
 	
 	float peak = 0.0;
 
 	if (ch < sourceChannels) {
 
 	    // PulseAudio samples are interleaved
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
                 if (i < received) {
                     output[i * 2 + ch] = tmpbuf[ch][i] * m_outputGain;
                     float sample = fabsf(output[i * 2 + ch]);
@@ -254,7 +254,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 
 	} else if (ch == 1 && sourceChannels == 1) {
 
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
                 if (i < received) {
                     output[i * 2 + ch] = tmpbuf[0][i] * m_outputGain;
                     float sample = fabsf(output[i * 2 + ch]);
@@ -265,7 +265,7 @@ AudioPulseAudioTarget::streamWrite(size_t requested)
 	    }
 
 	} else {
-	    for (size_t i = 0; i < nframes; ++i) {
+	    for (int i = 0; i < nframes; ++i) {
 		output[i * 2 + ch] = 0;
 	    }
 	}
@@ -308,47 +308,48 @@ AudioPulseAudioTarget::streamStateChanged()
 
     switch (pa_stream_get_state(m_stream)) {
 
-        case PA_STREAM_CREATING:
-        case PA_STREAM_TERMINATED:
-            break;
+    case PA_STREAM_UNCONNECTED:
+    case PA_STREAM_CREATING:
+    case PA_STREAM_TERMINATED:
+        break;
 
-        case PA_STREAM_READY:
-        {
-            SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: Ready" << endl;
-
-            pa_usec_t latency = 0;
-            int negative = 0;
-            if (pa_stream_get_latency(m_stream, &latency, &negative)) {
-                cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << endl;
-            }
-            cerr << "Latency = " << latency << " usec" << endl;
-            int latframes = (latency / 1000000.f) * float(m_sampleRate);
-            cerr << "that's " << latframes << " frames" << endl;
-
-            const pa_buffer_attr *attr;
-            if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
-                SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << endl;
-                m_source->setTarget(this, m_bufferSize);
-                m_source->setTargetSampleRate(m_sampleRate);
-                if (latframes != 0) m_source->setTargetPlayLatency(latframes);
-            } else {
-                int targetLength = attr->tlength;
-                SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: stream target length = " << targetLength << endl;
-                m_source->setTarget(this, targetLength);
-                m_source->setTargetSampleRate(m_sampleRate);
-                if (latframes == 0) latframes = targetLength;
-                cerr << "latency = " << latframes << endl;
-                m_source->setTargetPlayLatency(latframes);
-            }
+    case PA_STREAM_READY:
+    {
+        SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: Ready" << endl;
+        
+        pa_usec_t latency = 0;
+        int negative = 0;
+        if (pa_stream_get_latency(m_stream, &latency, &negative)) {
+            cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << endl;
         }
-            break;
+        cerr << "Latency = " << latency << " usec" << endl;
+        int latframes = (latency / 1000000.f) * float(m_sampleRate);
+        cerr << "that's " << latframes << " frames" << endl;
 
-        case PA_STREAM_FAILED:
-        default:
-            cerr << "AudioPulseAudioTarget::streamStateChanged: Error: "
-                      << pa_strerror(pa_context_errno(m_context)) << endl;
-            //!!! do something...
-            break;
+        const pa_buffer_attr *attr;
+        if (!(attr = pa_stream_get_buffer_attr(m_stream))) {
+            SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: Cannot query stream buffer attributes" << endl;
+            m_source->setTarget(this, m_bufferSize);
+            m_source->setTargetSampleRate(m_sampleRate);
+            if (latframes != 0) m_source->setTargetPlayLatency(latframes);
+        } else {
+            int targetLength = attr->tlength;
+            SVDEBUG << "AudioPulseAudioTarget::streamStateChanged: stream target length = " << targetLength << endl;
+            m_source->setTarget(this, targetLength);
+            m_source->setTargetSampleRate(m_sampleRate);
+            if (latframes == 0) latframes = targetLength;
+            cerr << "latency = " << latframes << endl;
+            m_source->setTargetPlayLatency(latframes);
+        }
+    }
+    break;
+    
+    case PA_STREAM_FAILED:
+    default:
+        cerr << "AudioPulseAudioTarget::streamStateChanged: Error: "
+             << pa_strerror(pa_context_errno(m_context)) << endl;
+        //!!! do something...
+        break;
     }
 }
 
@@ -373,6 +374,7 @@ AudioPulseAudioTarget::contextStateChanged()
 
     switch (pa_context_get_state(m_context)) {
 
+        case PA_CONTEXT_UNCONNECTED:
         case PA_CONTEXT_CONNECTING:
         case PA_CONTEXT_AUTHORIZING:
         case PA_CONTEXT_SETTING_NAME:
