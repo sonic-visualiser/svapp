@@ -185,7 +185,7 @@ AudioPortAudioTarget::sourceModelReplaced()
 
 int
 AudioPortAudioTarget::process(const void *, void *outputBuffer,
-                              unsigned long nframes,
+                              int nframes,
                               const PaStreamCallbackTimeInfo *,
                               PaStreamCallbackFlags)
 {
