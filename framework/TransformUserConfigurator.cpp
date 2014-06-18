@@ -54,8 +54,8 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 				     Vamp::PluginBase *plugin,
                                      Model *&inputModel,
 				     AudioPlaySource *source,
-				     size_t startFrame,
-				     size_t duration,
+				     int startFrame,
+				     int duration,
 				     const QMap<QString, Model *> &modelMap,
 				     QStringList candidateModelNames,
 				     QString defaultModelName)
@@ -201,7 +201,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 	}
     }
 
-    size_t stepSize = 0, blockSize = 0;
+    int stepSize = 0, blockSize = 0;
     WindowType windowType = HanningWindow;
 
     dialog->getProcessingParameters(stepSize,

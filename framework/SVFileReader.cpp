@@ -300,7 +300,7 @@ SVFileReader::endElement(const QString &, const QString &,
     } else if (name == "derivation") {
 
         if (!m_currentDerivedModel) {
-            if (m_currentDerivedModel < 0) {
+            if (m_currentDerivedModelId < 0) {
                 cerr << "WARNING: SV-XML: Bad derivation output model id "
                           << m_currentDerivedModelId << endl;
             } else if (haveModel(m_currentDerivedModelId)) {
@@ -448,7 +448,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     READ_MANDATORY(int, sampleRate, toInt);
 
     QString type = attributes.value("type").trimmed();
-    bool mainModel = (attributes.value("mainModel").trimmed() == "true");
+    bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
 
     if (type == "wavefile") {
 	
@@ -473,10 +473,13 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             file.waitForData();
 
-            size_t rate = 0;
+            int rate = sampleRate;
 
-            if (!mainModel &&
-                Preferences::getInstance()->getResampleOnLoad()) {
+            if (Preferences::getInstance()->getFixedSampleRate() != 0) {
+                rate = Preferences::getInstance()->getFixedSampleRate();
+            } else if (rate == 0 &&
+                       !isMainModel &&
+                       Preferences::getInstance()->getResampleOnLoad()) {
                 WaveFileModel *mm = m_document->getMainModel();
                 if (mm) rate = mm->getSampleRate();
             }
@@ -492,7 +495,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         model->setObjectName(name);
 	m_models[id] = model;
-	if (mainModel) {
+	if (isMainModel) {
 	    m_document->setMainModel(model);
 	    m_addedModels.insert(model);
 	}
@@ -754,8 +757,8 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 
     // The view properties first
 
-    READ_MANDATORY(size_t, centre, toUInt);
-    READ_MANDATORY(size_t, zoom, toUInt);
+    READ_MANDATORY(int, centre, toInt);
+    READ_MANDATORY(int, zoom, toInt);
     READ_MANDATORY(int, followPan, toInt);
     READ_MANDATORY(int, followZoom, toInt);
     QString tracking = attributes.value("tracking");
@@ -1004,8 +1007,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a note model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
@@ -1022,8 +1025,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a flexinote model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
@@ -1040,8 +1043,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a region model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
 	rm->addPoint(RegionModel::Point(frame, value, duration, label));
 	return ok;
@@ -1150,7 +1153,7 @@ SVFileReader::readRowData(const QString &text)
 
 	for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
 
-	    if (values.size() == dtdm->getHeight()) {
+	    if (values.size() == (int)dtdm->getHeight()) {
 		if (!warned) {
 		    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
 			      << m_rowNumber << endl;
@@ -1245,8 +1248,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     QString startFrameStr = attributes.value("startFrame");
     QString durationStr = attributes.value("duration");
 
-    size_t startFrame = 0;
-    size_t duration = 0;
+    int startFrame = 0;
+    int duration = 0;
 
     if (startFrameStr != "") {
         startFrame = startFrameStr.trimmed().toInt(&ok);

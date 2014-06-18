@@ -67,20 +67,20 @@ public:
      * Set the target channel count.  The buffer parameter to mixModel
      * must always point to at least this number of arrays.
      */
-    virtual void setTargetChannelCount(size_t channelCount);
+    virtual void setTargetChannelCount(int channelCount);
 
     /**
      * Return the internal processing block size.  The frameCount
      * argument to all mixModel calls must be a multiple of this
      * value.
      */
-    virtual size_t getBlockSize() const;
+    virtual int getBlockSize() const;
 
     /**
      * Mix a single model into an output buffer.
      */
-    virtual size_t mixModel(Model *model, size_t startFrame, size_t frameCount,
-			    float **buffer, size_t fadeIn = 0, size_t fadeOut = 0);
+    virtual int mixModel(Model *model, int startFrame, int frameCount,
+			    float **buffer, int fadeIn = 0, int fadeOut = 0);
 
     /**
      * Specify that only the given set of models should be played.
@@ -97,19 +97,19 @@ protected slots:
     void playClipIdChanged(const Playable *, QString);
 
 protected:
-    size_t m_sourceSampleRate;
-    size_t m_targetChannelCount;
-    size_t m_waveType;
+    int m_sourceSampleRate;
+    int m_targetChannelCount;
+    int m_waveType;
 
     bool m_soloing;
     std::set<Model *> m_soloModelSet;
 
     struct NoteOff {
 
-        NoteOff(float _freq, size_t _frame) : frequency(_freq), frame(_frame) { }
+        NoteOff(float _freq, int _frame) : frequency(_freq), frame(_frame) { }
 
         float frequency;
-	size_t frame;
+	int frame;
 
 	struct Comparator {
 	    bool operator()(const NoteOff &n1, const NoteOff &n2) const {
@@ -143,19 +143,19 @@ protected:
 
     static void initialiseSampleDir();
 
-    virtual size_t mixDenseTimeValueModel
-    (DenseTimeValueModel *model, size_t startFrame, size_t frameCount,
-     float **buffer, float gain, float pan, size_t fadeIn, size_t fadeOut);
+    virtual int mixDenseTimeValueModel
+    (DenseTimeValueModel *model, int startFrame, int frameCount,
+     float **buffer, float gain, float pan, int fadeIn, int fadeOut);
 
-    virtual size_t mixClipModel
-    (Model *model, size_t startFrame, size_t frameCount,
+    virtual int mixClipModel
+    (Model *model, int startFrame, int frameCount,
      float **buffer, float gain, float pan);
 
-    virtual size_t mixContinuousSynthModel
-    (Model *model, size_t startFrame, size_t frameCount,
+    virtual int mixContinuousSynthModel
+    (Model *model, int startFrame, int frameCount,
      float **buffer, float gain, float pan);
     
-    static const size_t m_processingBlockSize;
+    static const int m_processingBlockSize;
 };
 
 #endif

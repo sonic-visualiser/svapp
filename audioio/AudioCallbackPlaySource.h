@@ -83,7 +83,7 @@ public:
      * from the given frame.  If playback is already under way, reseek
      * to the given frame and continue.
      */
-    virtual void play(size_t startFrame);
+    virtual void play(int startFrame);
 
     /**
      * Stop playback and ensure that no more data is returned.
@@ -99,24 +99,24 @@ public:
      * Return the frame number that is currently expected to be coming
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
-    virtual size_t getCurrentPlayingFrame();
+    virtual int getCurrentPlayingFrame();
     
     /** 
      * Return the last frame that would come out of the speakers if we
      * stopped playback right now.
      */
-    virtual size_t getCurrentBufferedFrame();
+    virtual int getCurrentBufferedFrame();
 
     /**
      * Return the frame at which playback is expected to end (if not looping).
      */
-    virtual size_t getPlayEndFrame() { return m_lastModelEndFrame; }
+    virtual int getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
      * Set the target and the block size of the target audio device.
      * This should be called by the target class.
      */
-    void setTarget(AudioCallbackPlayTarget *, size_t blockSize);
+    void setTarget(AudioCallbackPlayTarget *, int blockSize);
 
     /**
      * Get the block size of the target audio device.  This may be an
@@ -124,7 +124,7 @@ public:
      * size; the source should behave itself even if this value turns
      * out to be inaccurate.
      */
-    size_t getTargetBlockSize() const;
+    int getTargetBlockSize() const;
 
     /**
      * Set the playback latency of the target audio device, in frames
@@ -133,12 +133,12 @@ public:
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
      */
-    void setTargetPlayLatency(size_t);
+    void setTargetPlayLatency(int);
 
     /**
      * Get the playback latency of the target audio device.
      */
-    size_t getTargetPlayLatency() const;
+    int getTargetPlayLatency() const;
 
     /**
      * Specify that the target audio device has a fixed sample rate
@@ -147,13 +147,13 @@ public:
      * source sample rate, this class will resample automatically to
      * fit.
      */
-    void setTargetSampleRate(size_t);
+    void setTargetSampleRate(int);
 
     /**
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    virtual size_t getTargetSampleRate() const;
+    virtual int getTargetSampleRate() const;
 
     /**
      * Set the current output levels for metering (for call from the
@@ -172,7 +172,7 @@ public:
      * This may safely be called from a realtime thread.  Returns 0 if
      * there is no source yet available.
      */
-    size_t getSourceChannelCount() const;
+    int getSourceChannelCount() const;
 
     /**
      * Get the number of channels of audio that will be provided
@@ -182,21 +182,21 @@ public:
      * This may safely be called from a realtime thread.  Returns 0 if
      * there is no source yet available.
      */
-    size_t getTargetChannelCount() const;
+    int getTargetChannelCount() const;
 
     /**
      * Get the actual sample rate of the source material.  This may
      * safely be called from a realtime thread.  Returns 0 if there is
      * no source yet available.
      */
-    virtual size_t getSourceSampleRate() const;
+    virtual int getSourceSampleRate() const;
 
     /**
      * Get "count" samples (at the target sample rate) of the mixed
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    size_t getSourceSamples(size_t count, float **buffer);
+    int getSourceSamples(int count, float **buffer);
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
@@ -244,7 +244,7 @@ signals:
 
     void playStatusChanged(bool isPlaying);
 
-    void sampleRateMismatch(size_t requested, size_t available, bool willResample);
+    void sampleRateMismatch(int requested, int available, bool willResample);
 
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
@@ -260,7 +260,7 @@ protected slots:
     void playSelectionModeChanged();
     void playParametersChanged(PlayParameters *);
     void preferenceChanged(PropertyContainer::PropertyName);
-    void modelChanged(size_t startFrame, size_t endFrame);
+    void modelChangedWithin(int startFrame, int endFrame);
 
 protected:
     ViewManagerBase                  *m_viewManager;
@@ -280,50 +280,50 @@ protected:
     std::set<Model *>                 m_models;
     RingBufferVector                 *m_readBuffers;
     RingBufferVector                 *m_writeBuffers;
-    size_t                            m_readBufferFill;
-    size_t                            m_writeBufferFill;
+    int                               m_readBufferFill;
+    int                               m_writeBufferFill;
     Scavenger<RingBufferVector>       m_bufferScavenger;
-    size_t                            m_sourceChannelCount;
-    size_t                            m_blockSize;
-    size_t                            m_sourceSampleRate;
-    size_t                            m_targetSampleRate;
-    size_t                            m_playLatency;
+    int                               m_sourceChannelCount;
+    int                               m_blockSize;
+    int                               m_sourceSampleRate;
+    int                               m_targetSampleRate;
+    int                               m_playLatency;
     AudioCallbackPlayTarget          *m_target;
     double                            m_lastRetrievalTimestamp;
-    size_t                            m_lastRetrievedBlockSize;
+    int                               m_lastRetrievedBlockSize;
     bool                              m_trustworthyTimestamps;
-    size_t                            m_lastCurrentFrame;
+    int                               m_lastCurrentFrame;
     bool                              m_playing;
     bool                              m_exiting;
-    size_t                            m_lastModelEndFrame;
-    size_t                            m_ringBufferSize;
+    int                               m_lastModelEndFrame;
+    int                               m_ringBufferSize;
     float                             m_outputLeft;
     float                             m_outputRight;
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
-    size_t                            m_playStartFrame;
+    int                               m_playStartFrame;
     bool                              m_playStartFramePassed;
     RealTime                          m_playStartedAt;
 
-    RingBuffer<float> *getWriteRingBuffer(size_t c) {
-	if (m_writeBuffers && c < m_writeBuffers->size()) {
+    RingBuffer<float> *getWriteRingBuffer(int c) {
+	if (m_writeBuffers && c < (int)m_writeBuffers->size()) {
 	    return (*m_writeBuffers)[c];
 	} else {
 	    return 0;
 	}
     }
 
-    RingBuffer<float> *getReadRingBuffer(size_t c) {
+    RingBuffer<float> *getReadRingBuffer(int c) {
 	RingBufferVector *rb = m_readBuffers;
-	if (rb && c < rb->size()) {
+	if (rb && c < (int)rb->size()) {
 	    return (*rb)[c];
 	} else {
 	    return 0;
 	}
     }
 
-    void clearRingBuffers(bool haveLock = false, size_t count = 0);
+    void clearRingBuffers(bool haveLock = false, int count = 0);
     void unifyRingBuffers();
 
     RubberBand::RubberBandStretcher *m_timeStretcher;
@@ -331,9 +331,9 @@ protected:
     float m_stretchRatio;
     bool m_stretchMono;
     
-    size_t  m_stretcherInputCount;
+    int  m_stretcherInputCount;
     float **m_stretcherInputs;
-    size_t *m_stretcherInputSizes;
+    int *m_stretcherInputSizes;
 
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done
@@ -343,17 +343,17 @@ protected:
     // which will be count or fewer.  Return in the frame argument the
     // new buffered frame position (which may be earlier than the
     // frame argument passed in, in the case of looping).
-    size_t mixModels(size_t &frame, size_t count, float **buffers);
+    int mixModels(int &frame, int count, float **buffers);
 
     // Called from getSourceSamples.
-    void applyAuditioningEffect(size_t count, float **buffers);
+    void applyAuditioningEffect(int count, float **buffers);
 
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
     std::vector<RealTime> m_rangeDurations;
     void rebuildRangeLists();
 
-    size_t getCurrentFrame(RealTime outputLatency);
+    int getCurrentFrame(RealTime outputLatency);
 
     class FillThread : public Thread
     {

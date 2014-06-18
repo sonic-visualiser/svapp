@@ -235,7 +235,7 @@ Document::createDerivedLayers(const Transforms &transforms,
     }
 
     QStringList names;
-    for (int i = 0; i < newModels.size(); ++i) {
+    for (int i = 0; i < (int)newModels.size(); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -275,15 +275,24 @@ public:
         }
         vector<Layer *> layers = m_doc->createLayersForDerivedModels
             (models, names);
-        m_handler->layersCreated(m_primary, layers);
+        m_handler->layersCreated(this, m_primary, layers);
         delete this;
     }
 
     void
     noMoreModelsAvailable() {
         std::cerr << "AdditionalModelConverter::noMoreModelsAvailable" << std::endl;
-        m_handler->layersCreated(m_primary, vector<Layer *>());
+        m_handler->layersCreated(this, m_primary, vector<Layer *>());
         delete this;
+    }
+
+    void cancel() {
+        foreach (Layer *layer, m_primary) {
+            Model *model = layer->getModel();
+            if (model) {
+                model->abandon();
+            }
+        }
     }
 
 private:
@@ -292,7 +301,7 @@ private:
     Document::LayerCreationHandler *m_handler; //!!! how to handle destruction of this?
 };
 
-void
+Document::LayerCreationAsyncHandle
 Document::createDerivedLayersAsync(const Transforms &transforms,
                                    const ModelTransformer::Input &input,
                                    LayerCreationHandler *handler)
@@ -305,7 +314,7 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
         (transforms, input, message, amc);
 
     QStringList names;
-    for (int i = 0; i < newModels.size(); ++i) {
+    for (int i = 0; i < (int)newModels.size(); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -318,10 +327,21 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
     if (newModels.empty()) {
         //!!! This identifier may be wrong!
         emit modelGenerationFailed(transforms[0].getIdentifier(), message);
+        //!!! what to do with amc?
     } else if (message != "") {
         //!!! This identifier may be wrong!
         emit modelGenerationWarning(transforms[0].getIdentifier(), message);
+        //!!! what to do with amc?
     }
+
+    return amc;
+}
+
+void
+Document::cancelAsyncLayerCreation(Document::LayerCreationAsyncHandle h)
+{
+    AdditionalModelConverter *conv = static_cast<AdditionalModelConverter *>(h);
+    conv->cancel();
 }
 
 vector<Layer *>
@@ -493,10 +513,9 @@ Document::setMainModel(WaveFileModel *model)
                           << typeid(*replacementModel).name() << ") in layer "
                           << layer << " (name " << layer->objectName() << ")"
                           << endl;
-#endif
+
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
-#ifdef DEBUG_DOCUMENT
                 if (rm) {
                     cerr << "new model has " << rm->getChannelCount() << " channels " << endl;
                 } else {
