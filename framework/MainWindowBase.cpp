@@ -152,7 +152,9 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_openingAudioFile(false),
     m_abandoning(false),
     m_labeller(0),
-    m_lastPlayStatusSec(0)
+    m_lastPlayStatusSec(0),
+    m_initialDarkBackground(false),
+    m_defaultFfwdRwdStep(2, 0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -372,26 +374,8 @@ QString
 MainWindowBase::getOpenFileName(FileFinder::FileType type)
 {
     FileFinder *ff = FileFinder::getInstance();
-    switch (type) {
-    case FileFinder::SessionFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::AudioFile:
-        return ff->getOpenFileName(type, m_audioFile);
-    case FileFinder::LayerFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidi:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNonSV:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidiNonSV:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::SessionOrAudioFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::ImageFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::CSVFile:
-        return ff->getOpenFileName(type, m_sessionFile);
-    case FileFinder::AnyFile:
+
+    if (type == FileFinder::AnyFile) {
         if (getMainModel() != 0 &&
             m_paneStack != 0 &&
             m_paneStack->getCurrentPane() != 0) { // can import a layer
@@ -400,37 +384,28 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
             return ff->getOpenFileName(FileFinder::SessionOrAudioFile,
                                        m_sessionFile);
         }
+    }        
+
+    QString lastPath = m_sessionFile;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
     }
-    return "";
+
+    return ff->getOpenFileName(type, lastPath);
 }
 
 QString
 MainWindowBase::getSaveFileName(FileFinder::FileType type)
 {
-    FileFinder *ff = FileFinder::getInstance();
-    switch (type) {
-    case FileFinder::SessionFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::AudioFile:
-        return ff->getSaveFileName(type, m_audioFile);
-    case FileFinder::LayerFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidi:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNonSV:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::LayerFileNoMidiNonSV:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::SessionOrAudioFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::ImageFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::CSVFile:
-        return ff->getSaveFileName(type, m_sessionFile);
-    case FileFinder::AnyFile:
-        return ff->getSaveFileName(type, m_sessionFile);
+    QString lastPath = m_sessionFile;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
     }
-    return "";
+
+    FileFinder *ff = FileFinder::getInstance();
+    return ff->getSaveFileName(type, lastPath);
 }
 
 void
@@ -553,6 +528,7 @@ MainWindowBase::updateMenuStates()
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
     emit canSave(m_sessionFile != "" && m_documentModified);
+    emit canSaveAs(haveMainModel);
     emit canSelectPreviousPane(havePrevPane);
     emit canSelectNextPane(haveNextPane);
     emit canSelectPreviousLayer(havePrevLayer);
@@ -1243,7 +1219,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     int rate = 0;
 
-    if (Preferences::getInstance()->getResampleOnLoad()) {
+    if (Preferences::getInstance()->getFixedSampleRate() != 0) {
+        rate = Preferences::getInstance()->getFixedSampleRate();
+    } else if (Preferences::getInstance()->getResampleOnLoad()) {
         rate = m_playSource->getSourceSampleRate();
     }
 
@@ -2552,7 +2530,7 @@ MainWindowBase::ffwd()
     if (!layer) {
 
         frame = RealTime::realTime2Frame
-            (RealTime::frame2RealTime(frame, sr) + RealTime(2, 0), sr);
+            (RealTime::frame2RealTime(frame, sr) + m_defaultFfwdRwdStep, sr);
         if (frame > int(getMainModel()->getEndFrame())) {
             frame = getMainModel()->getEndFrame();
         }
@@ -2577,7 +2555,7 @@ MainWindowBase::ffwd()
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == getMainModel()->getEndFrame() &&
+    if (frame == (int)getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2614,7 +2592,6 @@ MainWindowBase::ffwdSimilar()
     if (!layer) { ffwd(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-
     int frame = m_viewManager->getPlaybackFrame();
 
     int resolution = 0;
@@ -2634,7 +2611,7 @@ MainWindowBase::ffwdSimilar()
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == getMainModel()->getEndFrame() &&
+    if (frame == (int)getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2659,7 +2636,7 @@ MainWindowBase::rewind()
     // the prior point instead of the immediately neighbouring one
     if (m_playSource && m_playSource->isPlaying()) {
         RealTime ct = RealTime::frame2RealTime(frame, sr);
-        ct = ct - RealTime::fromSeconds(0.25);
+        ct = ct - RealTime::fromSeconds(0.15);
         if (ct < RealTime::zeroTime) ct = RealTime::zeroTime;
         frame = RealTime::realTime2Frame(ct, sr);
     }
@@ -2667,7 +2644,7 @@ MainWindowBase::rewind()
     if (!layer) {
         
         frame = RealTime::realTime2Frame
-            (RealTime::frame2RealTime(frame, sr) - RealTime(2, 0), sr);
+            (RealTime::frame2RealTime(frame, sr) - m_defaultFfwdRwdStep, sr);
         if (frame < int(getMainModel()->getStartFrame())) {
             frame = getMainModel()->getStartFrame();
         }
@@ -2716,7 +2693,6 @@ MainWindowBase::rewindSimilar()
     if (!layer) { rewind(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-
     int frame = m_viewManager->getPlaybackFrame();
 
     int resolution = 0;
@@ -3214,7 +3190,9 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 //    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
-    if (model && !m_playTarget && m_audioOutput) createPlayTarget();
+    if (model && !m_playTarget && m_audioOutput) {
+        createPlayTarget();
+    }
 }
 
 void
@@ -3317,13 +3295,11 @@ MainWindowBase::openHelpUrl(QString url)
     process->start("open", args);
 #else
 #ifdef Q_OS_WIN32
+    QString pf(getenv("ProgramFiles"));
+    QString command = pf + QString("\\Internet Explorer\\IEXPLORE.EXE");
 
-	QString pf(getenv("ProgramFiles"));
-	QString command = pf + QString("\\Internet Explorer\\IEXPLORE.EXE");
-
-	args.append(url);
-	process->start(command, args);
-
+    args.append(url);
+    process->start(command, args);
 #else
     if (!qgetenv("KDE_FULL_SESSION").isEmpty()) {
         args.append("exec");
