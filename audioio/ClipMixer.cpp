@@ -49,9 +49,8 @@ ClipMixer::loadClipData(QString path, float f0, float level)
 
     SF_INFO info;
     SNDFILE *file;
-    int sampleCount = 0;
     float *tmpFrames;
-    size_t i;
+    int i;
 
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);

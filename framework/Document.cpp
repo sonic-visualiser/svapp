@@ -235,7 +235,7 @@ Document::createDerivedLayers(const Transforms &transforms,
     }
 
     QStringList names;
-    for (int i = 0; i < newModels.size(); ++i) {
+    for (int i = 0; i < (int)newModels.size(); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -314,7 +314,7 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
         (transforms, input, message, amc);
 
     QStringList names;
-    for (int i = 0; i < newModels.size(); ++i) {
+    for (int i = 0; i < (int)newModels.size(); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -513,10 +513,9 @@ Document::setMainModel(WaveFileModel *model)
                           << typeid(*replacementModel).name() << ") in layer "
                           << layer << " (name " << layer->objectName() << ")"
                           << endl;
-#endif
+
                 RangeSummarisableTimeValueModel *rm =
                     dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
-#ifdef DEBUG_DOCUMENT
                 if (rm) {
                     cerr << "new model has " << rm->getChannelCount() << " channels " << endl;
                 } else {

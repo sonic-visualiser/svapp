@@ -473,7 +473,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             file.waitForData();
 
-            size_t rate = sampleRate;
+            int rate = sampleRate;
 
             if (Preferences::getInstance()->getFixedSampleRate() != 0) {
                 rate = Preferences::getInstance()->getFixedSampleRate();
@@ -757,8 +757,8 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 
     // The view properties first
 
-    READ_MANDATORY(size_t, centre, toUInt);
-    READ_MANDATORY(size_t, zoom, toUInt);
+    READ_MANDATORY(int, centre, toInt);
+    READ_MANDATORY(int, zoom, toInt);
     READ_MANDATORY(int, followPan, toInt);
     READ_MANDATORY(int, followZoom, toInt);
     QString tracking = attributes.value("tracking");
@@ -1007,8 +1007,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a note model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
@@ -1025,8 +1025,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a flexinote model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
@@ -1043,8 +1043,8 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         cerr << "Current dataset is a region model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
-	size_t duration = 0;
-	duration = attributes.value("duration").trimmed().toUInt(&ok);
+	int duration = 0;
+	duration = attributes.value("duration").trimmed().toInt(&ok);
 	QString label = attributes.value("label");
 	rm->addPoint(RegionModel::Point(frame, value, duration, label));
 	return ok;
@@ -1248,8 +1248,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     QString startFrameStr = attributes.value("startFrame");
     QString durationStr = attributes.value("duration");
 
-    size_t startFrame = 0;
-    size_t duration = 0;
+    int startFrame = 0;
+    int duration = 0;
 
     if (startFrameStr != "") {
         startFrame = startFrameStr.trimmed().toInt(&ok);
