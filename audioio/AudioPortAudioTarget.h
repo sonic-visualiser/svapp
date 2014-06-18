@@ -46,7 +46,7 @@ public slots:
     virtual void sourceModelReplaced();
 
 protected:
-    int process(const void *input, void *output, unsigned long frames,
+    int process(const void *input, void *output, int frames,
                 const PaStreamCallbackTimeInfo *timeInfo,
                 PaStreamCallbackFlags statusFlags);
 
