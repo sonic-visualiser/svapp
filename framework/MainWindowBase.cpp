@@ -1122,7 +1122,6 @@ MainWindowBase::renumberInstants()
 MainWindowBase::FileOpenStatus
 MainWindowBase::openPath(QString fileOrUrl, AudioFileOpenMode mode)
 {
-    cerr << "MainWindowBase::openPath(" << fileOrUrl << ")" << endl;
     ProgressDialog dialog(tr("Opening file or URL..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
     return open(FileSource(fileOrUrl, &dialog), mode);
@@ -1147,14 +1146,11 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
     bool audio = AudioFileReaderFactory::getKnownExtensions().contains
         (source.getExtension().toLower());
 
-    cerr << "MainWindowBase::open(" << source.getLocalFilename() << ": audio = " << audio << endl;
-
     bool rdfSession = false;
     if (rdf) {
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
-//        cerr << "RDF type: " << (int)rdfType << endl;
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1207,13 +1203,13 @@ MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
                           QString templateName)
 {
-    cerr << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
     }
 
-    cerr << "template is: \"" << templateName << "\"" << endl;
+//    cerr << "template is: \"" << templateName << "\"" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
