@@ -93,16 +93,15 @@ public:
         FileOpenWrongMode // attempted to open layer when no main model present
     };
 
-    virtual FileOpenStatus open(QString fileOrUrl, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus open(FileSource source, AudioFileOpenMode = AskUser);
-    
+    virtual FileOpenStatus openPath(QString fileOrUrl, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openAudio(FileSource source, AudioFileOpenMode = AskUser, QString templateName = "");
     virtual FileOpenStatus openPlaylist(FileSource source, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openLayer(FileSource source);
     virtual FileOpenStatus openImage(FileSource source);
 
-    virtual FileOpenStatus openSessionFile(QString fileOrUrl);
     virtual FileOpenStatus openSession(FileSource source);
+    virtual FileOpenStatus openSessionPath(QString fileOrUrl);
     virtual FileOpenStatus openSessionTemplate(QString templateName);
     virtual FileOpenStatus openSessionTemplate(FileSource source);
 
