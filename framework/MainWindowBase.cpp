@@ -3272,11 +3272,16 @@ MainWindowBase::inProgressSelectionChanged()
 void
 MainWindowBase::contextHelpChanged(const QString &s)
 {
+    QStatusBar *bar = statusBar();
+
     if (s == "" && m_myStatusMessage != "") {
-        statusBar()->showMessage(m_myStatusMessage);
+        if (bar->currentMessage() != m_myStatusMessage) {
+            bar->showMessage(m_myStatusMessage);
+        }
         return;
     }
-    statusBar()->showMessage(s);
+
+    bar->showMessage(s);
 }
 
 void
