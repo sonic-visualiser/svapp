@@ -1120,7 +1120,7 @@ MainWindowBase::renumberInstants()
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
+MainWindowBase::openPath(QString fileOrUrl, AudioFileOpenMode mode)
 {
     ProgressDialog dialog(tr("Opening file or URL..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -1151,7 +1151,6 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
-//        cerr << "RDF type: " << (int)rdfType << endl;
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1204,13 +1203,13 @@ MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
                           QString templateName)
 {
-//    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
     }
 
-    cerr << "template is: \"" << templateName << "\"" << endl;
+//    cerr << "template is: \"" << templateName << "\"" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1672,7 +1671,7 @@ MainWindowBase::openImage(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openSessionFile(QString fileOrUrl)
+MainWindowBase::openSessionPath(QString fileOrUrl)
 {
     ProgressDialog dialog(tr("Opening session..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -3273,11 +3272,16 @@ MainWindowBase::inProgressSelectionChanged()
 void
 MainWindowBase::contextHelpChanged(const QString &s)
 {
+    QStatusBar *bar = statusBar();
+
     if (s == "" && m_myStatusMessage != "") {
-        statusBar()->showMessage(m_myStatusMessage);
+        if (bar->currentMessage() != m_myStatusMessage) {
+            bar->showMessage(m_myStatusMessage);
+        }
         return;
     }
-    statusBar()->showMessage(s);
+
+    bar->showMessage(s);
 }
 
 void
