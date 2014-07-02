@@ -767,7 +767,8 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     view->setFollowGlobalPan(followPan);
     view->setFollowGlobalZoom(followZoom);
     view->setPlaybackFollow(tracking == "scroll" ? PlaybackScrollContinuous :
-			    tracking == "page" ? PlaybackScrollPage
+			    tracking == "page" ? PlaybackScrollPageWithCentre :
+			    tracking == "daw" ? PlaybackScrollPage
 			    : PlaybackIgnore);
 
     // Then set these values

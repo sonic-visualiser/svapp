@@ -154,7 +154,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_labeller(0),
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
-    m_defaultFfwdRwdStep(2, 0)
+    m_defaultFfwdRwdStep(2, 0),
+    m_statusLabel(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -1120,7 +1121,7 @@ MainWindowBase::renumberInstants()
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::open(QString fileOrUrl, AudioFileOpenMode mode)
+MainWindowBase::openPath(QString fileOrUrl, AudioFileOpenMode mode)
 {
     ProgressDialog dialog(tr("Opening file or URL..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -1151,7 +1152,6 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
             (QUrl::fromLocalFile(source.getLocalFilename()).toString());
-//        cerr << "RDF type: " << (int)rdfType << endl;
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1204,13 +1204,13 @@ MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
                           QString templateName)
 {
-//    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
     }
 
-    cerr << "template is: \"" << templateName << "\"" << endl;
+//    cerr << "template is: \"" << templateName << "\"" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -1672,7 +1672,7 @@ MainWindowBase::openImage(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openSessionFile(QString fileOrUrl)
+MainWindowBase::openSessionPath(QString fileOrUrl)
 {
     ProgressDialog dialog(tr("Opening session..."), true, 2000, this);
     connect(&dialog, SIGNAL(showing()), this, SIGNAL(hideSplash()));
@@ -2451,6 +2451,22 @@ MainWindowBase::togglePropertyBoxes()
     }
 }
 
+QLabel *
+MainWindowBase::getStatusLabel() const
+{
+    if (!m_statusLabel) {
+        m_statusLabel = new QLabel();
+        statusBar()->addWidget(m_statusLabel, 1);
+    }
+
+    QList<QFrame *> frames = statusBar()->findChildren<QFrame *>();
+    foreach (QFrame *f, frames) {
+        f->setFrameStyle(QFrame::NoFrame);
+    }
+
+    return m_statusLabel;
+}
+
 void
 MainWindowBase::toggleStatusBar()
 {
@@ -2749,7 +2765,7 @@ MainWindowBase::stop()
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
     } else {
         m_myStatusMessage = "";
-        statusBar()->showMessage("");
+        getStatusLabel()->setText("");
     }
 }
 
@@ -3056,7 +3072,7 @@ MainWindowBase::playbackFrameChanged(int frame)
     m_myStatusMessage = tr("Playing: %1 of %2 (%3 remaining)")
         .arg(nowStr).arg(thenStr).arg(remainingStr);
 
-    statusBar()->showMessage(m_myStatusMessage);
+    getStatusLabel()->setText(m_myStatusMessage);
 }
 
 void
@@ -3273,11 +3289,16 @@ MainWindowBase::inProgressSelectionChanged()
 void
 MainWindowBase::contextHelpChanged(const QString &s)
 {
+    QLabel *lab = getStatusLabel();
+
     if (s == "" && m_myStatusMessage != "") {
-        statusBar()->showMessage(m_myStatusMessage);
+        if (lab->text() != m_myStatusMessage) {
+            lab->setText(m_myStatusMessage);
+        }
         return;
     }
-    statusBar()->showMessage(s);
+
+    lab->setText(s);
 }
 
 void
