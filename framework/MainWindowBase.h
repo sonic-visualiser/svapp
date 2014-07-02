@@ -337,6 +337,9 @@ protected:
 
     RealTime                 m_defaultFfwdRwdStep;
 
+    mutable QLabel *m_statusLabel;
+    QLabel *getStatusLabel() const;
+
     WaveFileModel *getMainModel();
     const WaveFileModel *getMainModel() const;
     void createDocument();
