@@ -2458,6 +2458,12 @@ MainWindowBase::getStatusLabel() const
         m_statusLabel = new QLabel();
         statusBar()->addWidget(m_statusLabel, 1);
     }
+
+    QList<QFrame *> frames = statusBar()->findChildren<QFrame *>();
+    foreach (QFrame *f, frames) {
+        f->setFrameStyle(QFrame::NoFrame);
+    }
+
     return m_statusLabel;
 }
 
