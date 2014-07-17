@@ -156,6 +156,10 @@ protected:
      float **buffer, float gain, float pan);
     
     static const int m_processingBlockSize;
+
+    float **m_channelBuffer;
+    int m_channelBufSiz;
+    int m_channelBufCount;
 };
 
 #endif
