@@ -294,7 +294,8 @@ MainWindowBase::finaliseMenu(QMenu *
     // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
     // our issue #890 http://code.soundsoftware.ac.uk/issues/890 --
     // single-key shortcuts that are associated only with a menu
-    // action do not work with Qt 5.x under OS/X.
+    // action (and not with a toolbar button) do not work with Qt 5.x
+    // under OS/X.
     // 
     // Apparently Cocoa never handled them as a matter of course, but
     // earlier versions of Qt picked them up as widget shortcuts and
@@ -303,17 +304,24 @@ MainWindowBase::finaliseMenu(QMenu *
     // dialog (https://bugreports.qt-project.org/browse/QTBUG-30657).
     //
     // This workaround restores the single-key shortcut behaviour by
-    // searching for single-key shortcuts in menus and replacing them
-    // with global application shortcuts that invoke the relevant
-    // actions, testing whether the actions are enabled on invocation.
-    // As it happens, it also replaces some shortcuts that were
-    // working fine (because they were also associated with toolbar
-    // buttons) but that seems to be OK so long as we remove the
-    // shortcuts from the actions as well as adding the new global
-    // shortcuts, to avoid an ambiguous shortcut error.
+    // searching in menus for single-key shortcuts that are associated
+    // only with the menu and not with a toolbar button, and
+    // augmenting them with global application shortcuts that invoke
+    // the relevant actions, testing whether the actions are enabled
+    // on invocation.
     //
-    // If the Qt developers ever fix this in Qt (I couldn't think of
-    // an obvious fix myself) then presumably we can remove this.
+    // (Previously this acted on all single-key shortcuts in menus,
+    // and it removed the shortcut from the action when it created
+    // each new global one, in order to avoid an "ambiguous shortcut"
+    // error in the case where the action was also associated with a
+    // toolbar button. But that has the unwelcome side-effect of
+    // removing the shortcut hint from the menu entry. So now we leave
+    // the shortcut in the menu action as well as creating a global
+    // one, and we only act on shortcuts that have no toolbar button,
+    // i.e. that will not otherwise work. The downside is that if this
+    // bug is fixed in a future Qt release, we will start getting
+    // "ambiguous shortcut" errors from the menu entry actions and
+    // will need to update the code.)
 
     QSignalMapper *mapper = new QSignalMapper(this);
 
@@ -321,12 +329,20 @@ MainWindowBase::finaliseMenu(QMenu *
             this, SLOT(menuActionMapperInvoked(QObject *)));
 
     foreach (QAction *a, menu->actions()) {
+        QWidgetList ww = a->associatedWidgets();
+        bool hasButton = false;
+        foreach (QWidget *w, ww) {
+            if (qobject_cast<QAbstractButton *>(w)) {
+                hasButton = true;
+                break;
+            }
+        }
+        if (hasButton) continue;
         QKeySequence sc = a->shortcut();
         if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
             QShortcut *newSc = new QShortcut(sc, a->parentWidget());
             QObject::connect(newSc, SIGNAL(activated()), mapper, SLOT(map()));
             mapper->setMapping(newSc, a);
-            a->setShortcut(QKeySequence()); // avoid ambiguous shortcut error
         }
     }
 #endif
