@@ -1220,7 +1220,7 @@ MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
                           QString templateName)
 {
-    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ") with mode " << mode << " and template " << templateName << endl;
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
@@ -1317,6 +1317,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     }
 
     if (mode == CreateAdditionalModel && !getMainModel()) {
+        SVDEBUG << "Mode is CreateAdditionalModel but we have no main model, switching to ReplaceSession mode" << endl;
         mode = ReplaceSession;
     }
 
@@ -1326,7 +1327,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
         if (!checkSaveModified()) return FileOpenCancelled;
 
-        cerr << "SV looking for template " << templateName << endl;
+        SVDEBUG << "SV looking for template " << templateName << endl;
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
@@ -1340,10 +1341,12 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         }
 
         if (!loadedTemplate) {
+            SVDEBUG << "No template found: closing session, creating new empty document" << endl;
             closeSession();
             createDocument();
         }
 
+        SVDEBUG << "Now switching to ReplaceMainModel mode" << endl;
         mode = ReplaceMainModel;
     }
 
