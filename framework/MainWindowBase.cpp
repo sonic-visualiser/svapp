@@ -654,7 +654,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     int frame = m_playSource->getCurrentBufferedFrame();
 
-//    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
+    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
 
     View::ModelSet soloModels = p->getModels();
     
