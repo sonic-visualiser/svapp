@@ -131,6 +131,12 @@ ClipMixer::mix(float **toBuffers,
 
     float *levels = new float[m_channels];
 
+#ifdef DEBUG_CLIP_MIXER
+    cerr << "ClipMixer::mix: have " << m_playing.size() << " playing note(s)"
+         << " and " << endingNotes.size() << " note(s) ending here"
+         << endl;
+#endif
+
     foreach (NoteStart note, m_playing) {
 
         for (int c = 0; c < m_channels; ++c) {
