@@ -336,10 +336,9 @@ MainWindowBase::finaliseMenu(QMenu *
 
     if (!m_menuShortcutMapper) {
         m_menuShortcutMapper = new QSignalMapper(this);
+        connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
+                this, SLOT(menuActionMapperInvoked(QObject *)));
     }
-
-    connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
-            this, SLOT(menuActionMapperInvoked(QObject *)));
 
     foreach (QAction *a, menu->actions()) {
         QWidgetList ww = a->associatedWidgets();
