@@ -342,6 +342,7 @@ MainWindowBase::finaliseMenu(QMenu *
         if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
             QShortcut *newSc = new QShortcut(sc, a->parentWidget());
             QObject::connect(newSc, SIGNAL(activated()), mapper, SLOT(map()));
+            cerr << "setting mapping for action " << a << ", name " << a->text() << endl;
             mapper->setMapping(newSc, a);
         }
     }
@@ -353,6 +354,7 @@ MainWindowBase::menuActionMapperInvoked(QObject *o)
 {
     QAction *a = qobject_cast<QAction *>(o);
     if (a && a->isEnabled()) {
+        cerr << "about to call trigger on action " << a << ", name " << a->text() << endl;
         a->trigger();
     }
 }
