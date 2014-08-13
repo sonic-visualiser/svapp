@@ -277,8 +277,15 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::finaliseMenus()
 {
+    cerr << "deleting mapper " << m_menuShortcutMapper << endl;
     delete m_menuShortcutMapper;
     m_menuShortcutMapper = 0;
+
+    foreach (QShortcut *sc, m_appShortcuts) {
+        cerr << "deleting shortcut " << sc << endl;
+        delete sc;
+    }
+    m_appShortcuts.clear();
 
     QMenuBar *mb = menuBar();
     QList<QMenu *> menus = mb->findChildren<QMenu *>();
@@ -349,8 +356,9 @@ MainWindowBase::finaliseMenu(QMenu *
             QShortcut *newSc = new QShortcut(sc, a->parentWidget());
             QObject::connect(newSc, SIGNAL(activated()),
                              m_menuShortcutMapper, SLOT(map()));
-            cerr << "setting mapping for action " << a << ", name " << a->text() << endl;
+            cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << endl;
             m_menuShortcutMapper->setMapping(newSc, a);
+            m_appShortcuts.push_back(newSc);
         }
     }
 #endif
@@ -359,6 +367,7 @@ MainWindowBase::finaliseMenu(QMenu *
 void
 MainWindowBase::menuActionMapperInvoked(QObject *o)
 {
+    cerr << "menuActionMapperInvoked from mapper " << sender() << endl;
     QAction *a = qobject_cast<QAction *>(o);
     if (a && a->isEnabled()) {
         cerr << "about to call trigger on action " << a << ", name " << a->text() << endl;
