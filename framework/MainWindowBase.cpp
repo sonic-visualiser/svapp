@@ -340,6 +340,12 @@ MainWindowBase::finaliseMenu(QMenu *
                 this, SLOT(menuActionMapperInvoked(QObject *)));
     }
 
+    cerr << "examining menu: " << menu << ", " << menu->title() << endl;
+    QMenu *pm = qobject_cast<QMenu *>(menu->parent());
+    if (pm) {
+        cerr << "(sub-menu of: " << pm << ", " << pm->title() << ")" << endl;
+    }
+
     foreach (QAction *a, menu->actions()) {
         QWidgetList ww = a->associatedWidgets();
         bool hasButton = false;
@@ -355,7 +361,7 @@ MainWindowBase::finaliseMenu(QMenu *
             QShortcut *newSc = new QShortcut(sc, a->parentWidget());
             QObject::connect(newSc, SIGNAL(activated()),
                              m_menuShortcutMapper, SLOT(map()));
-            cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << endl;
+            cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << " with key " << newSc->key().toString() << endl;
             m_menuShortcutMapper->setMapping(newSc, a);
             m_appShortcuts.push_back(newSc);
         }
