@@ -288,7 +288,10 @@ MainWindowBase::finaliseMenus()
     m_appShortcuts.clear();
 
     QMenuBar *mb = menuBar();
-    QList<QMenu *> menus = mb->findChildren<QMenu *>();
+
+    QList<QMenu *> menus = mb->findChildren<QMenu *>
+        (QString(), Qt::FindDirectChildrenOnly);
+
     foreach (QMenu *menu, menus) {
         if (menu) finaliseMenu(menu);
     }
@@ -347,25 +350,36 @@ MainWindowBase::finaliseMenu(QMenu *
     }
 
     foreach (QAction *a, menu->actions()) {
-        QWidgetList ww = a->associatedWidgets();
-        bool hasButton = false;
-        foreach (QWidget *w, ww) {
-            if (qobject_cast<QAbstractButton *>(w)) {
-                hasButton = true;
-                break;
+
+        if (a->isSeparator()) {
+            continue;
+        } else if (a->menu()) {
+            cerr << "recursing to menu: " << a->menu()->title() << endl;
+            finaliseMenu(a->menu());
+        } else {
+
+            QWidgetList ww = a->associatedWidgets();
+            bool hasButton = false;
+            foreach (QWidget *w, ww) {
+                if (qobject_cast<QAbstractButton *>(w)) {
+                    hasButton = true;
+                    break;
+                }
+            }
+            if (hasButton) continue;
+            QKeySequence sc = a->shortcut();
+            if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
+                QShortcut *newSc = new QShortcut(sc, a->parentWidget());
+                QObject::connect(newSc, SIGNAL(activated()),
+                                 m_menuShortcutMapper, SLOT(map()));
+                cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << " with key " << newSc->key().toString() << endl;
+                m_menuShortcutMapper->setMapping(newSc, a);
+                m_appShortcuts.push_back(newSc);
             }
         }
-        if (hasButton) continue;
-        QKeySequence sc = a->shortcut();
-        if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
-            QShortcut *newSc = new QShortcut(sc, a->parentWidget());
-            QObject::connect(newSc, SIGNAL(activated()),
-                             m_menuShortcutMapper, SLOT(map()));
-            cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << " with key " << newSc->key().toString() << endl;
-            m_menuShortcutMapper->setMapping(newSc, a);
-            m_appShortcuts.push_back(newSc);
-        }
     }
+
+    cerr << "finished with menu " << menu << endl;
 #endif
 }
 
