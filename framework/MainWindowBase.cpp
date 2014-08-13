@@ -155,7 +155,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
-    m_statusLabel(0)
+    m_statusLabel(0),
+    m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -276,6 +277,9 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::finaliseMenus()
 {
+    delete m_menuShortcutMapper;
+    m_menuShortcutMapper = 0;
+
     QMenuBar *mb = menuBar();
     QList<QMenu *> menus = mb->findChildren<QMenu *>();
     foreach (QMenu *menu, menus) {
@@ -323,9 +327,11 @@ MainWindowBase::finaliseMenu(QMenu *
     // "ambiguous shortcut" errors from the menu entry actions and
     // will need to update the code.)
 
-    QSignalMapper *mapper = new QSignalMapper(this);
+    if (!m_menuShortcutMapper) {
+        m_menuShortcutMapper = new QSignalMapper(this);
+    }
 
-    connect(mapper, SIGNAL(mapped(QObject *)),
+    connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
             this, SLOT(menuActionMapperInvoked(QObject *)));
 
     foreach (QAction *a, menu->actions()) {
@@ -341,9 +347,10 @@ MainWindowBase::finaliseMenu(QMenu *
         QKeySequence sc = a->shortcut();
         if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
             QShortcut *newSc = new QShortcut(sc, a->parentWidget());
-            QObject::connect(newSc, SIGNAL(activated()), mapper, SLOT(map()));
+            QObject::connect(newSc, SIGNAL(activated()),
+                             m_menuShortcutMapper, SLOT(map()));
             cerr << "setting mapping for action " << a << ", name " << a->text() << endl;
-            mapper->setMapping(newSc, a);
+            m_menuShortcutMapper->setMapping(newSc, a);
         }
     }
 #endif
