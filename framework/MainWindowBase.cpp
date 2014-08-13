@@ -277,17 +277,24 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::finaliseMenus()
 {
-    cerr << "deleting mapper " << m_menuShortcutMapper << endl;
     delete m_menuShortcutMapper;
     m_menuShortcutMapper = 0;
 
     foreach (QShortcut *sc, m_appShortcuts) {
-        cerr << "deleting shortcut " << sc << endl;
         delete sc;
     }
     m_appShortcuts.clear();
 
     QMenuBar *mb = menuBar();
+
+    // This used to find all children of QMenu type, and call
+    // finaliseMenu on those. But it seems we are getting hold of some
+    // menus that way that are not actually active in the menu bar and
+    // are not returned in their parent menu's actions() list, and if
+    // we finalise those, we end up with duplicate shortcuts in the
+    // app shortcut mapper. So we should do this by descending the
+    // menu tree through only those menus accessible via actions()
+    // from their parents instead.
 
     QList<QMenu *> menus = mb->findChildren<QMenu *>
         (QString(), Qt::FindDirectChildrenOnly);
@@ -343,18 +350,11 @@ MainWindowBase::finaliseMenu(QMenu *
                 this, SLOT(menuActionMapperInvoked(QObject *)));
     }
 
-    cerr << "examining menu: " << menu << ", " << menu->title() << endl;
-    QMenu *pm = qobject_cast<QMenu *>(menu->parent());
-    if (pm) {
-        cerr << "(sub-menu of: " << pm << ", " << pm->title() << ")" << endl;
-    }
-
     foreach (QAction *a, menu->actions()) {
 
         if (a->isSeparator()) {
             continue;
         } else if (a->menu()) {
-            cerr << "recursing to menu: " << a->menu()->title() << endl;
             finaliseMenu(a->menu());
         } else {
 
@@ -372,24 +372,19 @@ MainWindowBase::finaliseMenu(QMenu *
                 QShortcut *newSc = new QShortcut(sc, a->parentWidget());
                 QObject::connect(newSc, SIGNAL(activated()),
                                  m_menuShortcutMapper, SLOT(map()));
-                cerr << "setting mapping for action " << a << ", name " << a->text() << " on mapper " << m_menuShortcutMapper << " through shortcut " << newSc << " with key " << newSc->key().toString() << endl;
                 m_menuShortcutMapper->setMapping(newSc, a);
                 m_appShortcuts.push_back(newSc);
             }
         }
     }
-
-    cerr << "finished with menu " << menu << endl;
 #endif
 }
 
 void
 MainWindowBase::menuActionMapperInvoked(QObject *o)
 {
-    cerr << "menuActionMapperInvoked from mapper " << sender() << endl;
     QAction *a = qobject_cast<QAction *>(o);
     if (a && a->isEnabled()) {
-        cerr << "about to call trigger on action " << a << ", name " << a->text() << endl;
         a->trigger();
     }
 }
