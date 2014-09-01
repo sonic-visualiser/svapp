@@ -610,7 +610,11 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 
     int targetRate = getTargetSampleRate();
     int latency = m_playLatency; // at target rate
-    RealTime latency_t = RealTime::frame2RealTime(latency, targetRate);
+    RealTime latency_t = RealTime::zeroTime;
+
+    if (targetRate != 0) {
+        latency_t = RealTime::frame2RealTime(latency, targetRate);
+    }
 
     return getCurrentFrame(latency_t);
 }
