@@ -368,7 +368,14 @@ MainWindowBase::finaliseMenu(QMenu *
             }
             if (hasButton) continue;
             QKeySequence sc = a->shortcut();
-            if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
+
+            // Note that the set of "single-key shortcuts" that aren't
+            // working and that we need to handle here includes those
+            // with the Shift modifier mask as well as those with no
+            // modifier at all
+            if (sc.count() == 1 &&
+                ((sc[0] & Qt::KeyboardModifierMask) == Qt::NoModifier ||
+                 (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier)) {
                 QShortcut *newSc = new QShortcut(sc, a->parentWidget());
                 QObject::connect(newSc, SIGNAL(activated()),
                                  m_menuShortcutMapper, SLOT(map()));
