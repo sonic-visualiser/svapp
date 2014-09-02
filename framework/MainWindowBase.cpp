@@ -509,14 +509,13 @@ MainWindowBase::updateMenuStates()
                 break;
             }
         }
-        if (currentLayer) {
-            for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-                if (currentPane->getLayer(i) == currentLayer) {
-                    if (i > 0) havePrevLayer = true;
-                    if (i < currentPane->getLayerCount()-1) haveNextLayer = true;
-                    break;
-                }
-            }
+        // the prev/next layer commands actually include the pane
+        // itself as one of the selectables -- so we always have a
+        // prev and next layer, as long as we have a pane with at
+        // least one layer in it
+        if (currentPane->getLayerCount() > 0) {
+            havePrevLayer = true;
+            haveNextLayer = true;
         }
     }        
 
@@ -3052,49 +3051,71 @@ MainWindowBase::nextPane()
 void
 MainWindowBase::previousLayer()
 {
-    //!!! Not right -- pane lists layers in stacking order
-
     if (!m_paneStack) return;
 
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    Layer *currentLayer = currentPane->getSelectedLayer();
-    if (!currentLayer) return;
+    int count = currentPane->getLayerCount();
+    if (count == 0) return;
 
-    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-        if (currentPane->getLayer(i) == currentLayer) {
-            if (i == 0) return;
-            m_paneStack->setCurrentLayer(currentPane,
-                                         currentPane->getLayer(i-1));
-            updateMenuStates();
-            return;
+    Layer *currentLayer = currentPane->getSelectedLayer();
+
+    if (!currentLayer) {
+        // The pane itself is current
+        m_paneStack->setCurrentLayer
+            (currentPane, currentPane->getFixedOrderLayer(count-1));
+    } else {
+        for (int i = 0; i < count; ++i) {
+            if (currentPane->getFixedOrderLayer(i) == currentLayer) {
+                if (i == 0) {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, 0); // pane
+                } else {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, currentPane->getFixedOrderLayer(i-1));
+                }
+                break;
+            }
         }
     }
+
+    updateMenuStates();
 }
 
 void
 MainWindowBase::nextLayer()
 {
-    //!!! Not right -- pane lists layers in stacking order
-
     if (!m_paneStack) return;
 
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    Layer *currentLayer = currentPane->getSelectedLayer();
-    if (!currentLayer) return;
+    int count = currentPane->getLayerCount();
+    if (count == 0) return;
 
-    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-        if (currentPane->getLayer(i) == currentLayer) {
-            if (i == currentPane->getLayerCount()-1) return;
-            m_paneStack->setCurrentLayer(currentPane,
-                                         currentPane->getLayer(i+1));
-            updateMenuStates();
-            return;
+    Layer *currentLayer = currentPane->getSelectedLayer();
+
+    if (!currentLayer) {
+        // The pane itself is current
+        m_paneStack->setCurrentLayer
+            (currentPane, currentPane->getFixedOrderLayer(0));
+    } else {
+        for (int i = 0; i < count; ++i) {
+            if (currentPane->getFixedOrderLayer(i) == currentLayer) {
+                if (i == currentPane->getLayerCount()-1) {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, 0); // pane
+                } else {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, currentPane->getFixedOrderLayer(i+1));
+                }
+                break;
+            }
         }
     }
+
+    updateMenuStates();
 }
 
 void
