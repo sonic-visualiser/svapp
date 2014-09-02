@@ -60,6 +60,8 @@ class MIDIInput;
 class KeyReference;
 class Labeller;
 class ModelDataTableDialog;
+class QSignalMapper;
+class QShortcut;
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -427,6 +429,10 @@ protected:
     // shortcuts on OS/X
     virtual void finaliseMenus();
     virtual void finaliseMenu(QMenu *);
+
+    // Only used on OS/X to work around a Qt/Cocoa bug, see finaliseMenus
+    QSignalMapper *m_menuShortcutMapper;
+    QList<QShortcut *> m_appShortcuts;
 
     virtual bool shouldCreateNewSessionForRDFAudio(bool *) { return true; }
 

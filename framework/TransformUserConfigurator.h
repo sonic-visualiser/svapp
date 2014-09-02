@@ -33,6 +33,8 @@ public:
                            QStringList candidateModelNames,
                            QString defaultModelName);
 
+    static void setParentWidget(QWidget *);
+
 private:
     bool getChannelRange(TransformId identifier,
                          Vamp::PluginBase *plugin, int &min, int &max);

@@ -155,7 +155,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
-    m_statusLabel(0)
+    m_statusLabel(0),
+    m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -276,8 +277,28 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::finaliseMenus()
 {
+    delete m_menuShortcutMapper;
+    m_menuShortcutMapper = 0;
+
+    foreach (QShortcut *sc, m_appShortcuts) {
+        delete sc;
+    }
+    m_appShortcuts.clear();
+
     QMenuBar *mb = menuBar();
-    QList<QMenu *> menus = mb->findChildren<QMenu *>();
+
+    // This used to find all children of QMenu type, and call
+    // finaliseMenu on those. But it seems we are getting hold of some
+    // menus that way that are not actually active in the menu bar and
+    // are not returned in their parent menu's actions() list, and if
+    // we finalise those, we end up with duplicate shortcuts in the
+    // app shortcut mapper. So we should do this by descending the
+    // menu tree through only those menus accessible via actions()
+    // from their parents instead.
+
+    QList<QMenu *> menus = mb->findChildren<QMenu *>
+        (QString(), Qt::FindDirectChildrenOnly);
+
     foreach (QMenu *menu, menus) {
         if (menu) finaliseMenu(menu);
     }
@@ -323,26 +344,44 @@ MainWindowBase::finaliseMenu(QMenu *
     // "ambiguous shortcut" errors from the menu entry actions and
     // will need to update the code.)
 
-    QSignalMapper *mapper = new QSignalMapper(this);
-
-    connect(mapper, SIGNAL(mapped(QObject *)),
-            this, SLOT(menuActionMapperInvoked(QObject *)));
+    if (!m_menuShortcutMapper) {
+        m_menuShortcutMapper = new QSignalMapper(this);
+        connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
+                this, SLOT(menuActionMapperInvoked(QObject *)));
+    }
 
     foreach (QAction *a, menu->actions()) {
-        QWidgetList ww = a->associatedWidgets();
-        bool hasButton = false;
-        foreach (QWidget *w, ww) {
-            if (qobject_cast<QAbstractButton *>(w)) {
-                hasButton = true;
-                break;
+
+        if (a->isSeparator()) {
+            continue;
+        } else if (a->menu()) {
+            finaliseMenu(a->menu());
+        } else {
+
+            QWidgetList ww = a->associatedWidgets();
+            bool hasButton = false;
+            foreach (QWidget *w, ww) {
+                if (qobject_cast<QAbstractButton *>(w)) {
+                    hasButton = true;
+                    break;
+                }
             }
-        }
-        if (hasButton) continue;
-        QKeySequence sc = a->shortcut();
-        if (sc.count() == 1 && !(sc[0] & Qt::KeyboardModifierMask)) {
-            QShortcut *newSc = new QShortcut(sc, a->parentWidget());
-            QObject::connect(newSc, SIGNAL(activated()), mapper, SLOT(map()));
-            mapper->setMapping(newSc, a);
+            if (hasButton) continue;
+            QKeySequence sc = a->shortcut();
+
+            // Note that the set of "single-key shortcuts" that aren't
+            // working and that we need to handle here includes those
+            // with the Shift modifier mask as well as those with no
+            // modifier at all
+            if (sc.count() == 1 &&
+                ((sc[0] & Qt::KeyboardModifierMask) == Qt::NoModifier ||
+                 (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier)) {
+                QShortcut *newSc = new QShortcut(sc, a->parentWidget());
+                QObject::connect(newSc, SIGNAL(activated()),
+                                 m_menuShortcutMapper, SLOT(map()));
+                m_menuShortcutMapper->setMapping(newSc, a);
+                m_appShortcuts.push_back(newSc);
+            }
         }
     }
 #endif
@@ -470,14 +509,13 @@ MainWindowBase::updateMenuStates()
                 break;
             }
         }
-        if (currentLayer) {
-            for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-                if (currentPane->getLayer(i) == currentLayer) {
-                    if (i > 0) havePrevLayer = true;
-                    if (i < currentPane->getLayerCount()-1) haveNextLayer = true;
-                    break;
-                }
-            }
+        // the prev/next layer commands actually include the pane
+        // itself as one of the selectables -- so we always have a
+        // prev and next layer, as long as we have a pane with at
+        // least one layer in it
+        if (currentPane->getLayerCount() > 0) {
+            havePrevLayer = true;
+            haveNextLayer = true;
         }
     }        
 
@@ -654,7 +692,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     int frame = m_playSource->getCurrentBufferedFrame();
 
-//    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
+    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -1220,7 +1258,7 @@ MainWindowBase::FileOpenStatus
 MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
                           QString templateName)
 {
-    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ")" << endl;
+    SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ") with mode " << mode << " and template " << templateName << endl;
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
@@ -1317,6 +1355,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     }
 
     if (mode == CreateAdditionalModel && !getMainModel()) {
+        SVDEBUG << "Mode is CreateAdditionalModel but we have no main model, switching to ReplaceSession mode" << endl;
         mode = ReplaceSession;
     }
 
@@ -1326,7 +1365,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
         if (!checkSaveModified()) return FileOpenCancelled;
 
-        cerr << "SV looking for template " << templateName << endl;
+        SVDEBUG << "SV looking for template " << templateName << endl;
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
@@ -1340,10 +1379,12 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         }
 
         if (!loadedTemplate) {
+            SVDEBUG << "No template found: closing session, creating new empty document" << endl;
             closeSession();
             createDocument();
         }
 
+        SVDEBUG << "Now switching to ReplaceMainModel mode" << endl;
         mode = ReplaceMainModel;
     }
 
@@ -3010,49 +3051,71 @@ MainWindowBase::nextPane()
 void
 MainWindowBase::previousLayer()
 {
-    //!!! Not right -- pane lists layers in stacking order
-
     if (!m_paneStack) return;
 
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    Layer *currentLayer = currentPane->getSelectedLayer();
-    if (!currentLayer) return;
+    int count = currentPane->getLayerCount();
+    if (count == 0) return;
 
-    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-        if (currentPane->getLayer(i) == currentLayer) {
-            if (i == 0) return;
-            m_paneStack->setCurrentLayer(currentPane,
-                                         currentPane->getLayer(i-1));
-            updateMenuStates();
-            return;
+    Layer *currentLayer = currentPane->getSelectedLayer();
+
+    if (!currentLayer) {
+        // The pane itself is current
+        m_paneStack->setCurrentLayer
+            (currentPane, currentPane->getFixedOrderLayer(count-1));
+    } else {
+        for (int i = 0; i < count; ++i) {
+            if (currentPane->getFixedOrderLayer(i) == currentLayer) {
+                if (i == 0) {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, 0); // pane
+                } else {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, currentPane->getFixedOrderLayer(i-1));
+                }
+                break;
+            }
         }
     }
+
+    updateMenuStates();
 }
 
 void
 MainWindowBase::nextLayer()
 {
-    //!!! Not right -- pane lists layers in stacking order
-
     if (!m_paneStack) return;
 
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    Layer *currentLayer = currentPane->getSelectedLayer();
-    if (!currentLayer) return;
+    int count = currentPane->getLayerCount();
+    if (count == 0) return;
 
-    for (int i = 0; i < currentPane->getLayerCount(); ++i) {
-        if (currentPane->getLayer(i) == currentLayer) {
-            if (i == currentPane->getLayerCount()-1) return;
-            m_paneStack->setCurrentLayer(currentPane,
-                                         currentPane->getLayer(i+1));
-            updateMenuStates();
-            return;
+    Layer *currentLayer = currentPane->getSelectedLayer();
+
+    if (!currentLayer) {
+        // The pane itself is current
+        m_paneStack->setCurrentLayer
+            (currentPane, currentPane->getFixedOrderLayer(0));
+    } else {
+        for (int i = 0; i < count; ++i) {
+            if (currentPane->getFixedOrderLayer(i) == currentLayer) {
+                if (i == currentPane->getLayerCount()-1) {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, 0); // pane
+                } else {
+                    m_paneStack->setCurrentLayer
+                        (currentPane, currentPane->getFixedOrderLayer(i+1));
+                }
+                break;
+            }
         }
     }
+
+    updateMenuStates();
 }
 
 void

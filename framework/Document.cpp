@@ -565,6 +565,7 @@ Document::setMainModel(WaveFileModel *model)
     }
 
     if (m_autoAlignment) {
+        SVDEBUG << "Document::setMainModel: auto-alignment is on, aligning model if possible" << endl;
         alignModel(m_mainModel);
     }
 
@@ -641,7 +642,12 @@ Document::addImportedModel(Model *model)
     cerr << endl;
 #endif
 
-    if (m_autoAlignment) alignModel(model);
+    if (m_autoAlignment) {
+        SVDEBUG << "Document::addImportedModel: auto-alignment is on, aligning model if possible" << endl;
+        alignModel(model);
+    } else {
+        SVDEBUG << "Document(" << this << "): addImportedModel: auto-alignment is off" << endl;
+    }
 
     emit modelAdded(model);
 }
@@ -671,7 +677,10 @@ Document::addAdditionalModel(Model *model)
     cerr << endl;
 #endif
 
-    if (m_autoAlignment) alignModel(model);
+    if (m_autoAlignment) {
+        SVDEBUG << "Document::addAdditionalModel: auto-alignment is on, aligning model if possible" << endl;
+        alignModel(model);
+    }
 
     emit modelAdded(model);
 }
@@ -1044,14 +1053,22 @@ Document::canAlign()
 void
 Document::alignModel(Model *model)
 {
-    if (!m_mainModel) return;
+    SVDEBUG << "Document::alignModel(" << model << ")" << endl;
+
+    if (!m_mainModel) {
+        SVDEBUG << "(no main model to align to)" << endl;
+        return;
+    }
 
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
-    if (!rm) return;
+    if (!rm) {
+        SVDEBUG << "(main model is not alignable-to)" << endl;
+        return;
+    }
 
     if (rm->getAlignmentReference() == m_mainModel) {
-        SVDEBUG << "Document::alignModel: model " << rm << " is already aligned to main model " << m_mainModel << endl;
+        SVDEBUG << "(model " << rm << " is already aligned to main model " << m_mainModel << ")" << endl;
         return;
     }
     

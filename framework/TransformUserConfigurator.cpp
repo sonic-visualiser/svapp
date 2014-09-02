@@ -30,6 +30,14 @@
 
 #include <typeinfo>
 
+static QWidget *parentWidget = 0;
+
+void
+TransformUserConfigurator::setParentWidget(QWidget *w)
+{
+    parentWidget = w;
+}
+
 bool
 TransformUserConfigurator::getChannelRange(TransformId identifier,
 					   Vamp::PluginBase *plugin,
@@ -142,7 +150,8 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
     int defaultChannel = -1; //!!! no longer saved! [was context.channel]
 
-    PluginParameterDialog *dialog = new PluginParameterDialog(plugin);
+    PluginParameterDialog *dialog = new PluginParameterDialog
+        (plugin, parentWidget);
 
     dialog->setMoreInfoUrl(TransformFactory::getInstance()->
 			   getTransformInfoUrl(transform.getIdentifier()));

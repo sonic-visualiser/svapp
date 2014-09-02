@@ -284,6 +284,8 @@ AudioGenerator::reset()
 {
     QMutexLocker locker(&m_mutex);
 
+    cerr << "AudioGenerator::reset()" << endl;
+
     for (ClipMixerMap::iterator i = m_clipMixerMap.begin(); i != m_clipMixerMap.end(); ++i) {
 	if (i->second) {
 	    i->second->reset();

@@ -361,13 +361,21 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 {
     if (!haveLock) m_mutex.lock();
 
+    cerr << "clearRingBuffers" << endl;
+
     rebuildRangeLists();
 
     if (count == 0) {
 	if (m_writeBuffers) count = m_writeBuffers->size();
     }
 
+    cerr << "current playing frame = " << getCurrentPlayingFrame() << endl;
+
+    cerr << "write buffer fill (before) = " << m_writeBufferFill << endl;
+
     m_writeBufferFill = getCurrentBufferedFrame();
+
+    cerr << "current buffered frame = " << m_writeBufferFill << endl;
 
     if (m_readBuffers != m_writeBuffers) {
 	delete m_writeBuffers;
@@ -602,7 +610,11 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
 
     int targetRate = getTargetSampleRate();
     int latency = m_playLatency; // at target rate
-    RealTime latency_t = RealTime::frame2RealTime(latency, targetRate);
+    RealTime latency_t = RealTime::zeroTime;
+
+    if (targetRate != 0) {
+        latency_t = RealTime::frame2RealTime(latency, targetRate);
+    }
 
     return getCurrentFrame(latency_t);
 }
