@@ -913,19 +913,21 @@ MainWindowBase::deleteSelected()
         
         Layer *layer = m_paneStack->getCurrentPane()->getSelectedLayer();
 
-        if (m_viewManager && 
-            (m_viewManager->getToolMode() == ViewManager::MeasureMode)) {
+        if (m_viewManager) {
 
-            layer->deleteCurrentMeasureRect();
+            if (m_viewManager->getToolMode() == ViewManager::MeasureMode) {
 
-        } else {
-
-            MultiSelection::SelectionList selections =
-                m_viewManager->getSelections();
+                layer->deleteCurrentMeasureRect();
             
-            for (MultiSelection::SelectionList::iterator i = selections.begin();
-                 i != selections.end(); ++i) {
-                layer->deleteSelection(*i);
+            } else {
+
+                MultiSelection::SelectionList selections =
+                    m_viewManager->getSelections();
+            
+                for (MultiSelection::SelectionList::iterator i = selections.begin();
+                     i != selections.end(); ++i) {
+                    layer->deleteSelection(*i);
+                }
             }
 	}
     }
@@ -1010,18 +1012,18 @@ MainWindowBase::insertInstantAt(int frame)
             SparseOneDimensionalModel::EditCommand *command =
                 new SparseOneDimensionalModel::EditCommand(sodm, tr("Add Point"));
 
-            if (m_labeller->requiresPrevPoint()) {
-
-                SparseOneDimensionalModel::PointList prevPoints =
-                    sodm->getPreviousPoints(frame);
-
-                if (!prevPoints.empty()) {
-                    prevPoint = *prevPoints.begin();
-                    havePrevPoint = true;
-                }
-            }
-
             if (m_labeller) {
+
+                if (m_labeller->requiresPrevPoint()) {
+
+                    SparseOneDimensionalModel::PointList prevPoints =
+                        sodm->getPreviousPoints(frame);
+
+                    if (!prevPoints.empty()) {
+                        prevPoint = *prevPoints.begin();
+                        havePrevPoint = true;
+                    }
+                }
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
@@ -1112,7 +1114,7 @@ MainWindowBase::insertItemAt(int frame, int duration)
     NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
     if (nm) {
         NoteModel::Point point(alignedStart,
-                               rm->getValueMinimum(),
+                               nm->getValueMinimum(),
                                alignedDuration,
                                1.f,
                                "");
@@ -1131,17 +1133,17 @@ MainWindowBase::insertItemAt(int frame, int duration)
     FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
     if (fnm) {
         FlexiNoteModel::Point point(alignedStart,
-                               rm->getValueMinimum(),
-                               alignedDuration,
-                               1.f,
-                               "");
+                                    fnm->getValueMinimum(),
+                                    alignedDuration,
+                                    1.f,
+                                    "");
         FlexiNoteModel::EditCommand *command =
             new FlexiNoteModel::EditCommand(fnm, tr("Add Point"));
         command->addPoint(point);
         command->setName(name);
         c = command->finish();
     }
-
+    
     if (c) {
         CommandHistory::getInstance()->addCommand(c, false);
         return;
@@ -2875,6 +2877,7 @@ MainWindowBase::AddPaneCommand::unexecute()
 MainWindowBase::RemovePaneCommand::RemovePaneCommand(MainWindowBase *mw, Pane *pane) :
     m_mw(mw),
     m_pane(pane),
+    m_prevCurrentPane(0),
     m_added(true)
 {
 }
