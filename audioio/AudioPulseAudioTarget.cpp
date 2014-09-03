@@ -252,18 +252,6 @@ AudioPulseAudioTarget::streamWrite(int requested)
                 }
 	    }
 
-	} else if (ch == 1 && sourceChannels == 1) {
-
-	    for (int i = 0; i < nframes; ++i) {
-                if (i < received) {
-                    output[i * 2 + ch] = tmpbuf[0][i] * m_outputGain;
-                    float sample = fabsf(output[i * 2 + ch]);
-                    if (sample > peak) peak = sample;
-                } else {
-                    output[i * 2 + ch] = 0;
-                }
-	    }
-
 	} else {
 	    for (int i = 0; i < nframes; ++i) {
 		output[i * 2 + ch] = 0;
