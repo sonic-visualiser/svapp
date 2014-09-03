@@ -239,27 +239,19 @@ AudioPulseAudioTarget::streamWrite(int requested)
 	
 	float peak = 0.0;
 
-	if (ch < sourceChannels) {
-
-	    // PulseAudio samples are interleaved
-	    for (int i = 0; i < nframes; ++i) {
-                if (i < received) {
-                    output[i * 2 + ch] = tmpbuf[ch][i] * m_outputGain;
-                    float sample = fabsf(output[i * 2 + ch]);
-                    if (sample > peak) peak = sample;
-                } else {
-                    output[i * 2 + ch] = 0;
-                }
-	    }
-
-	} else {
-	    for (int i = 0; i < nframes; ++i) {
-		output[i * 2 + ch] = 0;
-	    }
-	}
+        // PulseAudio samples are interleaved
+        for (int i = 0; i < nframes; ++i) {
+            if (i < received) {
+                output[i * 2 + ch] = tmpbuf[ch][i] * m_outputGain;
+                float sample = fabsf(output[i * 2 + ch]);
+                if (sample > peak) peak = sample;
+            } else {
+                output[i * 2 + ch] = 0;
+            }
+        }
 
 	if (ch == 0) peakLeft = peak;
-	if (ch > 0 || sourceChannels == 1) peakRight = peak;
+	if (ch == 1) peakRight = peak;
     }
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
