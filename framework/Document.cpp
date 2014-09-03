@@ -628,6 +628,7 @@ Document::addImportedModel(Model *model)
 
     ModelRecord rec;
     rec.source = 0;
+    rec.channel = 0;
     rec.refcount = 0;
     rec.additional = false;
 
@@ -663,6 +664,7 @@ Document::addAdditionalModel(Model *model)
 
     ModelRecord rec;
     rec.source = 0;
+    rec.channel = 0;
     rec.refcount = 0;
     rec.additional = true;
 
