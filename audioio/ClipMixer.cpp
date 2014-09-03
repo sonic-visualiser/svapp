@@ -24,7 +24,10 @@ ClipMixer::ClipMixer(int channels, int sampleRate, int blockSize) :
     m_channels(channels),
     m_sampleRate(sampleRate),
     m_blockSize(blockSize),
-    m_clipData(0)
+    m_clipData(0),
+    m_clipLength(0),
+    m_clipF0(0),
+    m_clipRate(0)
 {
 }
 
@@ -102,7 +105,7 @@ ClipMixer::reset()
 float
 ClipMixer::getResampleRatioFor(float frequency)
 {
-    if (!m_clipData) return 1.0;
+    if (!m_clipData || !m_clipRate) return 1.0;
     float pitchRatio = m_clipF0 / frequency;
     float resampleRatio = m_sampleRate / m_clipRate;
     return pitchRatio * resampleRatio;
