@@ -178,7 +178,7 @@ static void dynamic_jack_port_get_latency_range(jack_port_t *port,
     typedef void (*func)(jack_port_t *, jack_latency_callback_mode_t, jack_latency_range_t *);
     void *s = symbol("jack_port_get_latency_range");
     if (!s) {
-        range.min = range.max = 0;
+        range->min = range->max = 0;
         return;
     }
     func f = (func)s;
