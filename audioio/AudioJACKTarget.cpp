@@ -367,11 +367,12 @@ AudioJACKTarget::sourceModelReplaced()
 #endif
 
     while ((int)m_outputs.size() < channels) {
-	
-	char name[20];
+
+        const int namelen = 30;
+	char name[namelen];
 	jack_port_t *port;
 
-	sprintf(name, "out %d", int(m_outputs.size() + 1));
+	snprintf(name, namelen, "out %d", int(m_outputs.size() + 1));
 
 	port = jack_port_register(m_client,
 				  name,
