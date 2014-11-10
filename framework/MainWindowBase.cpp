@@ -1268,7 +1268,14 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
 //    cerr << "template is: \"" << templateName << "\"" << endl;
 
-    if (!source.isAvailable()) return FileOpenFailed;
+    if (!source.isAvailable()) {
+        if (source.wasCancelled()) {
+            return FileOpenCancelled;
+        } else {
+            return FileOpenFailed;
+        }
+    }
+
     source.waitForData();
 
     m_openingAudioFile = true;
@@ -1286,7 +1293,11 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     if (!newModel->isOK()) {
 	delete newModel;
         m_openingAudioFile = false;
-	return FileOpenFailed;
+        if (source.wasCancelled()) {
+            return FileOpenCancelled;
+        } else { 
+            return FileOpenFailed;
+        }
     }
 
 //    cerr << "mode = " << mode << endl;

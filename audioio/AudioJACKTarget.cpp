@@ -178,7 +178,7 @@ static void dynamic_jack_port_get_latency_range(jack_port_t *port,
     typedef void (*func)(jack_port_t *, jack_latency_callback_mode_t, jack_latency_range_t *);
     void *s = symbol("jack_port_get_latency_range");
     if (!s) {
-        range.min = range.max = 0;
+        range->min = range->max = 0;
         return;
     }
     func f = (func)s;
@@ -367,11 +367,12 @@ AudioJACKTarget::sourceModelReplaced()
 #endif
 
     while ((int)m_outputs.size() < channels) {
-	
-	char name[20];
+
+        const int namelen = 30;
+	char name[namelen];
 	jack_port_t *port;
 
-	sprintf(name, "out %d", int(m_outputs.size() + 1));
+	snprintf(name, namelen, "out %d", int(m_outputs.size() + 1));
 
 	port = jack_port_register(m_client,
 				  name,
