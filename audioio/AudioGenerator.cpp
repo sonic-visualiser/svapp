@@ -124,12 +124,20 @@ AudioGenerator::addModel(Model *model)
 	}
     }
 
+    const Playable *playable = model;
+    if (!playable || !playable->canPlay()) return 0;
+
+    PlayParameters *parameters =
+	PlayParameterRepository::getInstance()->getPlayParameters(playable);
+
+    bool willPlay = !parameters->isPlayMuted();
+    
     if (usesClipMixer(model)) {
         ClipMixer *mixer = makeClipMixerFor(model);
         if (mixer) {
             QMutexLocker locker(&m_mutex);
             m_clipMixerMap[model] = mixer;
-            return true;
+            return willPlay;
         }
     }
 
@@ -138,7 +146,7 @@ AudioGenerator::addModel(Model *model)
         if (synth) {
             QMutexLocker locker(&m_mutex);
             m_continuousSynthMap[model] = synth;
-            return true;
+            return willPlay;
         }
     }
 
