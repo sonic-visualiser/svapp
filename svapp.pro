@@ -62,13 +62,15 @@ SOURCES += audioio/AudioCallbackPlaySource.cpp \
            audioio/ContinuousSynth.cpp \
            audioio/PlaySpeedRangeMapper.cpp
 
-HEADERS += framework/Document.h \
+HEADERS += framework/Align.h \
+	   framework/Document.h \
            framework/MainWindowBase.h \
            framework/SVFileReader.h \
            framework/TransformUserConfigurator.h \
            framework/VersionTester.h
 
-SOURCES += framework/Document.cpp \
+SOURCES += framework/Align.cpp \
+	   framework/Document.cpp \
            framework/MainWindowBase.cpp \
            framework/SVFileReader.cpp \
            framework/TransformUserConfigurator.cpp \

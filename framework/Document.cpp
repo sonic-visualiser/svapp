@@ -15,6 +15,8 @@
 
 #include "Document.h"
 
+#include "Align.h"
+
 #include "data/model/WaveFileModel.h"
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/DenseThreeDimensionalModel.h"
@@ -1084,76 +1086,11 @@ Document::alignModel(Model *model)
         return;
     }
 
-    // This involves creating three new models:
-
-    // 1. an AggregateWaveModel to provide the mixdowns of the main
-    // model and the new model in its two channels, as input to the
-    // MATCH plugin
-
-    // 2. a SparseTimeValueModel, which is the model automatically
-    // created by FeatureExtractionPluginTransformer when running the
-    // MATCH plugin (thus containing the alignment path)
-
-    // 3. an AlignmentModel, which stores the path model and carries
-    // out alignment lookups on it.
-
-    // The first two of these are provided as arguments to the
-    // constructor for the third, which takes responsibility for
-    // deleting them.  The AlignmentModel, meanwhile, is passed to the
-    // new model we are aligning, which also takes responsibility for
-    // it.  We should not have to delete any of these new models here.
-
-    AggregateWaveModel::ChannelSpecList components;
-
-    components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (m_mainModel, -1));
-
-    components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (rm, -1));
-
-    Model *aggregateModel = new AggregateWaveModel(components);
-    ModelTransformer::Input aggregate(aggregateModel);
-
-    TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
-    
-    TransformFactory *tf = TransformFactory::getInstance();
-
-    Transform transform = tf->getDefaultTransformFor
-        (id, aggregateModel->getSampleRate());
-
-    transform.setStepSize(transform.getBlockSize()/2);
-    transform.setParameter("serialise", 1);
-    transform.setParameter("smooth", 0);
-
-    SVDEBUG << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
-
-    ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
-
-    QString message;
-    Model *transformOutput = mtf->transform(transform, aggregate, message);
-
-    if (!transformOutput) {
-        transform.setStepSize(0);
-        transformOutput = mtf->transform(transform, aggregate, message);
+    Align a;
+    if (!a.alignModelViaTransform(m_mainModel, rm)) {
+        cerr << "Alignment failed: " << a.getError() << endl;
+        emit alignmentFailed(a.getError());
     }
-
-    SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
-        (transformOutput);
-
-    if (!path) {
-        cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
-        emit alignmentFailed(id, message);
-        delete transformOutput;
-        delete aggregateModel;
-        return;
-    }
-
-    path->setCompletion(0);
-
-    AlignmentModel *alignmentModel = new AlignmentModel
-        (m_mainModel, model, aggregateModel, path);
-
-    rm->setAlignment(alignmentModel);
 }
 
 void

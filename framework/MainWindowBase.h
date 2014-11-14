@@ -265,7 +265,7 @@ protected slots:
     virtual void modelGenerationWarning(QString, QString) = 0;
     virtual void modelRegenerationFailed(QString, QString, QString) = 0;
     virtual void modelRegenerationWarning(QString, QString, QString) = 0;
-    virtual void alignmentFailed(QString, QString) = 0;
+    virtual void alignmentFailed(QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
 

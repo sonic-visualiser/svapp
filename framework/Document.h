@@ -301,7 +301,7 @@ signals:
                                  QString message);
     void modelRegenerationWarning(QString layerName, QString transformName,
                                   QString message);
-    void alignmentFailed(QString transformName, QString message);
+    void alignmentFailed(QString message);
 
     void activity(QString);
 
