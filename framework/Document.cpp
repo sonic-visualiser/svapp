@@ -1123,6 +1123,7 @@ Document::alignModel(Model *model)
 
     transform.setStepSize(transform.getBlockSize()/2);
     transform.setParameter("serialise", 1);
+    transform.setParameter("smooth", 0);
 
     SVDEBUG << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
