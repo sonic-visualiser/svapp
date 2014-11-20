@@ -173,7 +173,7 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
              << endl;
         m_error = "Alignment program could not be started";
         m_processModels.erase(process);
-        delete alignmentModel;
+        rm->setAlignment(0); // deletes alignmentModel as well
         delete process;
     }
 
