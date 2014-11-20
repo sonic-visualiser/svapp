@@ -2210,8 +2210,8 @@ MainWindowBase::createDocument()
             this, SLOT(modelGenerationFailed(QString, QString)));
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
-    connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
-            this, SLOT(alignmentFailed(QString, QString)));
+    connect(m_document, SIGNAL(alignmentFailed(QString)),
+            this, SLOT(alignmentFailed(QString)));
 
     emit replacedDocument();
 }

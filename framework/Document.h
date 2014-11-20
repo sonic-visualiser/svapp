@@ -32,6 +32,8 @@ class WaveFileModel;
 
 class AdditionalModelConverter;
 
+class Align;
+
 /**
  * A Sonic Visualiser document consists of a set of data models, and
  * also the visualisation layers used to display them.  Changes to the
@@ -423,6 +425,7 @@ protected:
     LayerSet m_layers;
 
     bool m_autoAlignment;
+    Align *m_align;
 };
 
 #endif

@@ -17,23 +17,50 @@
 #define ALIGN_H
 
 #include <QString>
+#include <QObject>
+#include <QProcess>
+#include <set>
 
 class Model;
+class AlignmentModel;
 
-class Align
+class Align : public QObject
 {
+    Q_OBJECT
+    
 public:
     Align() : m_error("") { }
 
+    /**
+     * Align the "other" model to the reference, attaching an
+     * AlignmentModel to it. Alignment is carried out by the method
+     * configured in the user preferences (either a plugin transform
+     * or an external process) and is done asynchronously. 
+     *
+     * A single Align object may carry out many simultanous alignment
+     * calls -- you do not need to create a new Align object each
+     * time, nor to wait for an alignment to be complete before
+     * starting a new one.
+     * 
+     * The Align object must survive after this call, for at least as
+     * long as the alignment takes. There is currently no way in this
+     * API to discover when an alignment is complete -- the
+     * expectation is that the Align object will simply share the
+     * process or document lifespan.
+     */
     bool alignModel(Model *reference, Model *other); // via user preference
     
     bool alignModelViaTransform(Model *reference, Model *other);
     bool alignModelViaProgram(Model *reference, Model *other, QString program);
 
     QString getError() const { return m_error; }
-
+        
+private slots:
+    void alignmentProgramFinished(int, QProcess::ExitStatus);
+    
 private:
     QString m_error;
+    std::map<QProcess *, AlignmentModel *> m_processModels;
 };
 
 #endif

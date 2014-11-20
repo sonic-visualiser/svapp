@@ -151,14 +151,51 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 	return false;
     }
 
-    QProcess process;
+    m_error = "";
+    
+    AlignmentModel *alignmentModel = new AlignmentModel(reference, other, 0, 0);
+    rm->setAlignment(alignmentModel);
+
+    QProcess *process = new QProcess;
     QStringList args;
     args << refPath << otherPath;
-    process.start(program, args);
+    
+    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
+            this, SLOT(alignmentProgramFinished(int, QProcess::ExitStatus)));
 
-    process.waitForFinished(60000); //!!! nb timeout, but we can do better than blocking anyway
+    m_processModels[process] = alignmentModel;
+    process->start(program, args);
 
-    if (process.exitStatus() == 0) {
+    bool success = process->waitForStarted();
+
+    if (!success) {
+        cerr << "ERROR: Align::alignModelViaProgram: Program did not start"
+             << endl;
+        m_error = "Alignment program could not be started";
+        m_processModels.erase(process);
+        delete alignmentModel;
+        delete process;
+    }
+
+    return success;
+}
+
+void
+Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
+{
+    cerr << "Align::alignmentProgramFinished" << endl;
+    
+    QProcess *process = qobject_cast<QProcess *>(sender());
+
+    if (m_processModels.find(process) == m_processModels.end()) {
+        cerr << "ERROR: Align::alignmentProgramFinished: Process " << process
+             << " not found in process model map!" << endl;
+        return;
+    }
+
+    AlignmentModel *alignmentModel = m_processModels[process];
+    
+    if (exitCode == 0 && status == 0) {
 
 	CSVFormat format;
 	format.setModelType(CSVFormat::TwoDimensionalModel);
@@ -170,38 +207,46 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 	format.setAllowQuoting(false);
 	format.setSeparator(',');
 
-	CSVFileReader reader(&process, format, reference->getSampleRate());
+	CSVFileReader reader(process, format, alignmentModel->getSampleRate());
 	if (!reader.isOK()) {
+            cerr << "ERROR: Align::alignmentProgramFinished: Failed to parse output"
+                 << endl;
 	    m_error = QString("Failed to parse output of program: %1")
 		.arg(reader.getError());
-	    return false;
+            goto done;
 	}
 
 	Model *csvOutput = reader.load();
 
 	SparseTimeValueModel *path = qobject_cast<SparseTimeValueModel *>(csvOutput);
 	if (!path) {
+            cerr << "ERROR: Align::alignmentProgramFinished: Output did not convert to sparse time-value model"
+                 << endl;
 	    m_error = QString("Output of program did not produce sparse time-value model");
-	    return false;
+            goto done;
 	}
 
 	if (path->getPoints().empty()) {
+            cerr << "ERROR: Align::alignmentProgramFinished: Output contained no mappings"
+                 << endl;
 	    m_error = QString("Output of alignment program contained no mappings");
-	    return false;
+            goto done;
 	}
-	
-	AlignmentModel *alignmentModel = new AlignmentModel
-	    (reference, other, 0, path);
 
-	rm->setAlignment(alignmentModel);
+        cerr << "Align::alignmentProgramFinished: Setting alignment path ("
+             << path->getPoints().size() << " point(s))" << endl;
+        
+        alignmentModel->setPathFrom(path);
 
     } else {
+        cerr << "ERROR: Align::alignmentProgramFinished: Aligner program "
+             << "failed: exit code " << exitCode << ", status " << status
+             << endl;
 	m_error = "Aligner process returned non-zero exit status";
-	return false;
     }
 
-    cerr << "Align: success" << endl;
-    
-    return true;
+done:
+    m_processModels.erase(process);
+    delete process;
 }
 

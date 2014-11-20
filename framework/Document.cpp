@@ -38,10 +38,8 @@
 #include <iostream>
 #include <typeinfo>
 
-// For alignment:
-#include "data/model/AggregateWaveModel.h"
-#include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
+#include "Align.h"
 
 using std::vector;
 
@@ -51,7 +49,8 @@ using std::vector;
 
 Document::Document() :
     m_mainModel(0),
-    m_autoAlignment(false)
+    m_autoAlignment(false),
+    m_align(new Align())
 {
     connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
             ModelTransformerFactory::getInstance(),
@@ -1086,10 +1085,9 @@ Document::alignModel(Model *model)
         return;
     }
 
-    Align a;
-    if (!a.alignModel(m_mainModel, rm)) {
-        cerr << "Alignment failed: " << a.getError() << endl;
-        emit alignmentFailed(a.getError());
+    if (!m_align->alignModel(m_mainModel, rm)) {
+        cerr << "Alignment failed: " << m_align->getError() << endl;
+        emit alignmentFailed(m_align->getError());
     }
 }
 
