@@ -1087,7 +1087,7 @@ Document::alignModel(Model *model)
     }
 
     Align a;
-    if (!a.alignModelViaTransform(m_mainModel, rm)) {
+    if (!a.alignModel(m_mainModel, rm)) {
         cerr << "Alignment failed: " << a.getError() << endl;
         emit alignmentFailed(a.getError());
     }

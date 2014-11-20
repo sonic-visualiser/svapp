@@ -28,6 +28,23 @@
 #include "transform/FeatureExtractionModelTransformer.h"
 
 #include <QProcess>
+#include <QSettings>
+
+bool
+Align::alignModel(Model *ref, Model *other)
+{
+    QSettings settings;
+    settings.beginGroup("Preferences");
+    bool useProgram = settings.value("use-external-alignment", false).toBool();
+    QString program = settings.value("external-alignment-program", "").toString();
+    settings.endGroup();
+
+    if (useProgram && (program != "")) {
+        return alignModelViaProgram(ref, other, program);
+    } else {
+        return alignModelViaTransform(ref, other);
+    }
+}
 
 bool
 Align::alignModelViaTransform(Model *ref, Model *other)
@@ -115,7 +132,7 @@ Align::alignModelViaTransform(Model *ref, Model *other)
 }
 
 bool
-Align::alignModelViaProgram(Model *ref, Model *other)
+Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 {
     WaveFileModel *reference = qobject_cast<WaveFileModel *>(ref);
     WaveFileModel *rm = qobject_cast<WaveFileModel *>(other);
@@ -135,7 +152,6 @@ Align::alignModelViaProgram(Model *ref, Model *other)
     }
 
     QProcess process;
-    QString program = "/home/cannam/code/tido-audio/aligner/vect-align.sh";
     QStringList args;
     args << refPath << otherPath;
     process.start(program, args);

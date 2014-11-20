@@ -25,8 +25,10 @@ class Align
 public:
     Align() : m_error("") { }
 
+    bool alignModel(Model *reference, Model *other); // via user preference
+    
     bool alignModelViaTransform(Model *reference, Model *other);
-    bool alignModelViaProgram(Model *reference, Model *other);
+    bool alignModelViaProgram(Model *reference, Model *other, QString program);
 
     QString getError() const { return m_error; }
 
