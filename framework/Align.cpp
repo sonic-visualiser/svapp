@@ -202,8 +202,14 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
 	format.setTimingType(CSVFormat::ExplicitTiming);
 	format.setTimeUnits(CSVFormat::TimeSeconds);
 	format.setColumnCount(2);
-	format.setColumnPurpose(0, CSVFormat::ColumnStartTime);
-	format.setColumnPurpose(1, CSVFormat::ColumnValue);
+        // The output format has time in the reference file first, and
+        // time in the "other" file in the second column. This is a
+        // more natural approach for a command-line alignment tool,
+        // but it's the opposite of what we expect for native
+        // alignment paths, which map from "other" file to
+        // reference. These column purpose settings reflect that.
+	format.setColumnPurpose(1, CSVFormat::ColumnStartTime);
+	format.setColumnPurpose(0, CSVFormat::ColumnValue);
 	format.setAllowQuoting(false);
 	format.setSeparator(',');
 
