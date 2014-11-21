@@ -1743,6 +1743,51 @@ MainWindowBase::openImage(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
+MainWindowBase::openDirOfAudio(QString dirPath)
+{
+    QDir dir(dirPath);
+    QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+    files.sort();
+
+    FileOpenStatus status = FileOpenFailed;
+    bool first = true;
+    bool cancelled = false;
+
+    foreach (QString file, files) {
+
+        FileSource source(dir.filePath(file));
+        if (!source.isAvailable()) {
+            continue;
+        }
+
+        if (AudioFileReaderFactory::getKnownExtensions().contains
+            (source.getExtension().toLower())) {
+            
+            AudioFileOpenMode mode = CreateAdditionalModel;
+            if (first) mode = ReplaceSession;
+            
+            switch (openAudio(source, mode)) {
+            case FileOpenSucceeded:
+                status = FileOpenSucceeded;
+                first = false;
+                break;
+            case FileOpenFailed:
+                break;
+            case FileOpenCancelled:
+                cancelled = true;
+                break;
+            case FileOpenWrongMode:
+                break;
+            }
+        }
+
+        if (cancelled) break;
+    }
+
+    return status;
+}
+
+MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionPath(QString fileOrUrl)
 {
     ProgressDialog dialog(tr("Opening session..."), true, 2000, this);

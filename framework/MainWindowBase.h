@@ -102,6 +102,8 @@ public:
     virtual FileOpenStatus openLayer(FileSource source);
     virtual FileOpenStatus openImage(FileSource source);
 
+    virtual FileOpenStatus openDirOfAudio(QString dirPath);
+    
     virtual FileOpenStatus openSession(FileSource source);
     virtual FileOpenStatus openSessionPath(QString fileOrUrl);
     virtual FileOpenStatus openSessionTemplate(QString templateName);
