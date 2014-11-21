@@ -55,6 +55,9 @@ Document::Document() :
     connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
             ModelTransformerFactory::getInstance(),
             SLOT(modelAboutToBeDeleted(Model *)));
+
+    connect(m_align, SIGNAL(alignmentComplete(AlignmentModel *)),
+            this, SIGNAL(alignmentComplete(AlignmentModel *)));
 }
 
 Document::~Document()
@@ -1033,24 +1036,10 @@ Document::isKnownModel(const Model *model) const
     return (m_models.find(const_cast<Model *>(model)) != m_models.end());
 }
 
-TransformId
-Document::getAlignmentTransformName()
-{
-    QSettings settings;
-    settings.beginGroup("Alignment");
-    TransformId id =
-        settings.value("transform-id",
-                       "vamp:match-vamp-plugin:match:path").toString();
-    settings.endGroup();
-    return id;
-}
-
 bool
-Document::canAlign() 
+Document::canAlign()
 {
-    TransformId id = getAlignmentTransformName();
-    TransformFactory *factory = TransformFactory::getInstance();
-    return factory->haveTransform(id);
+    return Align::canAlign();
 }
 
 void

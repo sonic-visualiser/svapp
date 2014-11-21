@@ -303,6 +303,8 @@ signals:
                                  QString message);
     void modelRegenerationWarning(QString layerName, QString transformName,
                                   QString message);
+
+    void alignmentComplete(AlignmentModel *);
     void alignmentFailed(QString message);
 
     void activity(QString);
@@ -409,8 +411,6 @@ protected:
     void writeBackwardCompatibleDerivation(QTextStream &, QString, Model *,
                                            const ModelRecord &) const;
 
-    static TransformId getAlignmentTransformName();
-    
     void toXml(QTextStream &, QString, QString, bool asTemplate) const;
     void writePlaceholderMainModel(QTextStream &, QString) const;
 

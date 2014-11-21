@@ -43,22 +43,38 @@ public:
      * starting a new one.
      * 
      * The Align object must survive after this call, for at least as
-     * long as the alignment takes. There is currently no way in this
-     * API to discover when an alignment is complete -- the
-     * expectation is that the Align object will simply share the
-     * process or document lifespan.
+     * long as the alignment takes. The usual expectation is that the
+     * Align object will simply share the process or document
+     * lifespan.
      */
     bool alignModel(Model *reference, Model *other); // via user preference
     
     bool alignModelViaTransform(Model *reference, Model *other);
     bool alignModelViaProgram(Model *reference, Model *other, QString program);
 
+    /**
+     * Return true if the alignment facility is available (relevant
+     * plugin installed, etc).
+     */
+    static bool canAlign();
+    
     QString getError() const { return m_error; }
-        
+
+signals:
+    /**
+     * Emitted when an alignment is successfully completed. The
+     * reference and other models can be queried from the alignment
+     * model.
+     */
+    void alignmentComplete(AlignmentModel *alignment);
+
 private slots:
+    void alignmentCompletionChanged();
     void alignmentProgramFinished(int, QProcess::ExitStatus);
     
 private:
+    static QString getAlignmentTransformName();
+    
     QString m_error;
     std::map<QProcess *, AlignmentModel *> m_processModels;
 };

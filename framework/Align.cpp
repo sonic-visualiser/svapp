@@ -46,6 +46,26 @@ Align::alignModel(Model *ref, Model *other)
     }
 }
 
+QString
+Align::getAlignmentTransformName()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    TransformId id =
+        settings.value("transform-id",
+                       "vamp:match-vamp-plugin:match:path").toString();
+    settings.endGroup();
+    return id;
+}
+
+bool
+Align::canAlign() 
+{
+    TransformId id = getAlignmentTransformName();
+    TransformFactory *factory = TransformFactory::getInstance();
+    return factory->haveTransform(id);
+}
+
 bool
 Align::alignModelViaTransform(Model *ref, Model *other)
 {
@@ -87,7 +107,7 @@ Align::alignModelViaTransform(Model *ref, Model *other)
     Model *aggregateModel = new AggregateWaveModel(components);
     ModelTransformer::Input aggregate(aggregateModel);
 
-    TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
+    TransformId id = getAlignmentTransformName();
     
     TransformFactory *tf = TransformFactory::getInstance();
 
@@ -126,9 +146,24 @@ Align::alignModelViaTransform(Model *ref, Model *other)
     AlignmentModel *alignmentModel = new AlignmentModel
         (reference, other, aggregateModel, path);
 
+    connect(alignmentModel, SIGNAL(completionChanged()),
+            this, SLOT(alignmentCompletionChanged()));
+    
     rm->setAlignment(alignmentModel);
 
     return true;
+}
+
+void
+Align::alignmentCompletionChanged()
+{
+    AlignmentModel *am = qobject_cast<AlignmentModel *>(sender());
+    if (!am) return;
+    if (am->isReady()) {
+        disconnect(am, SIGNAL(completionChanged()),
+                   this, SLOT(alignmentCompletionChanged()));
+        emit alignmentComplete(am);
+    }
 }
 
 bool
@@ -244,6 +279,8 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
         
         alignmentModel->setPathFrom(path);
 
+        emit alignmentComplete(alignmentModel);
+        
     } else {
         cerr << "ERROR: Align::alignmentProgramFinished: Aligner program "
              << "failed: exit code " << exitCode << ", status " << status
