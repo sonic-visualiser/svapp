@@ -2256,6 +2256,8 @@ MainWindowBase::createDocument()
             this, SLOT(modelGenerationFailed(QString, QString)));
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+    connect(m_document, SIGNAL(alignmentComplete(AlignmentModel *)),
+            this, SLOT(alignmentComplete(AlignmentModel *)));
     connect(m_document, SIGNAL(alignmentFailed(QString)),
             this, SLOT(alignmentFailed(QString)));
 
@@ -3395,6 +3397,12 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
     CommandHistory::getInstance()->endCompoundOperation();
 
     updateMenuStates();
+}
+
+void
+MainWindowBase::alignmentComplete(AlignmentModel *model)
+{
+    cerr << "MainWindowBase::alignmentComplete(" << model << ")" << endl;
 }
 
 void

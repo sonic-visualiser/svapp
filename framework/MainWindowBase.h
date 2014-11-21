@@ -62,6 +62,7 @@ class Labeller;
 class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
+class AlignmentModel;
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -267,6 +268,8 @@ protected slots:
     virtual void modelGenerationWarning(QString, QString) = 0;
     virtual void modelRegenerationFailed(QString, QString, QString) = 0;
     virtual void modelRegenerationWarning(QString, QString, QString) = 0;
+
+    virtual void alignmentComplete(AlignmentModel *);
     virtual void alignmentFailed(QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
