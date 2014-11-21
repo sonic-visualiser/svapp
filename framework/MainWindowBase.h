@@ -426,10 +426,14 @@ protected:
     virtual void updatePositionStatusDisplays() const = 0;
 
     // Call this after setting up the menu bar, to fix up single-key
-    // shortcuts on OS/X
+    // shortcuts on OS/X and do any other platform-specific tidying
     virtual void finaliseMenus();
     virtual void finaliseMenu(QMenu *);
 
+    // Call before finaliseMenus if you wish to have a say in this question
+    void setIconsVisibleInMenus(bool visible) { m_iconsVisibleInMenus = visible; }
+    bool m_iconsVisibleInMenus;
+    
     // Only used on OS/X to work around a Qt/Cocoa bug, see finaliseMenus
     QSignalMapper *m_menuShortcutMapper;
     QList<QShortcut *> m_appShortcuts;

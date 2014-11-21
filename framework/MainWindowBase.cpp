@@ -156,6 +156,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
     m_statusLabel(0),
+    m_iconsVisibleInMenus(true),
     m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
@@ -305,12 +306,12 @@ MainWindowBase::finaliseMenus()
 }
 
 void
-MainWindowBase::finaliseMenu(QMenu *
-#ifdef Q_OS_MAC
-                             menu
-#endif
-    )
+MainWindowBase::finaliseMenu(QMenu *menu)
 {
+    foreach (QAction *a, menu->actions()) {
+        a->setIconVisibleInMenu(m_iconsVisibleInMenus);
+    }
+
 #ifdef Q_OS_MAC
     // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
     // our issue #890 http://code.soundsoftware.ac.uk/issues/890 --
