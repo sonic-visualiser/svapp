@@ -29,6 +29,7 @@
 
 #include <QProcess>
 #include <QSettings>
+#include <QApplication>
 
 bool
 Align::alignModel(Model *ref, Model *other)
@@ -174,6 +175,10 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 
     if (!rm) return false; // but this should have been tested already
 
+    while (!reference->isReady(0) || !rm->isReady(0)) {
+        qApp->processEvents();
+    }
+    
     // Run an external program, passing to it paths to the main
     // model's audio file and the new model's audio file. It returns
     // the path in CSV form through stdout.
