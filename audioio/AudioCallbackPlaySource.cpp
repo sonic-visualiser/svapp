@@ -1288,7 +1288,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
                       << got << " < " << reqd << ")" << endl;
         }
 
-        ts->process(m_stretcherInputs, got, false);
+        ts->process(m_stretcherInputs, size_t(got), false);
 
         fedToStretcher += got;
 
@@ -1300,7 +1300,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
         }
     }
 
-    ts->retrieve(buffer, count);
+    ts->retrieve(buffer, size_t(count));
 
     for (int c = stretchChannels; c < getTargetChannelCount(); ++c) {
         for (int i = 0; i < count; ++i) {
@@ -1487,8 +1487,8 @@ AudioCallbackPlaySource::fillBuffers()
 	SRC_DATA data;
 	data.data_in = intlv;
 	data.data_out = srcout;
-	data.input_frames = got;
-	data.output_frames = work;
+	data.input_frames = long(got);
+	data.output_frames = long(work);
 	data.src_ratio = ratio;
 	data.end_of_input = 0;
 	

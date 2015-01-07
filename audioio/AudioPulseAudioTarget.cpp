@@ -259,7 +259,8 @@ AudioPulseAudioTarget::streamWrite(sv_frame_t requested)
               << nframes * tmpbufch * sizeof(float) << " bytes" << endl;
 #endif
 
-    pa_stream_write(m_stream, output, nframes * tmpbufch * sizeof(float),
+    pa_stream_write(m_stream, output,
+                    size_t(nframes * tmpbufch * sizeof(float)),
                     0, 0, PA_SEEK_RELATIVE);
 
     m_source->setOutputLevels(peakLeft, peakRight);
