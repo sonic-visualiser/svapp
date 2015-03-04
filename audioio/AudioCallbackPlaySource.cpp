@@ -397,7 +397,7 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 }
 
 void
-AudioCallbackPlaySource::play(int startFrame)
+AudioCallbackPlaySource::play(sv_frame_t startFrame)
 {
     if (!m_sourceSampleRate) {
         cerr << "AudioCallbackPlaySource::play: No source sample rate available, not playing" << endl;
@@ -597,18 +597,18 @@ AudioCallbackPlaySource::getTargetBlockSize() const
 }
 
 void
-AudioCallbackPlaySource::setTargetPlayLatency(int latency)
+AudioCallbackPlaySource::setTargetPlayLatency(sv_frame_t latency)
 {
     m_playLatency = latency;
 }
 
-int
+sv_frame_t
 AudioCallbackPlaySource::getTargetPlayLatency() const
 {
     return m_playLatency;
 }
 
-int
+sv_frame_t
 AudioCallbackPlaySource::getCurrentPlayingFrame()
 {
     // This method attempts to estimate which audio sample frame is
@@ -625,13 +625,13 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     return getCurrentFrame(latency_t);
 }
 
-int
+sv_frame_t
 AudioCallbackPlaySource::getCurrentBufferedFrame()
 {
     return getCurrentFrame(RealTime::zeroTime);
 }
 
-int
+sv_frame_t
 AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 {
     // We resample when filling the ring buffer, and time-stretch when
@@ -640,8 +640,8 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     // Because of the multiple rates involved, we do the actual
     // calculation using RealTime instead.
 
-    int sourceRate = getSourceSampleRate();
-    int targetRate = getTargetSampleRate();
+    sv_samplerate_t sourceRate = getSourceSampleRate();
+    sv_samplerate_t targetRate = getTargetSampleRate();
 
     if (sourceRate == 0 || targetRate == 0) return 0;
 
@@ -739,7 +739,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
             - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
             + sincerequest_t;
         if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
-        int frame = RealTime::realTime2Frame(playing_t, sourceRate);
+        sv_frame_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
         return m_viewManager->alignPlaybackFrameToReference(frame);
     }
 
@@ -833,7 +833,7 @@ cerr << "Not looping, inRange " << inRange << " == rangeStarts.size()-1, playing
 
     if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
 
-    int frame = RealTime::realTime2Frame(playing_t, sourceRate);
+    sv_frame_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
 
     if (m_lastCurrentFrame > 0 && !looping) {
         if (frame < m_lastCurrentFrame) {
@@ -916,7 +916,7 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 }
 
 void
-AudioCallbackPlaySource::setTargetSampleRate(int sr)
+AudioCallbackPlaySource::setTargetSampleRate(sv_samplerate_t sr)
 {
     bool first = (m_targetSampleRate == 0);
 
@@ -1033,7 +1033,7 @@ AudioCallbackPlaySource::clearSoloModelSet()
     clearRingBuffers();
 }
 
-int
+sv_samplerate_t
 AudioCallbackPlaySource::getTargetSampleRate() const
 {
     if (m_targetSampleRate) return m_targetSampleRate;
@@ -1053,7 +1053,7 @@ AudioCallbackPlaySource::getTargetChannelCount() const
     return m_sourceChannelCount;
 }
 
-int
+sv_samplerate_t
 AudioCallbackPlaySource::getSourceSampleRate() const
 {
     return m_sourceSampleRate;
@@ -1093,11 +1093,9 @@ AudioCallbackPlaySource::setTimeStretch(float factor)
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
-int
-AudioCallbackPlaySource::getSourceSamples(int ucount, float **buffer)
+sv_frame_t
+AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
 {
-    int count = ucount;
-
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
         SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
@@ -1309,7 +1307,7 @@ AudioCallbackPlaySource::getSourceSamples(int ucount, float **buffer)
 }
 
 void
-AudioCallbackPlaySource::applyAuditioningEffect(int count, float **buffers)
+AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float **buffers)
 {
     if (m_auditioningPluginBypassed) return;
     RealTimePluginInstance *plugin = m_auditioningPlugin;
@@ -1359,11 +1357,11 @@ AudioCallbackPlaySource::fillBuffers()
     static float *tmp = 0;
     static int tmpSize = 0;
 
-    int space = 0;
+    sv_frame_t space = 0;
     for (int c = 0; c < getTargetChannelCount(); ++c) {
 	RingBuffer<float> *wb = getWriteRingBuffer(c);
 	if (wb) {
-	    int spaceHere = wb->getWriteSpace();
+	    sv_frame_t spaceHere = wb->getWriteSpace();
 	    if (c == 0 || spaceHere < space) space = spaceHere;
 	}
     }
@@ -1375,7 +1373,7 @@ AudioCallbackPlaySource::fillBuffers()
         return false;
     }
 
-    int f = m_writeBufferFill;
+    sv_frame_t f = m_writeBufferFill;
 	
     bool readWriteEqual = (m_readBuffers == m_writeBuffers);
 
@@ -1398,8 +1396,8 @@ AudioCallbackPlaySource::fillBuffers()
 
     int channels = getTargetChannelCount();
 
-    int orig = space;
-    int got = 0;
+    sv_frame_t orig = space;
+    sv_frame_t got = 0;
 
     static float **bufferPtrs = 0;
     static int bufferPtrCount = 0;
@@ -1580,14 +1578,14 @@ AudioCallbackPlaySource::fillBuffers()
     return true;
 }    
 
-int
-AudioCallbackPlaySource::mixModels(int &frame, int count, float **buffers)
+sv_frame_t
+AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers)
 {
-    int processed = 0;
-    int chunkStart = frame;
-    int chunkSize = count;
-    int selectionSize = 0;
-    int nextChunkStart = chunkStart + chunkSize;
+    sv_frame_t processed = 0;
+    sv_frame_t chunkStart = frame;
+    sv_frame_t chunkSize = count;
+    sv_frame_t selectionSize = 0;
+    sv_frame_t nextChunkStart = chunkStart + chunkSize;
     
     bool looping = m_viewManager->getPlayLoopMode();
     bool constrained = (m_viewManager->getPlaySelectionMode() &&
@@ -1617,11 +1615,11 @@ AudioCallbackPlaySource::mixModels(int &frame, int count, float **buffers)
 	nextChunkStart = chunkStart + chunkSize;
 	selectionSize = 0;
 
-	int fadeIn = 0, fadeOut = 0;
+	sv_frame_t fadeIn = 0, fadeOut = 0;
 
 	if (constrained) {
 
-            int rChunkStart =
+            sv_frame_t rChunkStart =
                 m_viewManager->alignPlaybackFrameToReference(chunkStart);
 	    
 	    Selection selection =
@@ -1643,9 +1641,9 @@ AudioCallbackPlaySource::mixModels(int &frame, int count, float **buffers)
 
 	    } else {
 
-                int sf = m_viewManager->alignReferenceToPlaybackFrame
+                sv_frame_t sf = m_viewManager->alignReferenceToPlaybackFrame
                     (selection.getStartFrame());
-                int ef = m_viewManager->alignReferenceToPlaybackFrame
+                sv_frame_t ef = m_viewManager->alignReferenceToPlaybackFrame
                     (selection.getEndFrame());
 
 		selectionSize = ef - sf;

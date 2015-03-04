@@ -25,23 +25,23 @@ PlaySpeedRangeMapper::PlaySpeedRangeMapper(int minpos, int maxpos) :
 }
 
 int
-PlaySpeedRangeMapper::getPositionForValue(float value) const
+PlaySpeedRangeMapper::getPositionForValue(double value) const
 {
     // value is percent
-    float factor = getFactorForValue(value);
+    double factor = getFactorForValue(value);
     int position = getPositionForFactor(factor);
     return position;
 }
 
 int
-PlaySpeedRangeMapper::getPositionForValueUnclamped(float value) const
+PlaySpeedRangeMapper::getPositionForValueUnclamped(double value) const
 {
     // We don't really provide this
     return getPositionForValue(value);
 }
 
 int
-PlaySpeedRangeMapper::getPositionForFactor(float factor) const
+PlaySpeedRangeMapper::getPositionForFactor(double factor) const
 {
     bool slow = (factor > 1.0);
 
@@ -63,37 +63,37 @@ PlaySpeedRangeMapper::getPositionForFactor(float factor) const
     return position;
 }
 
-float
+double
 PlaySpeedRangeMapper::getValueForPosition(int position) const
 {
-    float factor = getFactorForPosition(position);
-    float pc = getValueForFactor(factor);
+    double factor = getFactorForPosition(position);
+    double pc = getValueForFactor(factor);
     return pc;
 }
 
-float
+double
 PlaySpeedRangeMapper::getValueForPositionUnclamped(int position) const
 {
     // We don't really provide this
     return getValueForPosition(position);
 }
 
-float
-PlaySpeedRangeMapper::getValueForFactor(float factor) const
+double
+PlaySpeedRangeMapper::getValueForFactor(double factor) const
 {
-    float pc;
+    double pc;
     if (factor < 1.0) pc = ((1.0 / factor) - 1.0) * 100.0;
     else pc = (1.0 - factor) * 100.0;
 //    cerr << "position = " << position << " percent = " << pc << endl;
     return pc;
 }
 
-float
-PlaySpeedRangeMapper::getFactorForValue(float value) const
+double
+PlaySpeedRangeMapper::getFactorForValue(double value) const
 {
     // value is percent
     
-    float factor;
+    double factor;
 
     if (value <= 0) {
         factor = 1.0 - (value / 100.0);
@@ -105,7 +105,7 @@ PlaySpeedRangeMapper::getFactorForValue(float value) const
     return factor;
 }
 
-float
+double
 PlaySpeedRangeMapper::getFactorForPosition(int position) const
 {
     bool slow = false;
@@ -124,7 +124,7 @@ PlaySpeedRangeMapper::getFactorForPosition(int position) const
 
     // position is between min and half (inclusive)
 
-    float factor;
+    double factor;
 
     if (position == m_minpos) {
         factor = 1.0;

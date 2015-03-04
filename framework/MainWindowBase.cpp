@@ -2370,8 +2370,8 @@ MainWindowBase::zoomToFit()
     Model *model = getMainModel();
     if (!model) return;
     
-    int start = model->getStartFrame();
-    int end = model->getEndFrame();
+    sv_frame_t start = model->getStartFrame();
+    sv_frame_t end = model->getEndFrame();
     if (m_playSource) end = std::max(end, m_playSource->getPlayEndFrame());
     int pixels = currentPane->width();
 

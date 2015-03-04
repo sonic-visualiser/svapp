@@ -83,7 +83,7 @@ public:
      * from the given frame.  If playback is already under way, reseek
      * to the given frame and continue.
      */
-    virtual void play(int startFrame);
+    virtual void play(sv_frame_t startFrame);
 
     /**
      * Stop playback and ensure that no more data is returned.
@@ -99,18 +99,18 @@ public:
      * Return the frame number that is currently expected to be coming
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
-    virtual int getCurrentPlayingFrame();
+    virtual sv_frame_t getCurrentPlayingFrame();
     
     /** 
      * Return the last frame that would come out of the speakers if we
      * stopped playback right now.
      */
-    virtual int getCurrentBufferedFrame();
+    virtual sv_frame_t getCurrentBufferedFrame();
 
     /**
      * Return the frame at which playback is expected to end (if not looping).
      */
-    virtual int getPlayEndFrame() { return m_lastModelEndFrame; }
+    virtual sv_frame_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
      * Set the target and the block size of the target audio device.
@@ -133,12 +133,12 @@ public:
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
      */
-    void setTargetPlayLatency(int);
+    void setTargetPlayLatency(sv_frame_t);
 
     /**
      * Get the playback latency of the target audio device.
      */
-    int getTargetPlayLatency() const;
+    sv_frame_t getTargetPlayLatency() const;
 
     /**
      * Specify that the target audio device has a fixed sample rate
@@ -147,13 +147,13 @@ public:
      * source sample rate, this class will resample automatically to
      * fit.
      */
-    void setTargetSampleRate(int);
+    void setTargetSampleRate(sv_samplerate_t);
 
     /**
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    virtual int getTargetSampleRate() const;
+    virtual sv_samplerate_t getTargetSampleRate() const;
 
     /**
      * Set the current output levels for metering (for call from the
@@ -189,14 +189,14 @@ public:
      * safely be called from a realtime thread.  Returns 0 if there is
      * no source yet available.
      */
-    virtual int getSourceSampleRate() const;
+    virtual sv_samplerate_t getSourceSampleRate() const;
 
     /**
      * Get "count" samples (at the target sample rate) of the mixed
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    int getSourceSamples(int count, float **buffer);
+    sv_frame_t getSourceSamples(sv_frame_t count, float **buffer);
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
@@ -285,24 +285,24 @@ protected:
     Scavenger<RingBufferVector>       m_bufferScavenger;
     int                               m_sourceChannelCount;
     int                               m_blockSize;
-    int                               m_sourceSampleRate;
-    int                               m_targetSampleRate;
+    sv_samplerate_t                   m_sourceSampleRate;
+    sv_samplerate_t                   m_targetSampleRate;
     int                               m_playLatency;
     AudioCallbackPlayTarget          *m_target;
     double                            m_lastRetrievalTimestamp;
     int                               m_lastRetrievedBlockSize;
     bool                              m_trustworthyTimestamps;
-    int                               m_lastCurrentFrame;
+    sv_frame_t                        m_lastCurrentFrame;
     bool                              m_playing;
     bool                              m_exiting;
-    int                               m_lastModelEndFrame;
+    sv_frame_t                        m_lastModelEndFrame;
     int                               m_ringBufferSize;
     float                             m_outputLeft;
     float                             m_outputRight;
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
-    int                               m_playStartFrame;
+    sv_frame_t                        m_playStartFrame;
     bool                              m_playStartFramePassed;
     RealTime                          m_playStartedAt;
 
@@ -343,17 +343,17 @@ protected:
     // which will be count or fewer.  Return in the frame argument the
     // new buffered frame position (which may be earlier than the
     // frame argument passed in, in the case of looping).
-    int mixModels(int &frame, int count, float **buffers);
+    sv_frame_t mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers);
 
     // Called from getSourceSamples.
-    void applyAuditioningEffect(int count, float **buffers);
+    void applyAuditioningEffect(sv_frame_t count, float **buffers);
 
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
     std::vector<RealTime> m_rangeDurations;
     void rebuildRangeLists();
 
-    int getCurrentFrame(RealTime outputLatency);
+    sv_frame_t getCurrentFrame(RealTime outputLatency);
 
     class FillThread : public Thread
     {
