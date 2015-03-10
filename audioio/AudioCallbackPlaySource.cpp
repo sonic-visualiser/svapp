@@ -256,8 +256,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 	emit modelReplaced();
     }
 
-    connect(model, SIGNAL(modelChangedWithin(int, int)),
-            this, SLOT(modelChangedWithin(int, int)));
+    connect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
+            this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::addModel: awakening thread" << endl;
@@ -267,11 +267,11 @@ AudioCallbackPlaySource::addModel(Model *model)
 }
 
 void
-AudioCallbackPlaySource::modelChangedWithin(int 
+AudioCallbackPlaySource::modelChangedWithin(sv_frame_t 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
                                             startFrame
 #endif
-                                            , int endFrame)
+                                            , sv_frame_t endFrame)
 {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     SVDEBUG << "AudioCallbackPlaySource::modelChangedWithin(" << startFrame << "," << endFrame << ")" << endl;
@@ -291,8 +291,8 @@ AudioCallbackPlaySource::removeModel(Model *model)
     cout << "AudioCallbackPlaySource::removeModel(" << model << ")" << endl;
 #endif
 
-    disconnect(model, SIGNAL(modelChangedWithin(int, int)),
-               this, SLOT(modelChangedWithin(int, int)));
+    disconnect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
+               this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
 
     m_models.erase(model);
 
