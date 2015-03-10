@@ -201,7 +201,7 @@ public:
     /**
      * Set the time stretcher factor (i.e. playback speed).
      */
-    void setTimeStretch(float factor);
+    void setTimeStretch(double factor);
 
     /**
      * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
@@ -244,7 +244,9 @@ signals:
 
     void playStatusChanged(bool isPlaying);
 
-    void sampleRateMismatch(int requested, int available, bool willResample);
+    void sampleRateMismatch(sv_samplerate_t requested,
+                            sv_samplerate_t available,
+                            bool willResample);
 
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
@@ -280,17 +282,17 @@ protected:
     std::set<Model *>                 m_models;
     RingBufferVector                 *m_readBuffers;
     RingBufferVector                 *m_writeBuffers;
-    int                               m_readBufferFill;
-    int                               m_writeBufferFill;
+    sv_frame_t                        m_readBufferFill;
+    sv_frame_t                        m_writeBufferFill;
     Scavenger<RingBufferVector>       m_bufferScavenger;
     int                               m_sourceChannelCount;
-    int                               m_blockSize;
+    sv_frame_t                        m_blockSize;
     sv_samplerate_t                   m_sourceSampleRate;
     sv_samplerate_t                   m_targetSampleRate;
-    int                               m_playLatency;
+    sv_frame_t                        m_playLatency;
     AudioCallbackPlayTarget          *m_target;
     double                            m_lastRetrievalTimestamp;
-    int                               m_lastRetrievedBlockSize;
+    sv_frame_t                        m_lastRetrievedBlockSize;
     bool                              m_trustworthyTimestamps;
     sv_frame_t                        m_lastCurrentFrame;
     bool                              m_playing;
@@ -328,12 +330,12 @@ protected:
 
     RubberBand::RubberBandStretcher *m_timeStretcher;
     RubberBand::RubberBandStretcher *m_monoStretcher;
-    float m_stretchRatio;
+    double m_stretchRatio;
     bool m_stretchMono;
     
-    int  m_stretcherInputCount;
+    int m_stretcherInputCount;
     float **m_stretcherInputs;
-    int *m_stretcherInputSizes;
+    sv_frame_t *m_stretcherInputSizes;
 
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done

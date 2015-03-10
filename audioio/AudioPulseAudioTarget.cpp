@@ -57,7 +57,7 @@ AudioPulseAudioTarget::AudioPulseAudioTarget(AudioCallbackPlaySource *source) :
     m_bufferSize = 20480;
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
-	m_sampleRate = m_source->getSourceSampleRate();
+	m_sampleRate = int(m_source->getSourceSampleRate());
     }
     m_spec.rate = m_sampleRate;
     m_spec.channels = 2;
@@ -141,7 +141,7 @@ AudioPulseAudioTarget::getCurrentTime() const
     
     pa_usec_t usec = 0;
     pa_stream_get_time(m_stream, &usec);
-    return usec / 1000000.f;
+    return double(usec) / 1000000.0;
 }
 
 void
@@ -151,19 +151,19 @@ AudioPulseAudioTarget::sourceModelReplaced()
 }
 
 void
-AudioPulseAudioTarget::streamWriteStatic(pa_stream *stream,
+AudioPulseAudioTarget::streamWriteStatic(pa_stream *,
                                          size_t length,
                                          void *data)
 {
     AudioPulseAudioTarget *target = (AudioPulseAudioTarget *)data;
     
-    assert(stream == target->m_stream);
+//    assert(stream == target->m_stream);
 
     target->streamWrite(length);
 }
 
 void
-AudioPulseAudioTarget::streamWrite(int requested)
+AudioPulseAudioTarget::streamWrite(sv_frame_t requested)
 {
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     cout << "AudioPulseAudioTarget::streamWrite(" << requested << ")" << endl;
@@ -175,21 +175,21 @@ AudioPulseAudioTarget::streamWrite(int requested)
     pa_usec_t latency = 0;
     int negative = 0;
     if (!pa_stream_get_latency(m_stream, &latency, &negative)) {
-        int latframes = (latency / 1000000.f) * float(m_sampleRate);
+        int latframes = int(double(latency) / 1000000.0 * double(m_sampleRate));
         if (latframes > 0) m_source->setTargetPlayLatency(latframes);
     }
 
     static float *output = 0;
     static float **tmpbuf = 0;
     static int tmpbufch = 0;
-    static int tmpbufsz = 0;
+    static sv_frame_t tmpbufsz = 0;
 
     int sourceChannels = m_source->getSourceChannelCount();
 
     // Because we offer pan, we always want at least 2 channels
     if (sourceChannels < 2) sourceChannels = 2;
 
-    int nframes = requested / (sourceChannels * sizeof(float));
+    sv_frame_t nframes = requested / (sourceChannels * sizeof(float));
 
     if (nframes > m_bufferSize) {
         cerr << "WARNING: AudioPulseAudioTarget::streamWrite: nframes " << nframes << " > m_bufferSize " << m_bufferSize << endl;
@@ -223,7 +223,7 @@ AudioPulseAudioTarget::streamWrite(int requested)
         output = new float[tmpbufsz * tmpbufch];
     }
 	
-    int received = m_source->getSourceSamples(nframes, tmpbuf);
+    sv_frame_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
 #ifdef DEBUG_AUDIO_PULSE_AUDIO_TARGET_PLAY
     cerr << "requested " << nframes << ", received " << received << endl;
@@ -268,12 +268,12 @@ AudioPulseAudioTarget::streamWrite(int requested)
 }
 
 void
-AudioPulseAudioTarget::streamStateChangedStatic(pa_stream *stream,
+AudioPulseAudioTarget::streamStateChangedStatic(pa_stream *,
                                                 void *data)
 {
     AudioPulseAudioTarget *target = (AudioPulseAudioTarget *)data;
     
-    assert(stream == target->m_stream);
+//    assert(stream == target->m_stream);
 
     target->streamStateChanged();
 }
@@ -303,7 +303,7 @@ AudioPulseAudioTarget::streamStateChanged()
             cerr << "AudioPulseAudioTarget::streamStateChanged: Failed to query latency" << endl;
         }
         cerr << "Latency = " << latency << " usec" << endl;
-        int latframes = (latency / 1000000.f) * float(m_sampleRate);
+        int latframes = int(double(latency) / 1000000.0 * m_sampleRate);
         cerr << "that's " << latframes << " frames" << endl;
 
         const pa_buffer_attr *attr;
@@ -334,12 +334,12 @@ AudioPulseAudioTarget::streamStateChanged()
 }
 
 void
-AudioPulseAudioTarget::contextStateChangedStatic(pa_context *context,
+AudioPulseAudioTarget::contextStateChangedStatic(pa_context *,
                                                  void *data)
 {
     AudioPulseAudioTarget *target = (AudioPulseAudioTarget *)data;
     
-    assert(context == target->m_context);
+//    assert(context == target->m_context);
 
     target->contextStateChanged();
 }

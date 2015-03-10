@@ -46,8 +46,8 @@ TransformUserConfigurator::getChannelRange(TransformId identifier,
     if (plugin && plugin->getType() == "Feature Extraction Plugin") {
 	Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
 	SVDEBUG << "TransformUserConfigurator::getChannelRange: is a VP" << endl;
-        minChannels = vp->getMinChannelCount();
-        maxChannels = vp->getMaxChannelCount();
+        minChannels = int(vp->getMinChannelCount());
+        maxChannels = int(vp->getMaxChannelCount());
         return true;
     } else {
 	SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a VP" << endl;

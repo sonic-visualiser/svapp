@@ -20,7 +20,7 @@
 
 #include "base/Debug.h"
 
-ClipMixer::ClipMixer(int channels, int sampleRate, int blockSize) :
+ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize) :
     m_channels(channels),
     m_sampleRate(sampleRate),
     m_blockSize(blockSize),
@@ -43,7 +43,7 @@ ClipMixer::setChannelCount(int channels)
 }
 
 bool
-ClipMixer::loadClipData(QString path, float f0, float level)
+ClipMixer::loadClipData(QString path, double f0, double level)
 {
     if (m_clipData) {
         cerr << "ClipMixer::loadClipData: Already have clip loaded" << endl;
@@ -53,7 +53,7 @@ ClipMixer::loadClipData(QString path, float f0, float level)
     SF_INFO info;
     SNDFILE *file;
     float *tmpFrames;
-    int i;
+    sv_frame_t i;
 
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
@@ -83,7 +83,7 @@ ClipMixer::loadClipData(QString path, float f0, float level)
 	int j;
 	m_clipData[i] = 0.0f;
 	for (j = 0; j < info.channels; ++j) {
-	    m_clipData[i] += tmpFrames[i * info.channels + j] * level;
+	    m_clipData[i] += tmpFrames[i * info.channels + j] * float(level);
 	}
     }
 
@@ -102,19 +102,19 @@ ClipMixer::reset()
     m_playing.clear();
 }
 
-float
-ClipMixer::getResampleRatioFor(float frequency)
+double
+ClipMixer::getResampleRatioFor(double frequency)
 {
     if (!m_clipData || !m_clipRate) return 1.0;
-    float pitchRatio = m_clipF0 / frequency;
-    float resampleRatio = m_sampleRate / m_clipRate;
+    double pitchRatio = m_clipF0 / frequency;
+    double resampleRatio = m_sampleRate / m_clipRate;
     return pitchRatio * resampleRatio;
 }
 
-int
-ClipMixer::getResampledClipDuration(float frequency)
+sv_frame_t
+ClipMixer::getResampledClipDuration(double frequency)
 {
-    return int(ceil(m_clipLength * getResampleRatioFor(frequency)));
+    return sv_frame_t(ceil(double(m_clipLength) * getResampleRatioFor(frequency)));
 }
 
 void
@@ -146,12 +146,12 @@ ClipMixer::mix(float **toBuffers,
             levels[c] = note.level * gain;
         }
         if (note.pan != 0.0 && m_channels == 2) {
-            levels[0] *= 1.0 - note.pan;
-            levels[1] *= note.pan + 1.0;
+            levels[0] *= 1.0f - note.pan;
+            levels[1] *= note.pan + 1.0f;
         }
 
-        int start = note.frameOffset;
-        int durationHere = m_blockSize;
+        sv_frame_t start = note.frameOffset;
+        sv_frame_t durationHere = m_blockSize;
         if (start > 0) durationHere = m_blockSize - start;
 
         bool ending = false;
@@ -167,7 +167,7 @@ ClipMixer::mix(float **toBuffers,
             }
         }
 
-        int clipDuration = getResampledClipDuration(note.frequency);
+        sv_frame_t clipDuration = getResampledClipDuration(note.frequency);
         if (start + clipDuration > 0) {
             if (start < 0 && start + clipDuration < durationHere) {
                 durationHere = start + clipDuration;
@@ -199,46 +199,46 @@ void
 ClipMixer::mixNote(float **toBuffers,
                    float *levels,
                    float frequency,
-                   int sourceOffset,
-                   int targetOffset,
-                   int sampleCount,
+                   sv_frame_t sourceOffset,
+                   sv_frame_t targetOffset,
+                   sv_frame_t sampleCount,
                    bool isEnd)
 {
     if (!m_clipData) return;
 
-    float ratio = getResampleRatioFor(frequency);
+    double ratio = getResampleRatioFor(frequency);
     
-    float releaseTime = 0.01;
-    int releaseSampleCount = round(releaseTime * m_sampleRate);
+    double releaseTime = 0.01;
+    sv_frame_t releaseSampleCount = sv_frame_t(round(releaseTime * m_sampleRate));
     if (releaseSampleCount > sampleCount) {
         releaseSampleCount = sampleCount;
     }
-    float releaseFraction = 1.f/releaseSampleCount;
+    double releaseFraction = 1.0/double(releaseSampleCount);
 
-    for (int i = 0; i < sampleCount; ++i) {
+    for (sv_frame_t i = 0; i < sampleCount; ++i) {
 
-        int s = sourceOffset + i;
+        sv_frame_t s = sourceOffset + i;
 
-        float os = s / ratio;
-        int osi = int(floor(os));
+        double os = double(s) / ratio;
+        sv_frame_t osi = sv_frame_t(floor(os));
 
         //!!! just linear interpolation for now (same as SV's sample
         //!!! player). a small sinc kernel would be better and
         //!!! probably "good enough"
-        float value = 0.f;
+        double value = 0.0;
         if (osi < m_clipLength) {
             value += m_clipData[osi];
         }
         if (osi + 1 < m_clipLength) {
-            value += (m_clipData[osi + 1] - m_clipData[osi]) * (os - osi);
+            value += (m_clipData[osi + 1] - m_clipData[osi]) * (os - double(osi));
         }
          
         if (isEnd && i + releaseSampleCount > sampleCount) {
-            value *= releaseFraction * (sampleCount - i); // linear ramp for release
+            value *= releaseFraction * double(sampleCount - i); // linear ramp for release
         }
 
         for (int c = 0; c < m_channels; ++c) {
-            toBuffers[c][targetOffset + i] += levels[c] * value;
+            toBuffers[c][targetOffset + i] += float(levels[c] * value);
         }
     }
 }

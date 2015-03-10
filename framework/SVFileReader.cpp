@@ -450,7 +450,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     SVDEBUG << "SVFileReader::readModel: model name \"" << name << "\"" << endl;
 
-    READ_MANDATORY(int, sampleRate, toInt);
+    READ_MANDATORY(double, sampleRate, toDouble);
 
     QString type = attributes.value("type").trimmed();
     bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
@@ -478,7 +478,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             file.waitForData();
 
-            int rate = sampleRate;
+            sv_samplerate_t rate = sampleRate;
 
             if (Preferences::getInstance()->getFixedSampleRate() != 0) {
                 rate = Preferences::getInstance()->getFixedSampleRate();

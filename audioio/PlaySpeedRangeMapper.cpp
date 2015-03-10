@@ -49,8 +49,8 @@ PlaySpeedRangeMapper::getPositionForFactor(double factor) const
     
     int half = (m_maxpos + m_minpos) / 2;
 
-    factor = sqrtf((factor - 1.0) * 1000.f);
-    int position = lrintf(((factor * (half - m_minpos)) / 100.0) + m_minpos);
+    factor = sqrt((factor - 1.0) * 1000.0);
+    int position = int(lrint(((factor * (half - m_minpos)) / 100.0) + m_minpos));
 
     if (slow) {
         position = half - position;

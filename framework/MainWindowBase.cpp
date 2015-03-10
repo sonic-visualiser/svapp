@@ -178,7 +178,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
     // set a sensible default font size for views -- cannot do this
     // in Preferences, which is in base and not supposed to use QtGui
-    int viewFontSize = QApplication::font().pointSize() * 0.9;
+    int viewFontSize = int(QApplication::font().pointSize() * 0.9);
     QSettings settings;
     settings.beginGroup("Preferences");
     viewFontSize = settings.value("view-font-size", viewFontSize).toInt();
@@ -218,8 +218,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_playSource = new AudioCallbackPlaySource(m_viewManager,
                                                QApplication::applicationName());
 
-    connect(m_playSource, SIGNAL(sampleRateMismatch(int, int, bool)),
-	    this,           SLOT(sampleRateMismatch(int, int, bool)));
+    connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
+	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
@@ -2380,7 +2380,7 @@ MainWindowBase::zoomToFit()
     else pixels = 1;
     if (pixels > 4) pixels -= 4;
 
-    int zoomLevel = (end - start) / pixels;
+    int zoomLevel = int((end - start) / pixels);
     if (zoomLevel < 1) zoomLevel = 1;
 
     currentPane->setZoomLevel(zoomLevel);

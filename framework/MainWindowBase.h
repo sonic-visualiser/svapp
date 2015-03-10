@@ -213,7 +213,7 @@ protected slots:
     virtual void playSelectionToggled();
     virtual void playSoloToggled();
 
-    virtual void sampleRateMismatch(int, int, bool) = 0;
+    virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
     virtual void audioTimeStretchMultiChannelDisabled() = 0;
 

@@ -26,6 +26,8 @@
 
 #include "AudioCallbackPlayTarget.h"
 
+#include "base/BaseTypes.h"
+
 class AudioCallbackPlaySource;
 
 class AudioPortAudioTarget : public AudioCallbackPlayTarget
@@ -46,7 +48,7 @@ public slots:
     virtual void sourceModelReplaced();
 
 protected:
-    int process(const void *input, void *output, int frames,
+    int process(const void *input, void *output, sv_frame_t frames,
                 const PaStreamCallbackTimeInfo *timeInfo,
                 PaStreamCallbackFlags statusFlags);
 

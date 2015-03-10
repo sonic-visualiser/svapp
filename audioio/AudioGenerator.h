@@ -32,6 +32,8 @@ class ContinuousSynth;
 #include <map>
 #include <vector>
 
+#include "base/BaseTypes.h"
+
 class AudioGenerator : public QObject
 {
     Q_OBJECT
@@ -74,13 +76,13 @@ public:
      * argument to all mixModel calls must be a multiple of this
      * value.
      */
-    virtual int getBlockSize() const;
+    virtual sv_frame_t getBlockSize() const;
 
     /**
      * Mix a single model into an output buffer.
      */
-    virtual int mixModel(Model *model, int startFrame, int frameCount,
-			    float **buffer, int fadeIn = 0, int fadeOut = 0);
+    virtual sv_frame_t mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
+			    float **buffer, sv_frame_t fadeIn = 0, sv_frame_t fadeOut = 0);
 
     /**
      * Specify that only the given set of models should be played.
@@ -97,7 +99,7 @@ protected slots:
     void playClipIdChanged(const Playable *, QString);
 
 protected:
-    int m_sourceSampleRate;
+    sv_samplerate_t m_sourceSampleRate;
     int m_targetChannelCount;
     int m_waveType;
 
@@ -106,10 +108,10 @@ protected:
 
     struct NoteOff {
 
-        NoteOff(float _freq, int _frame) : frequency(_freq), frame(_frame) { }
+        NoteOff(float _freq, sv_frame_t _frame) : frequency(_freq), frame(_frame) { }
 
         float frequency;
-	int frame;
+	sv_frame_t frame;
 
 	struct Comparator {
 	    bool operator()(const NoteOff &n1, const NoteOff &n2) const {
@@ -143,22 +145,22 @@ protected:
 
     static void initialiseSampleDir();
 
-    virtual int mixDenseTimeValueModel
-    (DenseTimeValueModel *model, int startFrame, int frameCount,
-     float **buffer, float gain, float pan, int fadeIn, int fadeOut);
+    virtual sv_frame_t mixDenseTimeValueModel
+    (DenseTimeValueModel *model, sv_frame_t startFrame, sv_frame_t frameCount,
+     float **buffer, float gain, float pan, sv_frame_t fadeIn, sv_frame_t fadeOut);
 
-    virtual int mixClipModel
-    (Model *model, int startFrame, int frameCount,
+    virtual sv_frame_t mixClipModel
+    (Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
      float **buffer, float gain, float pan);
 
-    virtual int mixContinuousSynthModel
-    (Model *model, int startFrame, int frameCount,
+    virtual sv_frame_t mixContinuousSynthModel
+    (Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
      float **buffer, float gain, float pan);
     
-    static const int m_processingBlockSize;
+    static const sv_frame_t m_processingBlockSize;
 
     float **m_channelBuffer;
-    int m_channelBufSiz;
+    sv_frame_t m_channelBufSiz;
     int m_channelBufCount;
 };
 
