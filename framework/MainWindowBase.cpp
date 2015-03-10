@@ -106,9 +106,6 @@
 #include <cstdio>
 #include <errno.h>
 
-
-
-
 using std::vector;
 using std::map;
 using std::set;
@@ -160,6 +157,9 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
+
+    qRegisterMetaType<sv_frame_t>("sv_frame_t");
+    qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
 
 #ifdef Q_WS_X11
     XSetErrorHandler(handle_x11_error);
