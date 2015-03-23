@@ -90,6 +90,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
+#include <QTextCodec>
 #include <QProcess>
 #include <QShortcut>
 #include <QSettings>
@@ -2235,6 +2236,7 @@ MainWindowBase::saveSessionFile(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&bzFile);
+        out.setCodec(QTextCodec::codecForName("UTF-8"));
         toXml(out, false);
         out.flush();
 
@@ -2280,6 +2282,7 @@ MainWindowBase::saveSessionTemplate(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&file);
+        out.setCodec(QTextCodec::codecForName("UTF-8"));
         toXml(out, true);
         out.flush();
 
