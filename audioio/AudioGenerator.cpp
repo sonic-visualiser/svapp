@@ -37,7 +37,7 @@
 #include <QDir>
 #include <QFile>
 
-const int
+const sv_frame_t
 AudioGenerator::m_processingBlockSize = 1024;
 
 QString
@@ -228,11 +228,11 @@ AudioGenerator::makeClipMixerFor(const Model *model)
                                      m_sourceSampleRate,
                                      m_processingBlockSize);
 
-    float clipF0 = Pitch::getFrequencyForPitch(60, 0, 440.0f); // required
+    double clipF0 = Pitch::getFrequencyForPitch(60, 0, 440.0); // required
 
     QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(clipId);
 
-    float level = wantsQuieterClips(model) ? 0.5 : 1.0;
+    double level = wantsQuieterClips(model) ? 0.5 : 1.0;
     if (!mixer->loadClipData(clipPath, clipF0, level)) {
         delete mixer;
         return 0;
@@ -318,7 +318,7 @@ AudioGenerator::setTargetChannelCount(int targetChannelCount)
     }
 }
 
-int
+sv_frame_t
 AudioGenerator::getBlockSize() const
 {
     return m_processingBlockSize;
@@ -342,9 +342,9 @@ AudioGenerator::clearSoloModelSet()
     m_soloing = false;
 }
 
-int
-AudioGenerator::mixModel(Model *model, int startFrame, int frameCount,
-			 float **buffer, int fadeIn, int fadeOut)
+sv_frame_t
+AudioGenerator::mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
+			 float **buffer, sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
 	cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
@@ -401,13 +401,13 @@ AudioGenerator::mixModel(Model *model, int startFrame, int frameCount,
     return frameCount;
 }
 
-int
+sv_frame_t
 AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
-				       int startFrame, int frames,
+				       sv_frame_t startFrame, sv_frame_t frames,
 				       float **buffer, float gain, float pan,
-				       int fadeIn, int fadeOut)
+				       sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
-    int maxFrames = frames + std::max(fadeIn, fadeOut);
+    sv_frame_t maxFrames = frames + std::max(fadeIn, fadeOut);
 
     int modelChannels = dtvm->getChannelCount();
 
@@ -428,7 +428,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 	m_channelBufSiz = maxFrames;
     }
 
-    int got = 0;
+    sv_frame_t got = 0;
 
     if (startFrame >= fadeIn/2) {
         got = dtvm->getData(0, modelChannels - 1,
@@ -436,7 +436,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
                             frames + fadeOut/2 + fadeIn/2,
                             m_channelBuffer);
     } else {
-        int missing = fadeIn/2 - startFrame;
+        sv_frame_t missing = fadeIn/2 - startFrame;
 
         for (int c = 0; c < modelChannels; ++c) {
             m_channelBuffer[c] += missing;
@@ -470,25 +470,27 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 	float channelGain = gain;
 	if (pan != 0.0) {
 	    if (c == 0) {
-		if (pan > 0.0) channelGain *= 1.0 - pan;
+		if (pan > 0.0) channelGain *= 1.0f - pan;
 	    } else {
-		if (pan < 0.0) channelGain *= pan + 1.0;
+		if (pan < 0.0) channelGain *= pan + 1.0f;
 	    }
 	}
 
-	for (int i = 0; i < fadeIn/2; ++i) {
+	for (sv_frame_t i = 0; i < fadeIn/2; ++i) {
 	    float *back = buffer[c];
 	    back -= fadeIn/2;
-	    back[i] += (channelGain * m_channelBuffer[sourceChannel][i] * i) / fadeIn;
+	    back[i] +=
+                (channelGain * m_channelBuffer[sourceChannel][i] * float(i))
+                / float(fadeIn);
 	}
 
-	for (int i = 0; i < frames + fadeOut/2; ++i) {
+	for (sv_frame_t i = 0; i < frames + fadeOut/2; ++i) {
 	    float mult = channelGain;
 	    if (i < fadeIn/2) {
-		mult = (mult * i) / fadeIn;
+		mult = (mult * float(i)) / float(fadeIn);
 	    }
 	    if (i > frames - fadeOut/2) {
-		mult = (mult * ((frames + fadeOut/2) - i)) / fadeOut;
+		mult = (mult * float((frames + fadeOut/2) - i)) / float(fadeOut);
 	    }
             float val = m_channelBuffer[sourceChannel][i];
             if (i >= got) val = 0.f;
@@ -499,15 +501,15 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
     return got;
 }
   
-int
+sv_frame_t
 AudioGenerator::mixClipModel(Model *model,
-                             int startFrame, int frames,
+                             sv_frame_t startFrame, sv_frame_t frames,
                              float **buffer, float gain, float pan)
 {
     ClipMixer *clipMixer = m_clipMixerMap[model];
     if (!clipMixer) return 0;
 
-    int blocks = frames / m_processingBlockSize;
+    int blocks = int(frames / m_processingBlockSize);
     
     //!!! todo: the below -- it matters
 
@@ -521,7 +523,7 @@ AudioGenerator::mixClipModel(Model *model,
     //callback play source has to use that as a multiple for all the
     //calls to mixModel
 
-    int got = blocks * m_processingBlockSize;
+    sv_frame_t got = blocks * m_processingBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
     cout << "mixModel [clip]: frames " << frames
@@ -537,7 +539,7 @@ AudioGenerator::mixClipModel(Model *model,
 
     for (int i = 0; i < blocks; ++i) {
 
-	int reqStart = startFrame + i * m_processingBlockSize;
+	sv_frame_t reqStart = startFrame + i * m_processingBlockSize;
 
         NoteList notes;
         NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
@@ -552,7 +554,7 @@ AudioGenerator::mixClipModel(Model *model,
 	for (NoteList::const_iterator ni = notes.begin();
              ni != notes.end(); ++ni) {
 
-	    int noteFrame = ni->start;
+	    sv_frame_t noteFrame = ni->start;
 
 	    if (noteFrame < reqStart ||
 		noteFrame >= reqStart + m_processingBlockSize) continue;
@@ -560,7 +562,7 @@ AudioGenerator::mixClipModel(Model *model,
 	    while (noteOffs.begin() != noteOffs.end() &&
 		   noteOffs.begin()->frame <= noteFrame) {
 
-                int eventFrame = noteOffs.begin()->frame;
+                sv_frame_t eventFrame = noteOffs.begin()->frame;
                 if (eventFrame < reqStart) eventFrame = reqStart;
 
                 off.frameOffset = eventFrame - reqStart;
@@ -576,7 +578,7 @@ AudioGenerator::mixClipModel(Model *model,
 
             on.frameOffset = noteFrame - reqStart;
             on.frequency = ni->getFrequency();
-            on.level = float(ni->velocity) / 127.0;
+            on.level = float(ni->velocity) / 127.0f;
             on.pan = pan;
 
 #ifdef DEBUG_AUDIO_GENERATOR
@@ -591,7 +593,7 @@ AudioGenerator::mixClipModel(Model *model,
 	while (noteOffs.begin() != noteOffs.end() &&
 	       noteOffs.begin()->frame <= reqStart + m_processingBlockSize) {
 
-            int eventFrame = noteOffs.begin()->frame;
+            sv_frame_t eventFrame = noteOffs.begin()->frame;
             if (eventFrame < reqStart) eventFrame = reqStart;
 
             off.frameOffset = eventFrame - reqStart;
@@ -617,10 +619,10 @@ AudioGenerator::mixClipModel(Model *model,
     return got;
 }
 
-int
+sv_frame_t
 AudioGenerator::mixContinuousSynthModel(Model *model,
-                                        int startFrame,
-                                        int frames,
+                                        sv_frame_t startFrame,
+                                        sv_frame_t frames,
                                         float **buffer,
                                         float gain, 
                                         float pan)
@@ -632,11 +634,11 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
     SparseTimeValueModel *stvm = qobject_cast<SparseTimeValueModel *>(model);
     if (stvm->getScaleUnits() != "Hz") return 0;
 
-    int blocks = frames / m_processingBlockSize;
+    int blocks = int(frames / m_processingBlockSize);
 
     //!!! todo: see comment in mixClipModel
 
-    int got = blocks * m_processingBlockSize;
+    sv_frame_t got = blocks * m_processingBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
     cout << "mixModel [synth]: frames " << frames
@@ -647,7 +649,7 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
 
     for (int i = 0; i < blocks; ++i) {
 
-	int reqStart = startFrame + i * m_processingBlockSize;
+	sv_frame_t reqStart = startFrame + i * m_processingBlockSize;
 
 	for (int c = 0; c < m_targetChannelCount; ++c) {
             bufferIndexes[c] = buffer[c] + i * m_processingBlockSize;

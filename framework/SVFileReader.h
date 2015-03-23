@@ -34,7 +34,7 @@ public:
     virtual ~SVFileReaderPaneCallback();
     virtual Pane *addPane() = 0;
     virtual void setWindowSize(int width, int height) = 0;
-    virtual void addSelection(int start, int end) = 0;
+    virtual void addSelection(sv_frame_t start, sv_frame_t end) = 0;
 };
 
 /**

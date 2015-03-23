@@ -23,17 +23,17 @@ class PlaySpeedRangeMapper : public RangeMapper
 public:
     PlaySpeedRangeMapper(int minpos, int maxpos);
 
-    virtual int getPositionForValue(float value) const;
-    virtual int getPositionForValueUnclamped(float value) const;
+    virtual int getPositionForValue(double value) const;
+    virtual int getPositionForValueUnclamped(double value) const;
 
-    virtual float getValueForPosition(int position) const;
-    virtual float getValueForPositionUnclamped(int position) const;
+    virtual double getValueForPosition(int position) const;
+    virtual double getValueForPositionUnclamped(int position) const;
 
-    int getPositionForFactor(float factor) const;
-    float getValueForFactor(float factor) const;
+    int getPositionForFactor(double factor) const;
+    double getValueForFactor(double factor) const;
 
-    float getFactorForPosition(int position) const;
-    float getFactorForValue(float value) const;
+    double getFactorForPosition(int position) const;
+    double getFactorForValue(double value) const;
 
     virtual QString getUnit() const;
     

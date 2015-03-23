@@ -111,7 +111,7 @@ public:
     virtual bool saveSessionTemplate(QString path);
 
     /// Implementation of FrameTimer interface method
-    virtual int getFrame() const;
+    virtual sv_frame_t getFrame() const;
 
     void setDefaultFfwdRwdStep(RealTime step) {
         m_defaultFfwdRwdStep = step;
@@ -213,13 +213,13 @@ protected slots:
     virtual void playSelectionToggled();
     virtual void playSoloToggled();
 
-    virtual void sampleRateMismatch(int, int, bool) = 0;
+    virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
     virtual void audioTimeStretchMultiChannelDisabled() = 0;
 
-    virtual void playbackFrameChanged(int);
-    virtual void globalCentreFrameChanged(int);
-    virtual void viewCentreFrameChanged(View *, int);
+    virtual void playbackFrameChanged(sv_frame_t);
+    virtual void globalCentreFrameChanged(sv_frame_t);
+    virtual void viewCentreFrameChanged(View *, sv_frame_t);
     virtual void viewZoomLevelChanged(View *, int, bool);
     virtual void outputLevelsChanged(float, float) = 0;
 
@@ -236,14 +236,14 @@ protected slots:
     virtual void copy();
     virtual void paste();
     virtual void pasteAtPlaybackPosition();
-    virtual void pasteRelative(int offset);
+    virtual void pasteRelative(sv_frame_t offset);
     virtual void deleteSelected();
 
     virtual void insertInstant();
-    virtual void insertInstantAt(int);
+    virtual void insertInstantAt(sv_frame_t);
     virtual void insertInstantsAtBoundaries();
     virtual void insertItemAtSelection();
-    virtual void insertItemAt(int, int);
+    virtual void insertItemAt(sv_frame_t, sv_frame_t);
     virtual void renumberInstants();
 
     virtual void documentModified();
@@ -366,7 +366,7 @@ protected:
 	virtual void setWindowSize(int width, int height) {
 	    m_mw->resizeConstrained(QSize(width, height));
 	}
-	virtual void addSelection(int start, int end) {
+	virtual void addSelection(sv_frame_t start, sv_frame_t end) {
 	    m_mw->m_viewManager->addSelectionQuietly(Selection(start, end));
 	}
     protected:
