@@ -388,6 +388,8 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 	m_writeBuffers->push_back(new RingBuffer<float>(m_ringBufferSize));
     }
 
+    m_audioGenerator->reset();
+    
 //    cout << "AudioCallbackPlaySource::clearRingBuffers: Created "
 //	      << count << " write buffers" << endl;
 

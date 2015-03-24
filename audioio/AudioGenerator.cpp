@@ -526,8 +526,9 @@ AudioGenerator::mixClipModel(Model *model,
     sv_frame_t got = blocks * m_processingBlockSize;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    cout << "mixModel [clip]: frames " << frames
-	      << ", blocks " << blocks << endl;
+    cout << "mixModel [clip]: start " << startFrame << ", frames " << frames
+         << ", blocks " << blocks << ", have " << m_noteOffs.size()
+         << " note-offs" << endl;
 #endif
 
     ClipMixer::NoteStart on;

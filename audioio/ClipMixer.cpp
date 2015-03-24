@@ -20,6 +20,8 @@
 
 #include "base/Debug.h"
 
+//#define DEBUG_CLIP_MIXER 1
+
 ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize) :
     m_channels(channels),
     m_sampleRate(sampleRate),
