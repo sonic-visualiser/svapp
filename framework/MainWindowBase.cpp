@@ -345,6 +345,12 @@ MainWindowBase::finaliseMenu(QMenu *
     // "ambiguous shortcut" errors from the menu entry actions and
     // will need to update the code.)
 
+    // Update: The bug was fixed in Qt 5.4 for shortcuts with no
+    // modifier, and I believe it is fixed in Qt 5.5 for shortcuts
+    // with Shift modifiers. The below reflects that
+
+#if (QT_VERSION < QT_VERSION_CHECK(5, 5, 0))
+
     if (!m_menuShortcutMapper) {
         m_menuShortcutMapper = new QSignalMapper(this);
         connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
@@ -374,9 +380,17 @@ MainWindowBase::finaliseMenu(QMenu *
             // working and that we need to handle here includes those
             // with the Shift modifier mask as well as those with no
             // modifier at all
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
+            // Nothing needed
+            if (false) {
+#elif (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+            if (sc.count() == 1 &&
+                (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier) {
+#else
             if (sc.count() == 1 &&
                 ((sc[0] & Qt::KeyboardModifierMask) == Qt::NoModifier ||
                  (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier)) {
+#endif
                 QShortcut *newSc = new QShortcut(sc, a->parentWidget());
                 QObject::connect(newSc, SIGNAL(activated()),
                                  m_menuShortcutMapper, SLOT(map()));
@@ -385,6 +399,7 @@ MainWindowBase::finaliseMenu(QMenu *
             }
         }
     }
+#endif
 #endif
 }
 
