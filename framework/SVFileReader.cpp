@@ -999,7 +999,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	(m_currentDataset);
 
     if (stvm) {
-        cerr << "Current dataset is a sparse time-value model" << endl;
+//        cerr << "Current dataset is a sparse time-value model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	QString label = attributes.value("label");
@@ -1010,7 +1010,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     NoteModel *nm = dynamic_cast<NoteModel *>(m_currentDataset);
 
     if (nm) {
-        cerr << "Current dataset is a note model" << endl;
+//        cerr << "Current dataset is a note model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;
@@ -1028,7 +1028,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
 
     if (fnm) {
-        cerr << "Current dataset is a flexinote model" << endl;
+//        cerr << "Current dataset is a flexinote model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;
@@ -1046,7 +1046,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
 
     if (rm) {
-        cerr << "Current dataset is a region model" << endl;
+//        cerr << "Current dataset is a region model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;
