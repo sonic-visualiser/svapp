@@ -362,7 +362,9 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 {
     if (!haveLock) m_mutex.lock();
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
     cerr << "clearRingBuffers" << endl;
+#endif
 
     rebuildRangeLists();
 
@@ -370,13 +372,17 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 	if (m_writeBuffers) count = int(m_writeBuffers->size());
     }
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
     cerr << "current playing frame = " << getCurrentPlayingFrame() << endl;
 
     cerr << "write buffer fill (before) = " << m_writeBufferFill << endl;
-
+#endif
+    
     m_writeBufferFill = getCurrentBufferedFrame();
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
     cerr << "current buffered frame = " << m_writeBufferFill << endl;
+#endif
 
     if (m_readBuffers != m_writeBuffers) {
 	delete m_writeBuffers;

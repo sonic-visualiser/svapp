@@ -217,7 +217,9 @@ AudioGenerator::makeClipMixerFor(const Model *model)
         clipId = parameters->getPlayClipId();
     }
 
+#ifdef DEBUG_AUDIO_GENERATOR
     std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): sample id = " << clipId << std::endl;
+#endif
 
     if (clipId == "") {
         SVDEBUG << "AudioGenerator::makeClipMixerFor(" << model << "): no sample, skipping" << endl;
@@ -238,7 +240,9 @@ AudioGenerator::makeClipMixerFor(const Model *model)
         return 0;
     }
 
+#ifdef DEBUG_AUDIO_GENERATOR
     std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): loaded clip " << clipId << std::endl;
+#endif
 
     return mixer;
 }
@@ -254,7 +258,9 @@ AudioGenerator::makeSynthFor(const Model *model)
                                                  m_processingBlockSize,
                                                  m_waveType);
 
+#ifdef DEBUG_AUDIO_GENERATOR
     std::cerr << "AudioGenerator::makeSynthFor(" << model << "): created synth" << std::endl;
+#endif
 
     return synth;
 }
@@ -292,7 +298,9 @@ AudioGenerator::reset()
 {
     QMutexLocker locker(&m_mutex);
 
+#ifdef DEBUG_AUDIO_GENERATOR
     cerr << "AudioGenerator::reset()" << endl;
+#endif
 
     for (ClipMixerMap::iterator i = m_clipMixerMap.begin(); i != m_clipMixerMap.end(); ++i) {
 	if (i->second) {
