@@ -886,13 +886,18 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	    } else {
 		cerr << "WARNING: SV-XML: Unknown model id " << modelId
 			  << " in layer definition" << endl;
+
+                // Don't add a layer with an unknown model id
+                m_document->deleteLayer(layer);
+                m_layers[id] = layer = 0;
+                return false;
 	    }
 	}
 
-	layer->setProperties(attributes);
+        if (layer) layer->setProperties(attributes);
     }
 
-    if (!m_inData && m_currentPane) {
+    if (!m_inData && m_currentPane && layer) {
 
         QString visible = attributes.value("visible");
         bool dormant = (visible == "false");
@@ -912,7 +917,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     }
 
     m_currentLayer = layer;
-    m_inLayer = true;
+    m_inLayer = (layer != 0);
 
     return true;
 }
