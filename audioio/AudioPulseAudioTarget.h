@@ -46,7 +46,7 @@ public slots:
     virtual void sourceModelReplaced();
 
 protected:
-    void streamWrite(int);
+    void streamWrite(sv_frame_t);
     void streamStateChanged();
     void contextStateChanged();
 

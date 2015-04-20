@@ -450,7 +450,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     SVDEBUG << "SVFileReader::readModel: model name \"" << name << "\"" << endl;
 
-    READ_MANDATORY(int, sampleRate, toInt);
+    READ_MANDATORY(double, sampleRate, toDouble);
 
     QString type = attributes.value("type").trimmed();
     bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
@@ -478,7 +478,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             file.waitForData();
 
-            int rate = sampleRate;
+            sv_samplerate_t rate = sampleRate;
 
             if (Preferences::getInstance()->getFixedSampleRate() != 0) {
                 rate = Preferences::getInstance()->getFixedSampleRate();
@@ -886,13 +886,18 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	    } else {
 		cerr << "WARNING: SV-XML: Unknown model id " << modelId
 			  << " in layer definition" << endl;
+
+                // Don't add a layer with an unknown model id
+                m_document->deleteLayer(layer);
+                m_layers[id] = layer = 0;
+                return false;
 	    }
 	}
 
-	layer->setProperties(attributes);
+        if (layer) layer->setProperties(attributes);
     }
 
-    if (!m_inData && m_currentPane) {
+    if (!m_inData && m_currentPane && layer) {
 
         QString visible = attributes.value("visible");
         bool dormant = (visible == "false");
@@ -912,7 +917,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     }
 
     m_currentLayer = layer;
-    m_inLayer = true;
+    m_inLayer = (layer != 0);
 
     return true;
 }
@@ -999,7 +1004,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 	(m_currentDataset);
 
     if (stvm) {
-        cerr << "Current dataset is a sparse time-value model" << endl;
+//        cerr << "Current dataset is a sparse time-value model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	QString label = attributes.value("label");
@@ -1010,7 +1015,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     NoteModel *nm = dynamic_cast<NoteModel *>(m_currentDataset);
 
     if (nm) {
-        cerr << "Current dataset is a note model" << endl;
+//        cerr << "Current dataset is a note model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;
@@ -1028,7 +1033,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
 
     if (fnm) {
-        cerr << "Current dataset is a flexinote model" << endl;
+//        cerr << "Current dataset is a flexinote model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;
@@ -1046,7 +1051,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
 
     if (rm) {
-        cerr << "Current dataset is a region model" << endl;
+//        cerr << "Current dataset is a region model" << endl;
 	float value = 0.0;
 	value = attributes.value("value").trimmed().toFloat(&ok);
 	int duration = 0;

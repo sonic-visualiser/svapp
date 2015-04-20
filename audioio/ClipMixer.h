@@ -19,6 +19,8 @@
 #include <QString>
 #include <vector>
 
+#include "base/BaseTypes.h"
+
 /**
  * Mix in synthetic notes produced by resampling a prerecorded
  * clip. (i.e. this is an implementation of a digital sampler in the
@@ -29,7 +31,7 @@
 class ClipMixer
 {
 public:
-    ClipMixer(int channels, int sampleRate, int blockSize);
+    ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize);
     ~ClipMixer();
 
     void setChannelCount(int channels);
@@ -41,19 +43,19 @@ public:
      * and should be scaled by level (in the range 0-1) when playing
      * back.
      */
-    bool loadClipData(QString clipFilePath, float clipF0, float level);
+    bool loadClipData(QString clipFilePath, double clipF0, double level);
 
     void reset(); // discarding any playing notes
 
     struct NoteStart {
-	int frameOffset; // within current processing block
+	sv_frame_t frameOffset; // within current processing block
 	float frequency; // Hz
 	float level; // volume in range (0,1]
 	float pan; // range [-1,1]
     };
 
     struct NoteEnd {
-	int frameOffset; // in current processing block
+	sv_frame_t frameOffset; // in current processing block
         float frequency; // matching note start
     };
 
@@ -64,27 +66,27 @@ public:
 
 private:
     int m_channels;
-    int m_sampleRate;
-    int m_blockSize;
+    sv_samplerate_t m_sampleRate;
+    sv_frame_t m_blockSize;
 
     QString m_clipPath;
 
     float *m_clipData;
-    int m_clipLength;
-    float m_clipF0;
-    float m_clipRate;
+    sv_frame_t m_clipLength;
+    double m_clipF0;
+    sv_samplerate_t m_clipRate;
 
     std::vector<NoteStart> m_playing;
 
-    float getResampleRatioFor(float frequency);
-    int getResampledClipDuration(float frequency);
+    double getResampleRatioFor(double frequency);
+    sv_frame_t getResampledClipDuration(double frequency);
 
     void mixNote(float **toBuffers, 
                  float *levels,
                  float frequency,
-                 int sourceOffset, // within resampled note
-                 int targetOffset, // within target buffer
-                 int sampleCount,
+                 sv_frame_t sourceOffset, // within resampled note
+                 sv_frame_t targetOffset, // within target buffer
+                 sv_frame_t sampleCount,
                  bool isEnd);
 };
 

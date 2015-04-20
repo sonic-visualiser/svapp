@@ -15,6 +15,8 @@
 #ifndef CONTINUOUS_SYNTH_H
 #define CONTINUOUS_SYNTH_H
 
+#include "base/BaseTypes.h"
+
 /**
  * Mix into a target buffer a signal synthesised so as to sound at a
  * specific frequency. The frequency may change with each processing
@@ -24,7 +26,7 @@
 class ContinuousSynth
 {
 public:
-    ContinuousSynth(int channels, int sampleRate, int blockSize, int waveType);
+    ContinuousSynth(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize, int waveType);
     ~ContinuousSynth();
     
     void setChannelCount(int channels);
@@ -45,14 +47,14 @@ public:
      * sound switches on and off cleanly.
      */
     void mix(float **toBuffers,
-         float gain,
-         float pan,
-         float f0);
+             float gain,
+             float pan,
+             float f0);
 
 private:
     int m_channels;
-    int m_sampleRate;
-    int m_blockSize;
+    sv_samplerate_t m_sampleRate;
+    sv_frame_t m_blockSize;
 
     double m_prevF0;
     double m_phase;

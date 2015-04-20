@@ -52,7 +52,7 @@ AudioPortAudioTarget::AudioPortAudioTarget(AudioCallbackPlaySource *source) :
     m_bufferSize = 2048;
     m_sampleRate = 44100;
     if (m_source && (m_source->getSourceSampleRate() != 0)) {
-	m_sampleRate = m_source->getSourceSampleRate();
+	m_sampleRate = int(m_source->getSourceSampleRate());
     }
 
     PaStreamParameters op;
@@ -185,7 +185,7 @@ AudioPortAudioTarget::sourceModelReplaced()
 
 int
 AudioPortAudioTarget::process(const void *, void *outputBuffer,
-                              int nframes,
+                              sv_frame_t nframes,
                               const PaStreamCallbackTimeInfo *,
                               PaStreamCallbackFlags)
 {
@@ -244,7 +244,7 @@ AudioPortAudioTarget::process(const void *, void *outputBuffer,
 	}
     }
 	
-    int received = m_source->getSourceSamples(nframes, tmpbuf);
+    sv_frame_t received = m_source->getSourceSamples(nframes, tmpbuf);
 
     float peakLeft = 0.0, peakRight = 0.0;
 
