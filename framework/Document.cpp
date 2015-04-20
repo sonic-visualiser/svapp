@@ -738,7 +738,7 @@ Document::addDerivedModels(const Transforms &transforms,
         applied.setPluginVersion
             (TransformFactory::getInstance()->
              getDefaultTransformFor(applied.getIdentifier(),
-                                    lrintf(applied.getSampleRate()))
+                                    applied.getSampleRate())
              .getPluginVersion());
 
         if (!model) {

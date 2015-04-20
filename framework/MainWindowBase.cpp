@@ -54,7 +54,6 @@
 #include "data/fileio/DataFileReaderFactory.h"
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
-#include "data/fileio/CSVFileWriter.h"
 #include "data/fileio/MIDIFileWriter.h"
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
@@ -90,6 +89,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
+#include <QTextCodec>
 #include <QProcess>
 #include <QShortcut>
 #include <QSettings>
@@ -104,9 +104,6 @@
 #include <iostream>
 #include <cstdio>
 #include <errno.h>
-
-
-
 
 using std::vector;
 using std::map;
@@ -161,6 +158,9 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
+    qRegisterMetaType<sv_frame_t>("sv_frame_t");
+    qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
+
 #ifdef Q_WS_X11
     XSetErrorHandler(handle_x11_error);
 #endif
@@ -178,7 +178,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
     // set a sensible default font size for views -- cannot do this
     // in Preferences, which is in base and not supposed to use QtGui
-    int viewFontSize = QApplication::font().pointSize() * 0.9;
+    int viewFontSize = int(QApplication::font().pointSize() * 0.9);
     QSettings settings;
     settings.beginGroup("Preferences");
     viewFontSize = settings.value("view-font-size", viewFontSize).toInt();
@@ -218,8 +218,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_playSource = new AudioCallbackPlaySource(m_viewManager,
                                                QApplication::applicationName());
 
-    connect(m_playSource, SIGNAL(sampleRateMismatch(int, int, bool)),
-	    this,           SLOT(sampleRateMismatch(int, int, bool)));
+    connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
+	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
@@ -228,14 +228,14 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     connect(m_viewManager, SIGNAL(outputLevelsChanged(float, float)),
 	    this, SLOT(outputLevelsChanged(float, float)));
 
-    connect(m_viewManager, SIGNAL(playbackFrameChanged(int)),
-            this, SLOT(playbackFrameChanged(int)));
+    connect(m_viewManager, SIGNAL(playbackFrameChanged(sv_frame_t)),
+            this, SLOT(playbackFrameChanged(sv_frame_t)));
 
-    connect(m_viewManager, SIGNAL(globalCentreFrameChanged(int)),
-            this, SLOT(globalCentreFrameChanged(int)));
+    connect(m_viewManager, SIGNAL(globalCentreFrameChanged(sv_frame_t)),
+            this, SLOT(globalCentreFrameChanged(sv_frame_t)));
 
-    connect(m_viewManager, SIGNAL(viewCentreFrameChanged(View *, int)),
-            this, SLOT(viewCentreFrameChanged(View *, int)));
+    connect(m_viewManager, SIGNAL(viewCentreFrameChanged(View *, sv_frame_t)),
+            this, SLOT(viewCentreFrameChanged(View *, sv_frame_t)));
 
     connect(m_viewManager, SIGNAL(viewZoomLevelChanged(View *, int, bool)),
             this, SLOT(viewZoomLevelChanged(View *, int, bool)));
@@ -345,6 +345,12 @@ MainWindowBase::finaliseMenu(QMenu *menu)
     // "ambiguous shortcut" errors from the menu entry actions and
     // will need to update the code.)
 
+    // Update: The bug was fixed in Qt 5.4 for shortcuts with no
+    // modifier, and I believe it is fixed in Qt 5.5 for shortcuts
+    // with Shift modifiers. The below reflects that
+
+#if (QT_VERSION < QT_VERSION_CHECK(5, 5, 0))
+
     if (!m_menuShortcutMapper) {
         m_menuShortcutMapper = new QSignalMapper(this);
         connect(m_menuShortcutMapper, SIGNAL(mapped(QObject *)),
@@ -374,9 +380,17 @@ MainWindowBase::finaliseMenu(QMenu *menu)
             // working and that we need to handle here includes those
             // with the Shift modifier mask as well as those with no
             // modifier at all
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
+            // Nothing needed
+            if (false) {
+#elif (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+            if (sc.count() == 1 &&
+                (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier) {
+#else
             if (sc.count() == 1 &&
                 ((sc[0] & Qt::KeyboardModifierMask) == Qt::NoModifier ||
                  (sc[0] & Qt::KeyboardModifierMask) == Qt::ShiftModifier)) {
+#endif
                 QShortcut *newSc = new QShortcut(sc, a->parentWidget());
                 QObject::connect(newSc, SIGNAL(activated()),
                                  m_menuShortcutMapper, SLOT(map()));
@@ -385,6 +399,7 @@ MainWindowBase::finaliseMenu(QMenu *menu)
             }
         }
     }
+#endif
 #endif
 }
 
@@ -691,7 +706,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
     // frame before switching to whichever one we decide we want to
     // switch to, regardless of our efforts.
 
-    int frame = m_playSource->getCurrentBufferedFrame();
+    sv_frame_t frame = m_playSource->getCurrentBufferedFrame();
 
     cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
 
@@ -780,7 +795,7 @@ MainWindowBase::selectVisible()
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    int startFrame, endFrame;
+    sv_frame_t startFrame, endFrame;
 
     if (currentPane->getStartFrame() < 0) startFrame = 0;
     else startFrame = currentPane->getStartFrame();
@@ -851,11 +866,11 @@ MainWindowBase::paste()
 void
 MainWindowBase::pasteAtPlaybackPosition()
 {
-    int pos = getFrame();
+    sv_frame_t pos = getFrame();
     Clipboard &clipboard = m_viewManager->getClipboard();
     if (!clipboard.empty()) {
-        int firstEventFrame = clipboard.getPoints()[0].getFrame();
-        int offset = 0;
+        sv_frame_t firstEventFrame = clipboard.getPoints()[0].getFrame();
+        sv_frame_t offset = 0;
         if (firstEventFrame < 0) {
             offset = pos - firstEventFrame;
         } else if (firstEventFrame < pos) {
@@ -868,7 +883,7 @@ MainWindowBase::pasteAtPlaybackPosition()
 }
 
 void
-MainWindowBase::pasteRelative(int offset)
+MainWindowBase::pasteRelative(sv_frame_t offset)
 {
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
@@ -936,7 +951,7 @@ MainWindowBase::deleteSelected()
 
 // FrameTimer method
 
-int
+sv_frame_t
 MainWindowBase::getFrame() const
 {
     if (m_playSource && m_playSource->isPlaying()) {
@@ -958,8 +973,8 @@ MainWindowBase::insertInstantsAtBoundaries()
     MultiSelection::SelectionList selections = m_viewManager->getSelections();
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        int start = i->getStartFrame();
-        int end = i->getEndFrame();
+        sv_frame_t start = i->getStartFrame();
+        sv_frame_t end = i->getEndFrame();
         if (start != end) {
             insertInstantAt(start);
             insertInstantAt(end);
@@ -968,7 +983,7 @@ MainWindowBase::insertInstantsAtBoundaries()
 }
 
 void
-MainWindowBase::insertInstantAt(int frame)
+MainWindowBase::insertInstantAt(sv_frame_t frame)
 {
     Pane *pane = m_paneStack->getCurrentPane();
     if (!pane) {
@@ -1060,8 +1075,8 @@ MainWindowBase::insertItemAtSelection()
     MultiSelection::SelectionList selections = m_viewManager->getSelections();
     for (MultiSelection::SelectionList::iterator i = selections.begin();
          i != selections.end(); ++i) {
-        int start = i->getStartFrame();
-        int end = i->getEndFrame();
+        sv_frame_t start = i->getStartFrame();
+        sv_frame_t end = i->getEndFrame();
         if (start < end) {
             insertItemAt(start, end - start);
         }
@@ -1069,7 +1084,7 @@ MainWindowBase::insertItemAtSelection()
 }
 
 void
-MainWindowBase::insertItemAt(int frame, int duration)
+MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 {
     Pane *pane = m_paneStack->getCurrentPane();
     if (!pane) {
@@ -1078,10 +1093,10 @@ MainWindowBase::insertItemAt(int frame, int duration)
 
     // ugh!
 
-    int alignedStart = pane->alignFromReference(frame);
-    int alignedEnd = pane->alignFromReference(frame + duration);
+    sv_frame_t alignedStart = pane->alignFromReference(frame);
+    sv_frame_t alignedEnd = pane->alignFromReference(frame + duration);
     if (alignedStart >= alignedEnd) return;
-    int alignedDuration = alignedEnd - alignedStart;
+    sv_frame_t alignedDuration = alignedEnd - alignedStart;
 
     Command *c = 0;
 
@@ -1281,7 +1296,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     m_openingAudioFile = true;
 
-    int rate = 0;
+    sv_samplerate_t rate = 0;
 
     if (Preferences::getInstance()->getFixedSampleRate() != 0) {
         rate = Preferences::getInstance()->getFixedSampleRate();
@@ -2035,7 +2050,7 @@ MainWindowBase::openSessionFromRDF(FileSource source)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openLayersFromRDF(FileSource source)
 {
-    int rate = 0;
+    sv_samplerate_t rate = 0;
 
     SVDEBUG << "MainWindowBase::openLayersFromRDF" << endl;
 
@@ -2283,6 +2298,7 @@ MainWindowBase::saveSessionFile(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&bzFile);
+        out.setCodec(QTextCodec::codecForName("UTF-8"));
         toXml(out, false);
         out.flush();
 
@@ -2328,6 +2344,7 @@ MainWindowBase::saveSessionTemplate(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&file);
+        out.setCodec(QTextCodec::codecForName("UTF-8"));
         toXml(out, true);
         out.flush();
 
@@ -2415,8 +2432,8 @@ MainWindowBase::zoomToFit()
     Model *model = getMainModel();
     if (!model) return;
     
-    int start = model->getStartFrame();
-    int end = model->getEndFrame();
+    sv_frame_t start = model->getStartFrame();
+    sv_frame_t end = model->getEndFrame();
     if (m_playSource) end = std::max(end, m_playSource->getPlayEndFrame());
     int pixels = currentPane->width();
 
@@ -2425,7 +2442,7 @@ MainWindowBase::zoomToFit()
     else pixels = 1;
     if (pixels > 4) pixels -= 4;
 
-    int zoomLevel = (end - start) / pixels;
+    int zoomLevel = int((end - start) / pixels);
     if (zoomLevel < 1) zoomLevel = 1;
 
     currentPane->setZoomLevel(zoomLevel);
@@ -2654,18 +2671,18 @@ MainWindowBase::ffwd()
 {
     if (!getMainModel()) return;
 
-    int frame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = m_viewManager->getPlaybackFrame();
     ++frame;
 
     Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
-    int sr = getMainModel()->getSampleRate();
+    sv_samplerate_t sr = getMainModel()->getSampleRate();
 
     if (!layer) {
 
         frame = RealTime::realTime2Frame
             (RealTime::frame2RealTime(frame, sr) + m_defaultFfwdRwdStep, sr);
-        if (frame > int(getMainModel()->getEndFrame())) {
+        if (frame > getMainModel()->getEndFrame()) {
             frame = getMainModel()->getEndFrame();
         }
 
@@ -2684,12 +2701,12 @@ MainWindowBase::ffwd()
     if (frame < 0) frame = 0;
 
     if (m_viewManager->getPlaySelectionMode()) {
-        frame = m_viewManager->constrainFrameToSelection(int(frame));
+        frame = m_viewManager->constrainFrameToSelection(frame);
     }
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == (int)getMainModel()->getEndFrame() &&
+    if (frame == getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2708,7 +2725,7 @@ MainWindowBase::ffwdEnd()
         stop();
     }
 
-    int frame = getMainModel()->getEndFrame();
+    sv_frame_t frame = getMainModel()->getEndFrame();
 
     if (m_viewManager->getPlaySelectionMode()) {
         frame = m_viewManager->constrainFrameToSelection(frame);
@@ -2726,7 +2743,7 @@ MainWindowBase::ffwdSimilar()
     if (!layer) { ffwd(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-    int frame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = m_viewManager->getPlaybackFrame();
 
     int resolution = 0;
     if (pane) frame = pane->alignFromReference(frame);
@@ -2740,12 +2757,12 @@ MainWindowBase::ffwdSimilar()
     if (frame < 0) frame = 0;
 
     if (m_viewManager->getPlaySelectionMode()) {
-        frame = m_viewManager->constrainFrameToSelection(int(frame));
+        frame = m_viewManager->constrainFrameToSelection(frame);
     }
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == (int)getMainModel()->getEndFrame() &&
+    if (frame == getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -2758,12 +2775,12 @@ MainWindowBase::rewind()
 {
     if (!getMainModel()) return;
 
-    int frame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = m_viewManager->getPlaybackFrame();
     if (frame > 0) --frame;
 
     Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
-    int sr = getMainModel()->getSampleRate();
+    sv_samplerate_t sr = getMainModel()->getSampleRate();
     
     // when rewinding during playback, we want to allow a period
     // following a rewind target point at which the rewind will go to
@@ -2779,7 +2796,7 @@ MainWindowBase::rewind()
         
         frame = RealTime::realTime2Frame
             (RealTime::frame2RealTime(frame, sr) - m_defaultFfwdRwdStep, sr);
-        if (frame < int(getMainModel()->getStartFrame())) {
+        if (frame < getMainModel()->getStartFrame()) {
             frame = getMainModel()->getStartFrame();
         }
 
@@ -2798,7 +2815,7 @@ MainWindowBase::rewind()
     if (frame < 0) frame = 0;
 
     if (m_viewManager->getPlaySelectionMode()) {
-        frame = m_viewManager->constrainFrameToSelection(int(frame));
+        frame = m_viewManager->constrainFrameToSelection(frame);
     }
 
     m_viewManager->setPlaybackFrame(frame);
@@ -2809,7 +2826,7 @@ MainWindowBase::rewindStart()
 {
     if (!getMainModel()) return;
 
-    int frame = getMainModel()->getStartFrame();
+    sv_frame_t frame = getMainModel()->getStartFrame();
 
     if (m_viewManager->getPlaySelectionMode()) {
         frame = m_viewManager->constrainFrameToSelection(frame);
@@ -2827,7 +2844,7 @@ MainWindowBase::rewindSimilar()
     if (!layer) { rewind(); return; }
 
     Pane *pane = m_paneStack->getCurrentPane();
-    int frame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = m_viewManager->getPlaybackFrame();
 
     int resolution = 0;
     if (pane) frame = pane->alignFromReference(frame);
@@ -2841,7 +2858,7 @@ MainWindowBase::rewindSimilar()
     if (frame < 0) frame = 0;
 
     if (m_viewManager->getPlaySelectionMode()) {
-        frame = m_viewManager->constrainFrameToSelection(int(frame));
+        frame = m_viewManager->constrainFrameToSelection(frame);
     }
     
     m_viewManager->setPlaybackFrame(frame);
@@ -3054,24 +3071,24 @@ void
 MainWindowBase::connectLayerEditDialog(ModelDataTableDialog *dialog)
 {
     connect(m_viewManager,
-            SIGNAL(globalCentreFrameChanged(int)),
+            SIGNAL(globalCentreFrameChanged(sv_frame_t)),
             dialog,
-            SLOT(userScrolledToFrame(int)));
+            SLOT(userScrolledToFrame(sv_frame_t)));
 
     connect(m_viewManager,
-            SIGNAL(playbackFrameChanged(int)),
+            SIGNAL(playbackFrameChanged(sv_frame_t)),
             dialog,
-            SLOT(playbackScrolledToFrame(int)));
+            SLOT(playbackScrolledToFrame(sv_frame_t)));
 
     connect(dialog,
-            SIGNAL(scrollToFrame(int)),
+            SIGNAL(scrollToFrame(sv_frame_t)),
             m_viewManager,
-            SLOT(setGlobalCentreFrame(int)));
+            SLOT(setGlobalCentreFrame(sv_frame_t)));
 
     connect(dialog,
-            SIGNAL(scrollToFrame(int)),
+            SIGNAL(scrollToFrame(sv_frame_t)),
             m_viewManager,
-            SLOT(setPlaybackFrame(int)));
+            SLOT(setPlaybackFrame(sv_frame_t)));
 }    
 
 void
@@ -3181,7 +3198,7 @@ MainWindowBase::nextLayer()
 }
 
 void
-MainWindowBase::playbackFrameChanged(int frame)
+MainWindowBase::playbackFrameChanged(sv_frame_t frame)
 {
     if (!(m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
 
@@ -3217,7 +3234,7 @@ MainWindowBase::playbackFrameChanged(int frame)
 }
 
 void
-MainWindowBase::globalCentreFrameChanged(int )
+MainWindowBase::globalCentreFrameChanged(sv_frame_t )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
     Pane *p = 0;
@@ -3227,7 +3244,7 @@ MainWindowBase::globalCentreFrameChanged(int )
 }
 
 void
-MainWindowBase::viewCentreFrameChanged(View *v, int frame)
+MainWindowBase::viewCentreFrameChanged(View *v, sv_frame_t frame)
 {
 //    SVDEBUG << "MainWindowBase::viewCentreFrameChanged(" << v << "," << frame << ")" << endl;
 
