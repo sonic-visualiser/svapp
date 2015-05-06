@@ -164,6 +164,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     XSetErrorHandler(handle_x11_error);
 #endif
 
+    connect(this, SIGNAL(hideSplash()), this, SLOT(emitHideSplash()));
+    
     connect(CommandHistory::getInstance(), SIGNAL(commandExecuted()),
 	    this, SLOT(documentModified()));
     connect(CommandHistory::getInstance(), SIGNAL(documentRestored()),
@@ -259,6 +261,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     if (withMIDIInput) {
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
+
+    QTimer::singleShot(1500, this, SIGNAL(hideSplash()));
 }
 
 MainWindowBase::~MainWindowBase()
@@ -272,6 +276,12 @@ MainWindowBase::~MainWindowBase()
     delete m_oscQueueStarter;
     delete m_midiInput;
     Profiles::getInstance()->dump();
+}
+
+void
+MainWindowBase::emitHideSplash()
+{
+    emit hideSplash(this);
 }
 
 void
