@@ -597,8 +597,8 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canFfwd(true);
-    emit canRewind(true);
+    emit canFfwd(haveMainModel);
+    emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
     emit canInsertInstant(haveCurrentPane);
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
