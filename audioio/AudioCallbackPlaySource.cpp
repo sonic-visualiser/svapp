@@ -422,6 +422,9 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
         SVDEBUG << startFrame << endl;
 
     } else {
+        if (startFrame < 0) {
+            startFrame = 0;
+        }
 	if (startFrame >= m_lastModelEndFrame) {
 	    startFrame = 0;
 	}
