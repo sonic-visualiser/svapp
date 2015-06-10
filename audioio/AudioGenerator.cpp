@@ -439,10 +439,10 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
     sv_frame_t got = 0;
 
     if (startFrame >= fadeIn/2) {
-        got = dtvm->getData(0, modelChannels - 1,
-                            startFrame - fadeIn/2,
-                            frames + fadeOut/2 + fadeIn/2,
-                            m_channelBuffer);
+        got = dtvm->getMultiChannelData(0, modelChannels - 1,
+                                        startFrame - fadeIn/2,
+                                        frames + fadeOut/2 + fadeIn/2,
+                                        m_channelBuffer);
     } else {
         sv_frame_t missing = fadeIn/2 - startFrame;
 
@@ -457,10 +457,10 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
                  << ", missing = " << missing << endl;
         }
 
-        got = dtvm->getData(0, modelChannels - 1,
-                            startFrame,
-                            frames + fadeOut/2,
-                            m_channelBuffer);
+        got = dtvm->getMultiChannelData(0, modelChannels - 1,
+                                        startFrame,
+                                        frames + fadeOut/2,
+                                        m_channelBuffer);
 
         for (int c = 0; c < modelChannels; ++c) {
             m_channelBuffer[c] -= missing;
