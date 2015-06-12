@@ -60,8 +60,6 @@
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
 
-#include "data/fft/FFTDataServer.h"
-
 #include "base/RecentFiles.h"
 
 #include "base/PlayParameterRepository.h"
@@ -3339,7 +3337,6 @@ MainWindowBase::modelAboutToBeDeleted(Model *model)
         m_viewManager->setPlaybackModel(0);
     }
     m_playSource->removeModel(model);
-    FFTDataServer::modelAboutToBeDeleted(model);
 }
 
 void
