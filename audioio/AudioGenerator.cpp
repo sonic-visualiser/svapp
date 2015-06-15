@@ -439,16 +439,19 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
     sv_frame_t got = 0;
 
     if (startFrame >= fadeIn/2) {
-        got = dtvm->getMultiChannelData(0, modelChannels - 1,
-                                        startFrame - fadeIn/2,
-                                        frames + fadeOut/2 + fadeIn/2,
-                                        m_channelBuffer);
-    } else {
-        sv_frame_t missing = fadeIn/2 - startFrame;
+
+        auto data = dtvm->getMultiChannelData(0, modelChannels - 1,
+                                              startFrame - fadeIn/2,
+                                              frames + fadeOut/2 + fadeIn/2);
 
         for (int c = 0; c < modelChannels; ++c) {
-            m_channelBuffer[c] += missing;
+            copy(data[c].begin(), data[c].end(), m_channelBuffer[c]);
         }
+
+        got = data.size();
+
+    } else {
+        sv_frame_t missing = fadeIn/2 - startFrame;
 
         if (missing > 0) {
             cerr << "note: channelBufSiz = " << m_channelBufSiz
@@ -457,16 +460,14 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
                  << ", missing = " << missing << endl;
         }
 
-        got = dtvm->getMultiChannelData(0, modelChannels - 1,
-                                        startFrame,
-                                        frames + fadeOut/2,
-                                        m_channelBuffer);
-
+        auto data = dtvm->getMultiChannelData(0, modelChannels - 1,
+                                              startFrame,
+                                              frames + fadeOut/2);
         for (int c = 0; c < modelChannels; ++c) {
-            m_channelBuffer[c] -= missing;
+            copy(data[c].begin(), data[c].end(), m_channelBuffer[c] + missing);
         }
 
-        got += missing;
+        got = data.size() + missing;
     }	    
 
     for (int c = 0; c < m_targetChannelCount; ++c) {
