@@ -52,9 +52,15 @@ Document::Document() :
     m_autoAlignment(false),
     m_align(new Align())
 {
-    connect(this, SIGNAL(modelAboutToBeDeleted(Model *)),
+    connect(this,
+            SIGNAL(modelAboutToBeDeleted(Model *)),
             ModelTransformerFactory::getInstance(),
             SLOT(modelAboutToBeDeleted(Model *)));
+
+    connect(ModelTransformerFactory::getInstance(),
+            SIGNAL(transformFailed(QString, QString)),
+            this,
+            SIGNAL(modelGenerationFailed(QString, QString)));
 
     connect(m_align, SIGNAL(alignmentComplete(AlignmentModel *)),
             this, SIGNAL(alignmentComplete(AlignmentModel *)));

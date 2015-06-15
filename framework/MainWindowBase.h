@@ -162,6 +162,7 @@ signals:
     void canSave(bool);
     void canSaveAs(bool);
     void hideSplash();
+    void hideSplash(QWidget *);
     void sessionLoaded();
     void audioFileLoaded();
     void replacedDocument();
@@ -292,6 +293,8 @@ protected slots:
     virtual FileOpenStatus openLayersFromRDF(FileSource source);
 
     virtual void closeSession() = 0;
+
+    virtual void emitHideSplash();
 
     virtual void newerVersionAvailable(QString) { }
 

@@ -60,8 +60,6 @@
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
 
-#include "data/fft/FFTDataServer.h"
-
 #include "base/RecentFiles.h"
 
 #include "base/PlayParameterRepository.h"
@@ -165,6 +163,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     XSetErrorHandler(handle_x11_error);
 #endif
 
+    connect(this, SIGNAL(hideSplash()), this, SLOT(emitHideSplash()));
+    
     connect(CommandHistory::getInstance(), SIGNAL(commandExecuted()),
 	    this, SLOT(documentModified()));
     connect(CommandHistory::getInstance(), SIGNAL(documentRestored()),
@@ -260,6 +260,8 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     if (withMIDIInput) {
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
+
+    QTimer::singleShot(1500, this, SIGNAL(hideSplash()));
 }
 
 MainWindowBase::~MainWindowBase()
@@ -273,6 +275,12 @@ MainWindowBase::~MainWindowBase()
     delete m_oscQueueStarter;
     delete m_midiInput;
     Profiles::getInstance()->dump();
+}
+
+void
+MainWindowBase::emitHideSplash()
+{
+    emit hideSplash(this);
 }
 
 void
@@ -588,8 +596,8 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canFfwd(true);
-    emit canRewind(true);
+    emit canFfwd(haveMainModel);
+    emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
     emit canInsertInstant(haveCurrentPane);
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
@@ -3377,7 +3385,6 @@ MainWindowBase::modelAboutToBeDeleted(Model *model)
         m_viewManager->setPlaybackModel(0);
     }
     m_playSource->removeModel(model);
-    FFTDataServer::modelAboutToBeDeleted(model);
 }
 
 void
