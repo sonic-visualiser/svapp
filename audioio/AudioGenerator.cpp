@@ -448,7 +448,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
             copy(data[c].begin(), data[c].end(), m_channelBuffer[c]);
         }
 
-        got = data.size();
+        got = data[0].size();
 
     } else {
         sv_frame_t missing = fadeIn/2 - startFrame;
@@ -467,7 +467,7 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
             copy(data[c].begin(), data[c].end(), m_channelBuffer[c] + missing);
         }
 
-        got = data.size() + missing;
+        got = data[0].size() + missing;
     }	    
 
     for (int c = 0; c < m_targetChannelCount; ++c) {
