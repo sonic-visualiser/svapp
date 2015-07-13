@@ -18,9 +18,20 @@
 #include <iostream>
 #include <cmath>
 
-PlaySpeedRangeMapper::PlaySpeedRangeMapper(int minpos, int maxpos) :
-    m_minpos(minpos),
-    m_maxpos(maxpos)
+// PlaySpeedRangeMapper maps a position in the range [0,120] on to a
+// play speed factor on a logarithmic scale in the range 0.125 ->
+// 8. This ensures that the desirable speed factors 0.25, 0.5, 1, 2,
+// and 4 are all mapped to exact positions (respectively 20, 40, 60,
+// 80, 100).
+
+// Note that the "factor" referred to below is a play speed factor
+// (higher = faster, 1.0 = normal speed), the "value" is a percentage
+// (higher = faster, 100 = normal speed), and the "position" is an
+// integer step on the dial's scale (0-120, 60 = centre).
+
+PlaySpeedRangeMapper::PlaySpeedRangeMapper() :
+    m_minpos(0),
+    m_maxpos(120)
 {
 }
 
@@ -38,29 +49,6 @@ PlaySpeedRangeMapper::getPositionForValueUnclamped(double value) const
 {
     // We don't really provide this
     return getPositionForValue(value);
-}
-
-int
-PlaySpeedRangeMapper::getPositionForFactor(double factor) const
-{
-    bool slow = (factor > 1.0);
-
-    if (!slow) factor = 1.0 / factor;
-    
-    int half = (m_maxpos + m_minpos) / 2;
-
-    factor = sqrt((factor - 1.0) * 1000.0);
-    int position = int(lrint(((factor * (half - m_minpos)) / 100.0) + m_minpos));
-
-    if (slow) {
-        position = half - position;
-    } else {
-        position = position + half;
-    }
-
-//    cerr << "value = " << value << " slow = " << slow << " factor = " << factor << " position = " << position << endl;
-
-    return position;
 }
 
 double
@@ -81,63 +69,29 @@ PlaySpeedRangeMapper::getValueForPositionUnclamped(int position) const
 double
 PlaySpeedRangeMapper::getValueForFactor(double factor) const
 {
-    double pc;
-    if (factor < 1.0) pc = ((1.0 / factor) - 1.0) * 100.0;
-    else pc = (1.0 - factor) * 100.0;
-//    cerr << "position = " << position << " percent = " << pc << endl;
-    return pc;
+    return factor * 100.0;
 }
 
 double
 PlaySpeedRangeMapper::getFactorForValue(double value) const
 {
-    // value is percent
-    
-    double factor;
+    return value / 100.0;
+}
 
-    if (value <= 0) {
-        factor = 1.0 - (value / 100.0);
-    } else {
-        factor = 1.0 / (1.0 + (value / 100.0));
-    }
-
-//    cerr << "value = " << value << " factor = " << factor << endl;
-    return factor;
+int
+PlaySpeedRangeMapper::getPositionForFactor(double factor) const
+{
+    if (factor == 0) return m_minpos;
+    int pos = int(lrint((log2(factor) + 3.0) * 20.0));
+    if (pos < m_minpos) pos = m_minpos;
+    if (pos > m_maxpos) pos = m_maxpos;
+    return pos;
 }
 
 double
 PlaySpeedRangeMapper::getFactorForPosition(int position) const
 {
-    bool slow = false;
-
-    if (position < m_minpos) position = m_minpos;
-    if (position > m_maxpos) position = m_maxpos;
-
-    int half = (m_maxpos + m_minpos) / 2;
-
-    if (position < half) {
-        slow = true;
-        position = half - position;
-    } else {
-        position = position - half;
-    }
-
-    // position is between min and half (inclusive)
-
-    double factor;
-
-    if (position == m_minpos) {
-        factor = 1.0;
-    } else {
-        factor = ((position - m_minpos) * 100.0) / (half - m_minpos);
-        factor = 1.0 + (factor * factor) / 1000.f;
-    }
-
-    if (!slow) factor = 1.0 / factor;
-
-//    cerr << "position = " << position << " slow = " << slow << " factor = " << factor << endl;
-
-    return factor;
+    return pow(2.0, double(position) * 0.05 - 3.0);
 }
 
 QString

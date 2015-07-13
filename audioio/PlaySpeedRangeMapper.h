@@ -21,8 +21,11 @@
 class PlaySpeedRangeMapper : public RangeMapper
 {
 public:
-    PlaySpeedRangeMapper(int minpos, int maxpos);
+    PlaySpeedRangeMapper();
 
+    int getMinPosition() const { return m_minpos; }
+    int getMaxPosition() const { return m_maxpos; }
+    
     virtual int getPositionForValue(double value) const;
     virtual int getPositionForValueUnclamped(double value) const;
 
