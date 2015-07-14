@@ -313,6 +313,8 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
         return ff->getOpenFileName(type, m_sessionFile);
     case FileFinder::CSVFile:
         return ff->getOpenFileName(type, m_sessionFile);
+    case FileFinder::IMAFile:
+        return ff->getOpenFileName(type, m_audioFile);
     case FileFinder::AnyFile:
         if (getMainModel() != 0 &&
             m_paneStack != 0 &&
