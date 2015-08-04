@@ -46,7 +46,6 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
-class AudioCallbackPlayTarget;
 class CommandHistory;
 class QMenu;
 class AudioDial;
@@ -62,6 +61,10 @@ class Labeller;
 class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
+
+namespace breakfastquay {
+class SystemPlaybackTarget;
+}
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -306,7 +309,7 @@ protected:
 
     bool                     m_audioOutput;
     AudioCallbackPlaySource *m_playSource;
-    AudioCallbackPlayTarget *m_playTarget;
+    breakfastquay::SystemPlaybackTarget *m_playTarget;
 
     class OSCQueueStarter : public QThread
     {
