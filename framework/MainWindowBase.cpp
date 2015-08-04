@@ -47,10 +47,8 @@
 #include "widgets/ModelDataTableDialog.h"
 #include "widgets/InteractiveFileFinder.h"
 
-#include "audioio/AudioCallbackPlaySource.h"
-#include "audioio/AudioCallbackPlayTarget.h"
-#include "audioio/AudioTargetFactory.h"
-#include "audioio/PlaySpeedRangeMapper.h"
+#include "audio/AudioCallbackPlaySource.h"
+#include "audio/PlaySpeedRangeMapper.h"
 #include "data/fileio/DataFileReaderFactory.h"
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
@@ -72,6 +70,9 @@
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
+
+#include <bqaudioio/SystemPlaybackTarget.h>
+#include <bqaudioio/AudioFactory.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -266,8 +267,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 MainWindowBase::~MainWindowBase()
 {
     SVDEBUG << "MainWindowBase::~MainWindowBase" << endl;
-    if (m_playTarget) m_playTarget->shutdown();
-//    delete m_playTarget;
+    delete m_playTarget;
     delete m_playSource;
     delete m_viewManager;
     delete m_oscQueue;
@@ -2162,24 +2162,31 @@ MainWindowBase::createPlayTarget()
 {
     if (m_playTarget) return;
 
+    //!!! how to handle preferences
+/*    
     QSettings settings;
     settings.beginGroup("Preferences");
     QString targetName = settings.value("audio-target", "").toString();
     settings.endGroup();
-
     AudioTargetFactory *factory = AudioTargetFactory::getInstance();
 
     factory->setDefaultCallbackTarget(targetName);
-    m_playTarget = factory->createCallbackTarget(m_playSource);
+*/
+    
+    m_playTarget =
+        breakfastquay::AudioFactory::createCallbackPlayTarget(m_playSource);
+
+    m_playSource->setSystemPlaybackTarget(m_playTarget);
 
     if (!m_playTarget) {
         emit hideSplash();
 
-        if (factory->isAutoCallbackTarget(targetName)) {
+//        if (factory->isAutoCallbackTarget(targetName)) {
             QMessageBox::warning
 	    (this, tr("Couldn't open audio device"),
 	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
 	     QMessageBox::Ok);
+/*
         } else {
             QMessageBox::warning
                 (this, tr("Couldn't open audio device"),
@@ -2187,6 +2194,7 @@ MainWindowBase::createPlayTarget()
                  .arg(factory->getCallbackTargetDescription(targetName)),
                  QMessageBox::Ok);
         }
+*/
     }
 }
 

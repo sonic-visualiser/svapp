@@ -26,7 +26,7 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "plugin/RealTimePluginInstance.h"
 
-#include "AudioCallbackPlayTarget.h"
+#include "bqaudioio/SystemPlaybackTarget.h"
 
 #include <rubberband/RubberBandStretcher.h>
 using namespace RubberBand;
@@ -43,7 +43,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
                                                  QString clientName) :
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),
-    m_clientName(clientName),
+    m_clientName(clientName.toUtf8().data()),
     m_readBuffers(0),
     m_writeBuffers(0),
     m_readBufferFill(0),
@@ -581,9 +581,14 @@ AudioCallbackPlaySource::audioProcessingOverload()
 }
 
 void
-AudioCallbackPlaySource::setTarget(AudioCallbackPlayTarget *target, int size)
+AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
     m_target = target;
+}
+
+void
+AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
+{
     cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
     if (size != 0) {
         m_blockSize = size;
@@ -608,7 +613,7 @@ AudioCallbackPlaySource::getTargetBlockSize() const
 }
 
 void
-AudioCallbackPlaySource::setTargetPlayLatency(sv_frame_t latency)
+AudioCallbackPlaySource::setSystemPlaybackLatency(int latency)
 {
     m_playLatency = latency;
 }
@@ -929,7 +934,7 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 }
 
 void
-AudioCallbackPlaySource::setTargetSampleRate(sv_samplerate_t sr)
+AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 {
     bool first = (m_targetSampleRate == 0);
 
@@ -1106,8 +1111,8 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
-sv_frame_t
-AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
+void
+AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 {
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1118,7 +1123,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
 		buffer[ch][i] = 0.0;
 	    }
 	}
-	return 0;
+	return;
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1154,7 +1159,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
         }
     }
 
-    if (count == 0) return 0;
+    if (count == 0) return;
 
     RubberBandStretcher *ts = m_timeStretcher;
     RubberBandStretcher *ms = m_monoStretcher;
@@ -1224,7 +1229,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
 
         m_condition.wakeAll();
 
-	return got;
+	return;
     }
 
     int channels = getTargetChannelCount();
@@ -1316,7 +1321,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
 
     m_condition.wakeAll();
 
-    return count;
+    return;
 }
 
 void
