@@ -219,7 +219,7 @@ public:
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    virtual void getSourceSamples(int count, float **buffer);
+    virtual int getSourceSamples(int count, float **buffer);
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
