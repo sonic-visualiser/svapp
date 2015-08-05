@@ -594,10 +594,12 @@ AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
-        SVDEBUG << "AudioCallbackPlaySource::setTarget: Buffer size "
-                  << size << " > a quarter of ring buffer size "
-                  << m_ringBufferSize << ", calling for more ring buffer"
-                  << endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        cerr << "AudioCallbackPlaySource::setTarget: Buffer size "
+             << size << " > a quarter of ring buffer size "
+             << m_ringBufferSize << ", calling for more ring buffer"
+             << endl;
+#endif
         m_ringBufferSize = size * 4;
         if (m_writeBuffers && !m_writeBuffers->empty()) {
             clearRingBuffers();
