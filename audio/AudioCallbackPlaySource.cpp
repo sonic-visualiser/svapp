@@ -1111,7 +1111,7 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
-void
+int
 AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 {
     if (!m_playing) {
@@ -1123,7 +1123,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 		buffer[ch][i] = 0.0;
 	    }
 	}
-	return;
+	return 0;
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1159,7 +1159,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
         }
     }
 
-    if (count == 0) return;
+    if (count == 0) return 0;
 
     RubberBandStretcher *ts = m_timeStretcher;
     RubberBandStretcher *ms = m_monoStretcher;
@@ -1229,7 +1229,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 
         m_condition.wakeAll();
 
-	return;
+	return got;
     }
 
     int channels = getTargetChannelCount();
@@ -1321,7 +1321,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 
     m_condition.wakeAll();
 
-    return;
+    return count;
 }
 
 void
