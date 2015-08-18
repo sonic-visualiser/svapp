@@ -16,7 +16,6 @@
 #include "MainWindowBase.h"
 #include "Document.h"
 
-
 #include "view/Pane.h"
 #include "view/PaneStack.h"
 #include "data/model/WaveFileModel.h"
@@ -48,7 +47,9 @@
 #include "widgets/InteractiveFileFinder.h"
 
 #include "audio/AudioCallbackPlaySource.h"
+#include "audio/AudioRecordTarget.h"
 #include "audio/PlaySpeedRangeMapper.h"
+
 #include "data/fileio/DataFileReaderFactory.h"
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
@@ -74,6 +75,7 @@
 #include "data/midi/MIDIInput.h"
 
 #include <bqaudioio/SystemPlaybackTarget.h>
+#include <bqaudioio/SystemAudioIO.h>
 #include <bqaudioio/AudioFactory.h>
 
 #include <QApplication>
@@ -132,15 +134,16 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #undef Window
 #endif
 
-MainWindowBase::MainWindowBase(bool withAudioOutput,
-                               bool withMIDIInput) :
+MainWindowBase::MainWindowBase(SoundOptions options) :
     m_document(0),
     m_paneStack(0),
     m_viewManager(0),
     m_timeRulerLayer(0),
-    m_audioOutput(withAudioOutput),
+    m_soundOptions(options),
     m_playSource(0),
+    m_recordTarget(0),
     m_playTarget(0),
+    m_audioIO(0),
     m_oscQueue(0),
     m_oscQueueStarter(0),
     m_midiInput(0),
@@ -158,6 +161,12 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
+    if (options & WithAudioInput) {
+        if (!(options & WithAudioOutput)) {
+            cerr << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
+        }
+    }
+    
     qRegisterMetaType<sv_frame_t>("sv_frame_t");
     qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
 
@@ -219,6 +228,10 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 
     m_playSource = new AudioCallbackPlaySource(m_viewManager,
                                                QApplication::applicationName());
+    if (m_soundOptions & WithAudioInput) {
+        m_recordTarget = new AudioRecordTarget(m_viewManager,
+                                               QApplication::applicationName());
+    }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
 	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
@@ -259,7 +272,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
 
-    if (withMIDIInput) {
+    if (m_soundOptions & WithMIDIInput) {
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
 
@@ -271,6 +284,8 @@ MainWindowBase::~MainWindowBase()
     SVDEBUG << "MainWindowBase::~MainWindowBase" << endl;
     delete m_playTarget;
     delete m_playSource;
+    delete m_audioIO;
+    delete m_recordTarget;
     delete m_viewManager;
     delete m_oscQueue;
     delete m_oscQueueStarter;
@@ -552,7 +567,9 @@ MainWindowBase::updateMenuStates()
     bool haveMainModel =
 	(getMainModel() != 0);
     bool havePlayTarget =
-	(m_playTarget != 0);
+	(m_playTarget != 0 || m_audioIO != 0);
+    bool haveRecordSource =
+	(m_audioIO != 0);
     bool haveSelection = 
 	(m_viewManager &&
 	 !m_viewManager->getSelections().empty());
@@ -597,6 +614,7 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
+    emit canRecord(haveRecordSource);
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -2160,9 +2178,11 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 }
 
 void
-MainWindowBase::createPlayTarget()
+MainWindowBase::createAudioIO()
 {
-    if (m_playTarget) return;
+    if (m_playTarget || m_audioIO) return;
+
+    if (!(m_soundOptions & WithAudioOutput)) return;
 
     //!!! how to handle preferences
 /*    
@@ -2174,13 +2194,18 @@ MainWindowBase::createPlayTarget()
 
     factory->setDefaultCallbackTarget(targetName);
 */
-    
-    m_playTarget =
-        breakfastquay::AudioFactory::createCallbackPlayTarget(m_playSource);
 
-    m_playSource->setSystemPlaybackTarget(m_playTarget);
+    if (m_soundOptions & WithAudioInput) {
+        m_audioIO = breakfastquay::AudioFactory::
+            createCallbackIO(m_recordTarget, m_playSource);
+        m_playSource->setSystemPlaybackTarget(m_audioIO);
+    } else {
+        m_playTarget = breakfastquay::AudioFactory::
+            createCallbackPlayTarget(m_playSource);
+        m_playSource->setSystemPlaybackTarget(m_playTarget);
+    }
 
-    if (!m_playTarget) {
+    if (!m_playTarget && !m_audioIO) {
         emit hideSplash();
 
 //        if (factory->isAutoCallbackTarget(targetName)) {
@@ -2197,6 +2222,7 @@ MainWindowBase::createPlayTarget()
                  QMessageBox::Ok);
         }
 */
+            return;
     }
 }
 
@@ -3334,8 +3360,9 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 //    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
-    if (model && !m_playTarget && m_audioOutput) {
-        createPlayTarget();
+    if (model && !(m_playTarget || m_audioIO) &&
+        (m_soundOptions & WithAudioOutput)) {
+        createAudioIO();
     }
 }
 
