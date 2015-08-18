@@ -17,7 +17,7 @@
 #include "base/ViewManagerBase.h"
 #include "base/TempDirectory.h"
 
-#include "data/fileio/WavFileWriter.h"
+#include "data/model/WritableWaveFileModel.h"
 
 #include <QDir>
 
@@ -27,14 +27,13 @@ AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
-    m_writer(0)
+    m_model(0)
 {
 }
 
 AudioRecordTarget::~AudioRecordTarget()
 {
     QMutexLocker locker(&m_mutex);
-    delete m_writer;
 }
 
 void
@@ -58,7 +57,7 @@ AudioRecordTarget::putSamples(int nframes, float **samples)
 {
     QMutexLocker locker(&m_mutex); //!!! bad here
     if (!m_recording) return;
-    m_writer->writeSamples(samples, nframes);
+    m_model->addSamples(samples, nframes);
 }
 
 void
@@ -66,21 +65,34 @@ AudioRecordTarget::setInputLevels(float peakLeft, float peakRight)
 {
 }
 
-QString
+void
+AudioRecordTarget::modelAboutToBeDeleted()
+{
+    QMutexLocker locker(&m_mutex);
+    if (sender() == m_model) {
+        m_model = 0;
+        m_recording = false;
+    }
+}
+
+WritableWaveFileModel *
 AudioRecordTarget::startRecording()
 {
+    {
     QMutexLocker locker(&m_mutex);
     if (m_recording) {
         cerr << "WARNING: AudioRecordTarget::startRecording: We are already recording" << endl;
-        return "";
+        return 0;
     }
+
+    m_model = 0;
 
     QDir parent(TempDirectory::getInstance()->getContainingPath());
     QDir recordedDir;
     QString subdirname = "recorded"; //!!! tr?
     if (!parent.mkpath(subdirname)) {
         cerr << "ERROR: AudioRecordTarget::startRecording: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
-        return "";
+        return 0;
     } else {
         recordedDir = parent.filePath(subdirname);
     }
@@ -90,37 +102,41 @@ AudioRecordTarget::startRecording()
     QString filename = "recorded.wav"; //!!!
 
     m_audioFileName = recordedDir.filePath(filename);
-        
-    m_writer = new WavFileWriter(m_audioFileName,
-                                 m_recordSampleRate,
-                                 2,
-                                 WavFileWriter::WriteToTarget);
 
-    if (!m_writer->isOK()) {
-        cerr << "ERROR: AudioRecordTarget::startRecording: Recording failed: "
-             << m_writer->getError() << endl;
+    m_model = new WritableWaveFileModel(m_recordSampleRate, 2, m_audioFileName);
+
+    if (!m_model->isOK()) {
+        cerr << "ERROR: AudioRecordTarget::startRecording: Recording failed"
+             << endl;
         //!!! and throw?
-        delete m_writer;
-        return "";
+        delete m_model;
+        m_model = 0;
+        return 0;
     }
 
     m_recording = true;
-    
-    return m_audioFileName;
+    }
+
+    emit recordStatusChanged(true);
+    return m_model;
 }
 
 void
 AudioRecordTarget::stopRecording()
 {
+    {
     QMutexLocker locker(&m_mutex);
     if (!m_recording) {
         cerr << "WARNING: AudioRecordTarget::startRecording: Not recording" << endl;
         return;
     }
 
-    m_writer->close();
-    delete m_writer;
+    m_model->setCompletion(100);
+    m_model = 0;
     m_recording = false;
+    }
+
+    emit recordStatusChanged(false);
 }
 
 

@@ -19,6 +19,7 @@
 #include "view/Pane.h"
 #include "view/PaneStack.h"
 #include "data/model/WaveFileModel.h"
+#include "data/model/WritableWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
 #include "data/model/FlexiNoteModel.h"
@@ -2654,12 +2655,62 @@ MainWindowBase::preferenceChanged(PropertyContainer::PropertyName name)
 void
 MainWindowBase::play()
 {
-    if (m_playSource->isPlaying()) {
+    if (m_recordTarget->isRecording() || m_playSource->isPlaying()) {
         stop();
     } else {
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
+}
+
+void
+MainWindowBase::record()
+{
+    if (!m_recordTarget) {
+        //!!! report
+        return;
+    }
+
+    if (m_recordTarget->isRecording()) {
+        m_recordTarget->stopRecording();
+        return;
+    }
+
+    WritableWaveFileModel *model = m_recordTarget->startRecording();
+    if (!model) {
+        cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
+        //!!! report
+        return;
+    }
+
+    if (!model->isOK()) {
+        m_recordTarget->stopRecording();
+        delete model;
+        //!!! ???
+        return;
+    }
+
+    CommandHistory::getInstance()->startCompoundOperation
+        (tr("Import Recorded Audio"), true);
+
+    m_document->addImportedModel(model);
+
+    AddPaneCommand *command = new AddPaneCommand(this);
+    CommandHistory::getInstance()->addCommand(command);
+
+    Pane *pane = command->getPane();
+
+    if (m_timeRulerLayer) {
+        m_document->addLayerToView(pane, m_timeRulerLayer);
+    }
+
+    Layer *newLayer = m_document->createImportedLayer(model);
+
+    if (newLayer) {
+        m_document->addLayerToView(pane, newLayer);
+    }
+	
+    CommandHistory::getInstance()->endCompoundOperation();
 }
 
 void
@@ -2890,6 +2941,10 @@ MainWindowBase::getSnapLayer() const
 void
 MainWindowBase::stop()
 {
+    if (m_recordTarget->isRecording()) {
+        m_recordTarget->stopRecording();
+    }
+        
     m_playSource->stop();
 
     if (m_paneStack && m_paneStack->getCurrentPane()) {

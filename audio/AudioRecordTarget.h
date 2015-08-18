@@ -25,7 +25,7 @@
 #include "base/BaseTypes.h"
 
 class ViewManagerBase;
-class WavFileWriter;
+class WritableWaveFileModel;
 
 class AudioRecordTarget : public QObject,
 			  public breakfastquay::ApplicationRecordTarget
@@ -51,8 +51,15 @@ public:
 
     virtual void audioProcessingOverload() { }
 
-    QString startRecording(); // and return the audio filename
+    bool isRecording() const { return m_recording; }
+    WritableWaveFileModel *startRecording(); // caller takes ownership
     void stopRecording();
+
+signals:
+    void recordStatusChanged(bool recording);
+
+protected slots:
+    void modelAboutToBeDeleted();
     
 private:
     ViewManagerBase *m_viewManager;
@@ -60,7 +67,7 @@ private:
     bool m_recording;
     sv_samplerate_t m_recordSampleRate;
     QString m_audioFileName;
-    WavFileWriter *m_writer;
+    WritableWaveFileModel *m_model;
     QMutex m_mutex;
 };
 

@@ -210,6 +210,7 @@ protected slots:
     virtual void ffwdEnd();
     virtual void rewind();
     virtual void rewindStart();
+    virtual void record();
     virtual void stop();
 
     virtual void ffwdSimilar();
