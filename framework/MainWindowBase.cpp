@@ -569,8 +569,6 @@ MainWindowBase::updateMenuStates()
 	(getMainModel() != 0);
     bool havePlayTarget =
 	(m_playTarget != 0 || m_audioIO != 0);
-    bool haveRecordSource =
-	(m_audioIO != 0);
     bool haveSelection = 
 	(m_viewManager &&
 	 !m_viewManager->getSelections().empty());
@@ -615,7 +613,7 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canRecord(haveRecordSource);
+    emit canRecord(m_soundOptions & WithAudioInput); // always possible then
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -2666,11 +2664,19 @@ MainWindowBase::play()
 void
 MainWindowBase::record()
 {
+    if (!(m_soundOptions & WithAudioInput)) {
+        return;
+    }
+
     if (!m_recordTarget) {
         //!!! report
         return;
     }
 
+    if (!m_audioIO) {
+        createAudioIO();
+    }
+    
     if (m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
         return;
@@ -2690,27 +2696,37 @@ MainWindowBase::record()
         return;
     }
 
-    CommandHistory::getInstance()->startCompoundOperation
-        (tr("Import Recorded Audio"), true);
+    PlayParameterRepository::getInstance()->addPlayable(model);
+    
+    if (!getMainModel()) {
 
-    m_document->addImportedModel(model);
+        m_document->setMainModel(model);
+        setupMenus();
 
-    AddPaneCommand *command = new AddPaneCommand(this);
-    CommandHistory::getInstance()->addCommand(command);
+    } else {
 
-    Pane *pane = command->getPane();
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Import Recorded Audio"), true);
 
-    if (m_timeRulerLayer) {
-        m_document->addLayerToView(pane, m_timeRulerLayer);
-    }
+        m_document->addImportedModel(model);
 
-    Layer *newLayer = m_document->createImportedLayer(model);
+        AddPaneCommand *command = new AddPaneCommand(this);
+        CommandHistory::getInstance()->addCommand(command);
 
-    if (newLayer) {
-        m_document->addLayerToView(pane, newLayer);
-    }
+        Pane *pane = command->getPane();
+
+        if (m_timeRulerLayer) {
+            m_document->addLayerToView(pane, m_timeRulerLayer);
+        }
+
+        Layer *newLayer = m_document->createImportedLayer(model);
+
+        if (newLayer) {
+            m_document->addLayerToView(pane, newLayer);
+        }
 	
-    CommandHistory::getInstance()->endCompoundOperation();
+        CommandHistory::getInstance()->endCompoundOperation();
+    }
 }
 
 void
