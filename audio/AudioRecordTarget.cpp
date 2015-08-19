@@ -97,9 +97,12 @@ AudioRecordTarget::startRecording()
         recordedDir = parent.filePath(subdirname);
     }
 
-    //!!! todo proper temp name as in TempDirectory
+    QDateTime now = QDateTime::currentDateTime();
 
-    QString filename = "recorded.wav"; //!!!
+    // Don't use QDateTime::toString(Qt::ISODate) as the ":" character
+    // isn't permitted in filenames on Windows
+    QString filename = QString("recorded-%1.wav")
+        .arg(now.toString("yyyyMMdd-HHmmss-zzz"));
 
     m_audioFileName = recordedDir.filePath(filename);
 
