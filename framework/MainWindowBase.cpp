@@ -18,7 +18,7 @@
 
 #include "view/Pane.h"
 #include "view/PaneStack.h"
-#include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
@@ -1330,7 +1330,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         rate = m_playSource->getSourceSampleRate();
     }
 
-    WaveFileModel *newModel = new WaveFileModel(source, rate);
+    ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
 
     if (!newModel->isOK()) {
 	delete newModel;
@@ -2655,6 +2655,8 @@ MainWindowBase::play()
 {
     if (m_recordTarget->isRecording() || m_playSource->isPlaying()) {
         stop();
+        QAction *action = qobject_cast<QAction *>(sender());
+        if (action) action->setChecked(false);
     } else {
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
@@ -2679,6 +2681,7 @@ MainWindowBase::record()
     
     if (m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
+        emit audioFileLoaded();
         return;
     }
 
@@ -2700,8 +2703,53 @@ MainWindowBase::record()
     
     if (!getMainModel()) {
 
+        //!!! duplication with openAudio here
+        
+        QString templateName = getDefaultSessionTemplate();
+        bool loadedTemplate = false;
+        
+        if (templateName != "") {
+            FileOpenStatus tplStatus = openSessionTemplate(templateName);
+            if (tplStatus == FileOpenCancelled) {
+                return;
+            }
+            if (tplStatus != FileOpenFailed) {
+                loadedTemplate = true;
+            }
+        }
+
+        if (!loadedTemplate) {
+            closeSession();
+            createDocument();
+        }
+        
+        Model *prevMain = getMainModel();
+        if (prevMain) {
+            m_playSource->removeModel(prevMain);
+            PlayParameterRepository::getInstance()->removePlayable(prevMain);
+        }
+        
         m_document->setMainModel(model);
         setupMenus();
+
+	if (loadedTemplate || (m_sessionFile == "")) {
+            //!!! shouldn't be dealing directly with title from here -- call a method
+	    setWindowTitle(tr("%1: %2")
+                           .arg(QApplication::applicationName())
+                           .arg(model->getLocation()));
+	    CommandHistory::getInstance()->clear();
+	    CommandHistory::getInstance()->documentSaved();
+	    m_documentModified = false;
+	} else {
+	    setWindowTitle(tr("%1: %2 [%3]")
+                           .arg(QApplication::applicationName())
+			   .arg(QFileInfo(m_sessionFile).fileName())
+			   .arg(model->getLocation()));
+	    if (m_documentModified) {
+		m_documentModified = false;
+		documentModified(); // so as to restore "(modified)" window title
+	    }
+	}
 
     } else {
 
@@ -2727,6 +2775,10 @@ MainWindowBase::record()
 	
         CommandHistory::getInstance()->endCompoundOperation();
     }
+
+    updateMenuStates();
+    m_recentFiles.addFile(model->getLocation());
+    currentPaneChanged(m_paneStack->getCurrentPane());
 }
 
 void
@@ -2959,6 +3011,7 @@ MainWindowBase::stop()
 {
     if (m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
+        emit audioFileLoaded();
     }
         
     m_playSource->stop();
