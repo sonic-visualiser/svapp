@@ -26,7 +26,7 @@
 
 #include "data/fileio/FileFinder.h"
 
-#include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/EditableDenseThreeDimensionalModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
@@ -489,7 +489,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 if (mm) rate = mm->getSampleRate();
             }
 
-            model = new WaveFileModel(file, rate);
+            model = new ReadOnlyWaveFileModel(file, rate);
             if (!model->isOK()) {
                 delete model;
                 model = 0;

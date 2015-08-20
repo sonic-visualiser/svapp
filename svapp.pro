@@ -41,12 +41,14 @@ OBJECTS_DIR = o
 MOC_DIR = o
 
 HEADERS += audio/AudioCallbackPlaySource.h \
+           audio/AudioRecordTarget.h \
            audio/AudioGenerator.h \
            audio/ClipMixer.h \
            audio/ContinuousSynth.h \
            audio/PlaySpeedRangeMapper.h
 
 SOURCES += audio/AudioCallbackPlaySource.cpp \
+           audio/AudioRecordTarget.cpp \
            audio/AudioGenerator.cpp \
            audio/ClipMixer.cpp \
            audio/ContinuousSynth.cpp \

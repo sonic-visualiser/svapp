@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _AUDIO_CALLBACK_PLAY_SOURCE_H_
-#define _AUDIO_CALLBACK_PLAY_SOURCE_H_
+#ifndef AUDIO_CALLBACK_PLAY_SOURCE_H
+#define AUDIO_CALLBACK_PLAY_SOURCE_H
 
 #include "base/RingBuffer.h"
 #include "base/AudioPlaySource.h"
