@@ -26,7 +26,7 @@
 
 #include "data/fileio/FileFinder.h"
 
-#include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/EditableDenseThreeDimensionalModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
@@ -489,7 +489,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 if (mm) rate = mm->getSampleRate();
             }
 
-            model = new WaveFileModel(file, rate);
+            model = new ReadOnlyWaveFileModel(file, rate);
             if (!model->isOK()) {
                 delete model;
                 model = 0;
@@ -886,12 +886,14 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 	    } else {
 		cerr << "WARNING: SV-XML: Unknown model id " << modelId
 			  << " in layer definition" << endl;
-
-                // Don't add a layer with an unknown model id
-                m_document->deleteLayer(layer);
-                m_layers[id] = layer = 0;
-                return false;
-	    }
+                if (!layer->canExistWithoutModel()) {
+                    // Don't add a layer with an unknown model id
+                    // unless it explicitly supports this state
+                    m_document->deleteLayer(layer);
+                    m_layers[id] = layer = 0;
+                    return false;
+                }
+            }
 	}
 
         if (layer) layer->setProperties(attributes);

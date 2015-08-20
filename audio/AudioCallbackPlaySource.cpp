@@ -26,7 +26,7 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "plugin/RealTimePluginInstance.h"
 
-#include "AudioCallbackPlayTarget.h"
+#include "bqaudioio/SystemPlaybackTarget.h"
 
 #include <rubberband/RubberBandStretcher.h>
 using namespace RubberBand;
@@ -43,7 +43,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
                                                  QString clientName) :
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),
-    m_clientName(clientName),
+    m_clientName(clientName.toUtf8().data()),
     m_readBuffers(0),
     m_writeBuffers(0),
     m_readBufferFill(0),
@@ -422,6 +422,9 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
         SVDEBUG << startFrame << endl;
 
     } else {
+        if (startFrame < 0) {
+            startFrame = 0;
+        }
 	if (startFrame >= m_lastModelEndFrame) {
 	    startFrame = 0;
 	}
@@ -578,18 +581,25 @@ AudioCallbackPlaySource::audioProcessingOverload()
 }
 
 void
-AudioCallbackPlaySource::setTarget(AudioCallbackPlayTarget *target, int size)
+AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
     m_target = target;
+}
+
+void
+AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
+{
     cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
     if (size != 0) {
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
-        SVDEBUG << "AudioCallbackPlaySource::setTarget: Buffer size "
-                  << size << " > a quarter of ring buffer size "
-                  << m_ringBufferSize << ", calling for more ring buffer"
-                  << endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        cerr << "AudioCallbackPlaySource::setTarget: Buffer size "
+             << size << " > a quarter of ring buffer size "
+             << m_ringBufferSize << ", calling for more ring buffer"
+             << endl;
+#endif
         m_ringBufferSize = size * 4;
         if (m_writeBuffers && !m_writeBuffers->empty()) {
             clearRingBuffers();
@@ -605,7 +615,7 @@ AudioCallbackPlaySource::getTargetBlockSize() const
 }
 
 void
-AudioCallbackPlaySource::setTargetPlayLatency(sv_frame_t latency)
+AudioCallbackPlaySource::setSystemPlaybackLatency(int latency)
 {
     m_playLatency = latency;
 }
@@ -926,7 +936,7 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 }
 
 void
-AudioCallbackPlaySource::setTargetSampleRate(sv_samplerate_t sr)
+AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 {
     bool first = (m_targetSampleRate == 0);
 
@@ -1103,8 +1113,8 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
-sv_frame_t
-AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
+int
+AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 {
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1285,7 +1295,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
                       << got << " < " << reqd << ")" << endl;
         }
 
-        ts->process(m_stretcherInputs, got, false);
+        ts->process(m_stretcherInputs, size_t(got), false);
 
         fedToStretcher += got;
 
@@ -1297,7 +1307,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
         }
     }
 
-    ts->retrieve(buffer, count);
+    ts->retrieve(buffer, size_t(count));
 
     for (int c = stretchChannels; c < getTargetChannelCount(); ++c) {
         for (int i = 0; i < count; ++i) {
@@ -1484,8 +1494,8 @@ AudioCallbackPlaySource::fillBuffers()
 	SRC_DATA data;
 	data.data_in = intlv;
 	data.data_out = srcout;
-	data.input_frames = got;
-	data.output_frames = work;
+	data.input_frames = long(got);
+	data.output_frames = long(work);
 	data.src_ratio = ratio;
 	data.end_of_input = 0;
 	

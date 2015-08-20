@@ -46,7 +46,7 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
-class AudioCallbackPlayTarget;
+class AudioRecordTarget;
 class CommandHistory;
 class QMenu;
 class AudioDial;
@@ -63,6 +63,11 @@ class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
 
+namespace breakfastquay {
+class SystemPlaybackTarget;
+class SystemAudioIO;
+}
+
 /**
  * The base class for the SV main window.  This includes everything to
  * do with general document and pane stack management, but nothing
@@ -77,7 +82,15 @@ class MainWindowBase : public QMainWindow, public FrameTimer
     Q_OBJECT
 
 public:
-    MainWindowBase(bool withAudioOutput, bool withMIDIInput);
+    enum SoundOption {
+        WithAudioOutput = 0x01,
+        WithAudioInput  = 0x02,
+        WithMIDIInput   = 0x04,
+        WithEverything  = 0xff
+    };
+    typedef int SoundOptions;
+    
+    MainWindowBase(SoundOptions options = WithEverything);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
@@ -146,6 +159,7 @@ signals:
     void canZoom(bool);
     void canScroll(bool);
     void canPlay(bool);
+    void canRecord(bool);
     void canFfwd(bool);
     void canRewind(bool);
     void canPlaySelection(bool);
@@ -159,6 +173,7 @@ signals:
     void canSave(bool);
     void canSaveAs(bool);
     void hideSplash();
+    void hideSplash(QWidget *);
     void sessionLoaded();
     void audioFileLoaded();
     void replacedDocument();
@@ -195,6 +210,7 @@ protected slots:
     virtual void ffwdEnd();
     virtual void rewind();
     virtual void rewindStart();
+    virtual void record();
     virtual void stop();
 
     virtual void ffwdSimilar();
@@ -288,6 +304,8 @@ protected slots:
 
     virtual void closeSession() = 0;
 
+    virtual void emitHideSplash();
+
     virtual void newerVersionAvailable(QString) { }
 
     virtual void menuActionMapperInvoked(QObject *);
@@ -301,9 +319,12 @@ protected:
     ViewManager             *m_viewManager;
     Layer                   *m_timeRulerLayer;
 
-    bool                     m_audioOutput;
+    SoundOptions             m_soundOptions;
+
     AudioCallbackPlaySource *m_playSource;
-    AudioCallbackPlayTarget *m_playTarget;
+    AudioRecordTarget       *m_recordTarget;
+    breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
+    breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
 
     class OSCQueueStarter : public QThread
     {
@@ -418,7 +439,7 @@ protected:
     virtual QString getDefaultSessionTemplate() const;
     virtual void setDefaultSessionTemplate(QString);
 
-    virtual void createPlayTarget();
+    virtual void createAudioIO();
     virtual void openHelpUrl(QString url);
 
     virtual void setupMenus() = 0;
