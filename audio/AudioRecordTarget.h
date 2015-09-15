@@ -51,6 +51,8 @@ public:
 
     virtual void audioProcessingOverload() { }
 
+    QString getRecordFolder();
+    
     bool isRecording() const { return m_recording; }
     WritableWaveFileModel *startRecording(); // caller takes ownership
     void stopRecording();
