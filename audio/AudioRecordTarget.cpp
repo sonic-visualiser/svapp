@@ -75,6 +75,19 @@ AudioRecordTarget::modelAboutToBeDeleted()
     }
 }
 
+QString
+AudioRecordTarget::getRecordFolder()
+{
+    QDir parent(TempDirectory::getInstance()->getContainingPath());
+    QString subdirname = "recorded"; //!!! tr?
+    if (!parent.mkpath(subdirname)) {
+        cerr << "ERROR: AudioRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        return "";
+    } else {
+        return parent.filePath(subdirname);
+    }
+}
+
 WritableWaveFileModel *
 AudioRecordTarget::startRecording()
 {
@@ -87,15 +100,9 @@ AudioRecordTarget::startRecording()
 
     m_model = 0;
 
-    QDir parent(TempDirectory::getInstance()->getContainingPath());
-    QDir recordedDir;
-    QString subdirname = "recorded"; //!!! tr?
-    if (!parent.mkpath(subdirname)) {
-        cerr << "ERROR: AudioRecordTarget::startRecording: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
-        return 0;
-    } else {
-        recordedDir = parent.filePath(subdirname);
-    }
+    QString folder = getRecordFolder();
+    if (folder == "") return 0;
+    QDir recordedDir(folder);
 
     QDateTime now = QDateTime::currentDateTime();
 

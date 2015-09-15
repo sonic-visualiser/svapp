@@ -108,6 +108,11 @@ public:
         FileOpenWrongMode // attempted to open layer when no main model present
     };
 
+    enum AudioRecordMode {
+        RecordReplaceSession,
+        RecordCreateAdditionalModel
+    };
+    
     virtual FileOpenStatus open(FileSource source, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openPath(QString fileOrUrl, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openAudio(FileSource source, AudioFileOpenMode = AskUser, QString templateName = "");
@@ -130,6 +135,10 @@ public:
         m_defaultFfwdRwdStep = step;
     }
 
+    void setAudioRecordMode(AudioRecordMode mode) {
+        m_audioRecordMode = mode;
+    }
+    
 signals:
     // Used to toggle the availability of menu actions
     void canAddPane(bool);
@@ -360,6 +369,8 @@ protected:
 
     RealTime                 m_defaultFfwdRwdStep;
 
+    AudioRecordMode          m_audioRecordMode;
+
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 
@@ -441,6 +452,7 @@ protected:
 
     virtual void createAudioIO();
     virtual void openHelpUrl(QString url);
+    virtual void openLocalFolder(QString path);
 
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;

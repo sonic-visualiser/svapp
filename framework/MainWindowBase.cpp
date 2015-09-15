@@ -157,6 +157,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
+    m_audioRecordMode(RecordCreateAdditionalModel),
     m_statusLabel(0),
     m_menuShortcutMapper(0)
 {
@@ -613,7 +614,7 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canRecord(m_soundOptions & WithAudioInput); // always possible then
+    emit canRecord(m_recordTarget != 0);
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -2685,6 +2686,10 @@ MainWindowBase::record()
         return;
     }
 
+    if (m_audioRecordMode == RecordReplaceSession) {
+        if (!checkSaveModified()) return;
+    }
+    
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
@@ -2700,8 +2705,8 @@ MainWindowBase::record()
     }
 
     PlayParameterRepository::getInstance()->addPlayable(model);
-    
-    if (!getMainModel()) {
+
+    if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 
         //!!! duplication with openAudio here
         
@@ -3616,4 +3621,30 @@ MainWindowBase::openHelpUrl(QString url)
 #endif
 }
 
-    
+void
+MainWindowBase::openLocalFolder(QString path)
+{
+    QDir d(path);
+    if (d.exists()) {
+        QStringList args;
+        QString path = d.canonicalPath();
+#if defined Q_OS_WIN32
+        // Although the Win32 API is quite happy to have
+        // forward slashes as directory separators, Windows
+        // Explorer is not
+        path = path.replace('/', '\\');
+        args << path;
+        QProcess::execute("c:/windows/explorer.exe", args);
+#else
+        args << path;
+        QProcess::execute(
+#if defined Q_OS_MAC
+            "/usr/bin/open",
+#else
+            "/usr/bin/xdg-open",
+#endif
+            args);
+#endif
+    }
+}
+
