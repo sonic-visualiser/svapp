@@ -59,6 +59,7 @@ public:
 
 signals:
     void recordStatusChanged(bool recording);
+    void recordDurationChanged(sv_frame_t, sv_samplerate_t); // emitted occasionally
 
 protected slots:
     void modelAboutToBeDeleted();
@@ -68,6 +69,7 @@ private:
     std::string m_clientName;
     bool m_recording;
     sv_samplerate_t m_recordSampleRate;
+    sv_frame_t m_frameCount;
     QString m_audioFileName;
     WritableWaveFileModel *m_model;
     QMutex m_mutex;

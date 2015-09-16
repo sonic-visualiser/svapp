@@ -247,6 +247,7 @@ protected slots:
     virtual void viewCentreFrameChanged(View *, sv_frame_t);
     virtual void viewZoomLevelChanged(View *, int, bool);
     virtual void outputLevelsChanged(float, float) = 0;
+    virtual void recordDurationChanged(sv_frame_t, sv_samplerate_t);
 
     virtual void currentPaneChanged(Pane *);
     virtual void currentLayerChanged(Pane *, Layer *);
