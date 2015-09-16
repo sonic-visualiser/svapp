@@ -233,6 +233,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     if (m_soundOptions & WithAudioInput) {
         m_recordTarget = new AudioRecordTarget(m_viewManager,
                                                QApplication::applicationName());
+        connect(m_recordTarget, SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
+                this, SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
     }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
@@ -3354,6 +3356,17 @@ MainWindowBase::playbackFrameChanged(sv_frame_t frame)
 
     m_myStatusMessage = tr("Playing: %1 of %2 (%3 remaining)")
         .arg(nowStr).arg(thenStr).arg(remainingStr);
+
+    getStatusLabel()->setText(m_myStatusMessage);
+}
+
+void
+MainWindowBase::recordDurationChanged(sv_frame_t frame, sv_samplerate_t rate)
+{
+    RealTime duration = RealTime::frame2RealTime(frame, rate);
+    QString durStr = duration.toSecText().c_str();
+    
+    m_myStatusMessage = tr("Recording: %1").arg(durStr);
 
     getStatusLabel()->setText(m_myStatusMessage);
 }

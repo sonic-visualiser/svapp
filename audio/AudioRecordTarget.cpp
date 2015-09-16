@@ -27,6 +27,7 @@ AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
+    m_frameCount(0),
     m_model(0)
 {
 }
@@ -55,9 +56,30 @@ AudioRecordTarget::setSystemRecordLatency(int sz)
 void
 AudioRecordTarget::putSamples(int nframes, float **samples)
 {
-    QMutexLocker locker(&m_mutex); //!!! bad here
-    if (!m_recording) return;
-    m_model->addSamples(samples, nframes);
+    bool secChanged = false;
+    sv_frame_t frameToEmit = 0;
+
+    {
+        QMutexLocker locker(&m_mutex); //!!! bad here
+        if (!m_recording) return;
+
+        m_model->addSamples(samples, nframes);
+
+        sv_frame_t priorFrameCount = m_frameCount;
+        m_frameCount += nframes;
+
+        RealTime priorRT = RealTime::frame2RealTime
+            (priorFrameCount, m_recordSampleRate);
+        RealTime postRT = RealTime::frame2RealTime
+            (m_frameCount, m_recordSampleRate);
+
+        secChanged = (postRT.sec > priorRT.sec);
+        if (secChanged) frameToEmit = m_frameCount;
+    }
+
+    if (secChanged) {
+        emit recordDurationChanged(frameToEmit, m_recordSampleRate);
+    }
 }
 
 void
@@ -99,6 +121,7 @@ AudioRecordTarget::startRecording()
     }
 
     m_model = 0;
+    m_frameCount = 0;
 
     QString folder = getRecordFolder();
     if (folder == "") return 0;
