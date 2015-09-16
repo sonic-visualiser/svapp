@@ -2200,6 +2200,7 @@ MainWindowBase::createAudioIO()
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
             createCallbackIO(m_recordTarget, m_playSource);
+        m_audioIO->suspend(); // start in suspended state
         m_playSource->setSystemPlaybackTarget(m_audioIO);
     } else {
         m_playTarget = breakfastquay::AudioFactory::
@@ -2661,6 +2662,7 @@ MainWindowBase::play()
         QAction *action = qobject_cast<QAction *>(sender());
         if (action) action->setChecked(false);
     } else {
+        if (m_audioIO) m_audioIO->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
@@ -2691,7 +2693,9 @@ MainWindowBase::record()
     if (m_audioRecordMode == RecordReplaceSession) {
         if (!checkSaveModified()) return;
     }
-    
+
+    if (m_audioIO) m_audioIO->resume();
+
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
@@ -2705,7 +2709,7 @@ MainWindowBase::record()
         //!!! ???
         return;
     }
-
+    
     PlayParameterRepository::getInstance()->addPlayable(model);
 
     if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
@@ -3023,6 +3027,8 @@ MainWindowBase::stop()
         
     m_playSource->stop();
 
+    if (m_audioIO) m_audioIO->suspend();
+    
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
     } else {
