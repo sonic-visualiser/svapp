@@ -155,6 +155,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
+    m_audioRecordMode(RecordCreateAdditionalModel),
     m_statusLabel(0),
     m_menuShortcutMapper(0)
 {
@@ -230,6 +231,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     if (m_soundOptions & WithAudioInput) {
         m_recordTarget = new AudioRecordTarget(m_viewManager,
                                                QApplication::applicationName());
+        connect(m_recordTarget, SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
+                this, SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
     }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
@@ -611,7 +614,7 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canRecord(m_soundOptions & WithAudioInput); // always possible then
+    emit canRecord(m_recordTarget != 0);
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -2195,6 +2198,7 @@ MainWindowBase::createAudioIO()
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
             createCallbackIO(m_recordTarget, m_playSource);
+        m_audioIO->suspend(); // start in suspended state
         m_playSource->setSystemPlaybackTarget(m_audioIO);
     } else {
         m_playTarget = breakfastquay::AudioFactory::
@@ -2656,6 +2660,7 @@ MainWindowBase::play()
         QAction *action = qobject_cast<QAction *>(sender());
         if (action) action->setChecked(false);
     } else {
+        if (m_audioIO) m_audioIO->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
@@ -2683,6 +2688,12 @@ MainWindowBase::record()
         return;
     }
 
+    if (m_audioRecordMode == RecordReplaceSession) {
+        if (!checkSaveModified()) return;
+    }
+
+    if (m_audioIO) m_audioIO->resume();
+
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
@@ -2696,10 +2707,10 @@ MainWindowBase::record()
         //!!! ???
         return;
     }
-
-    PlayParameterRepository::getInstance()->addPlayable(model);
     
-    if (!getMainModel()) {
+    PlayParameterRepository::getInstance()->addPlayable(model);
+
+    if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 
         //!!! duplication with openAudio here
         
@@ -3014,6 +3025,8 @@ MainWindowBase::stop()
         
     m_playSource->stop();
 
+    if (m_audioIO) m_audioIO->suspend();
+    
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
     } else {
@@ -3352,6 +3365,17 @@ MainWindowBase::playbackFrameChanged(sv_frame_t frame)
 }
 
 void
+MainWindowBase::recordDurationChanged(sv_frame_t frame, sv_samplerate_t rate)
+{
+    RealTime duration = RealTime::frame2RealTime(frame, rate);
+    QString durStr = duration.toSecText().c_str();
+    
+    m_myStatusMessage = tr("Recording: %1").arg(durStr);
+
+    getStatusLabel()->setText(m_myStatusMessage);
+}
+
+void
 MainWindowBase::globalCentreFrameChanged(sv_frame_t )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
@@ -3613,4 +3637,30 @@ MainWindowBase::openHelpUrl(QString url)
 #endif
 }
 
-    
+void
+MainWindowBase::openLocalFolder(QString path)
+{
+    QDir d(path);
+    if (d.exists()) {
+        QStringList args;
+        QString path = d.canonicalPath();
+#if defined Q_OS_WIN32
+        // Although the Win32 API is quite happy to have
+        // forward slashes as directory separators, Windows
+        // Explorer is not
+        path = path.replace('/', '\\');
+        args << path;
+        QProcess::execute("c:/windows/explorer.exe", args);
+#else
+        args << path;
+        QProcess::execute(
+#if defined Q_OS_MAC
+            "/usr/bin/open",
+#else
+            "/usr/bin/xdg-open",
+#endif
+            args);
+#endif
+    }
+}
+
