@@ -19,11 +19,14 @@
 
 #include "data/model/WritableWaveFileModel.h"
 
+#include <bqaudioio/SystemRecordSource.h>
+
 #include <QDir>
 
 AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
 				     QString clientName) :
     m_viewManager(manager),
+    m_source(0),
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
@@ -35,6 +38,12 @@ AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
 AudioRecordTarget::~AudioRecordTarget()
 {
     QMutexLocker locker(&m_mutex);
+}
+
+void
+AudioRecordTarget::setSystemRecordSource(breakfastquay::SystemRecordSource *s)
+{
+    m_source = s;
 }
 
 void
@@ -113,8 +122,11 @@ AudioRecordTarget::getRecordFolder()
 WritableWaveFileModel *
 AudioRecordTarget::startRecording()
 {
+    if (m_source) m_source->resume();
+    
     {
     QMutexLocker locker(&m_mutex);
+    
     if (m_recording) {
         cerr << "WARNING: AudioRecordTarget::startRecording: We are already recording" << endl;
         return 0;
@@ -169,6 +181,8 @@ AudioRecordTarget::stopRecording()
     m_recording = false;
     }
 
+    if (m_source) m_source->suspend();
+    
     emit recordStatusChanged(false);
 }
 
