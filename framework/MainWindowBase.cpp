@@ -2681,10 +2681,14 @@ MainWindowBase::record()
     if (!m_audioIO) {
         createAudioIO();
     }
+
+    if (!m_audioIO) {
+        //!!! report
+        return;
+    }
     
     if (m_recordTarget->isRecording()) {
-        m_recordTarget->stopRecording();
-        emit audioFileLoaded();
+        stop();
         return;
     }
 
@@ -2697,7 +2701,7 @@ MainWindowBase::record()
         }
     }
 
-    if (m_audioIO) m_audioIO->resume();
+    m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
@@ -2709,6 +2713,7 @@ MainWindowBase::record()
 
     if (!model->isOK()) {
         m_recordTarget->stopRecording();
+        m_audioIO->suspend();
         delete model;
         return;
     }
@@ -2726,6 +2731,7 @@ MainWindowBase::record()
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
                 m_recordTarget->stopRecording();
+                m_audioIO->suspend();
                 PlayParameterRepository::getInstance()->removePlayable(model);
                 return;
             }
