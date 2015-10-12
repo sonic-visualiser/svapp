@@ -38,7 +38,7 @@ AudioRecordTarget::~AudioRecordTarget()
 }
 
 void
-AudioRecordTarget::setSystemRecordBlockSize(int sz)
+AudioRecordTarget::setSystemRecordBlockSize(int)
 {
 }
 
@@ -49,7 +49,7 @@ AudioRecordTarget::setSystemRecordSampleRate(int n)
 }
 
 void
-AudioRecordTarget::setSystemRecordLatency(int sz)
+AudioRecordTarget::setSystemRecordLatency(int)
 {
 }
 
@@ -83,7 +83,7 @@ AudioRecordTarget::putSamples(int nframes, float **samples)
 }
 
 void
-AudioRecordTarget::setInputLevels(float peakLeft, float peakRight)
+AudioRecordTarget::setInputLevels(float, float)
 {
 }
 
