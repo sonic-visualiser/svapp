@@ -2688,8 +2688,13 @@ MainWindowBase::record()
         return;
     }
 
+    QAction *action = qobject_cast<QAction *>(sender());
+    
     if (m_audioRecordMode == RecordReplaceSession) {
-        if (!checkSaveModified()) return;
+        if (!checkSaveModified()) {
+            if (action) action->setChecked(false);
+            return;
+        }
     }
 
     if (m_audioIO) m_audioIO->resume();
@@ -2698,13 +2703,13 @@ MainWindowBase::record()
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
         //!!! report
+        if (action) action->setChecked(false);
         return;
     }
 
     if (!model->isOK()) {
         m_recordTarget->stopRecording();
         delete model;
-        //!!! ???
         return;
     }
     
@@ -2720,6 +2725,8 @@ MainWindowBase::record()
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
+                m_recordTarget->stopRecording();
+                PlayParameterRepository::getInstance()->removePlayable(model);
                 return;
             }
             if (tplStatus != FileOpenFailed) {
