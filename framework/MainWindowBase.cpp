@@ -2801,6 +2801,8 @@ MainWindowBase::record()
     updateMenuStates();
     m_recentFiles.addFile(model->getLocation());
     currentPaneChanged(m_paneStack->getCurrentPane());
+
+    emit audioFileLoaded();
 }
 
 void
@@ -3033,7 +3035,6 @@ MainWindowBase::stop()
 {
     if (m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
-        emit audioFileLoaded();
     }
         
     m_playSource->stop();
