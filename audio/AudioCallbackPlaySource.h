@@ -116,8 +116,7 @@ public:
     virtual sv_frame_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
-     * Set the playback target.  This should be called by the target
-     * class.
+     * Set the playback target.
      */
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
 
