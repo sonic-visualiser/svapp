@@ -164,12 +164,13 @@ AudioRecordTarget::stopRecording()
         return;
     }
 
-    m_model->setCompletion(100);
+    m_model->writeComplete();
     m_model = 0;
     m_recording = false;
     }
 
     emit recordStatusChanged(false);
+    emit recordCompleted();
 }
 
 
