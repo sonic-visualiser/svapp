@@ -2200,6 +2200,7 @@ MainWindowBase::createAudioIO()
             createCallbackIO(m_recordTarget, m_playSource);
         m_audioIO->suspend(); // start in suspended state
         m_playSource->setSystemPlaybackTarget(m_audioIO);
+        m_recordTarget->setSystemRecordSource(m_audioIO);
     } else {
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(m_playSource);
@@ -2701,8 +2702,16 @@ MainWindowBase::record()
         }
     }
 
-    m_audioIO->resume();
+    QAction *action = qobject_cast<QAction *>(sender());
+    
+    if (m_audioRecordMode == RecordReplaceSession) {
+        if (!checkSaveModified()) {
+            if (action) action->setChecked(false);
+            return;
+        }
+    }
 
+    m_audioIO->resume();
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
