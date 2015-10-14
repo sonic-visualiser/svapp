@@ -2661,6 +2661,7 @@ MainWindowBase::play()
         QAction *action = qobject_cast<QAction *>(sender());
         if (action) action->setChecked(false);
     } else {
+        if (m_audioIO) m_audioIO->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
@@ -2690,6 +2691,15 @@ MainWindowBase::record()
     if (m_recordTarget->isRecording()) {
         stop();
         return;
+    }
+
+    QAction *action = qobject_cast<QAction *>(sender());
+    
+    if (m_audioRecordMode == RecordReplaceSession) {
+        if (!checkSaveModified()) {
+            if (action) action->setChecked(false);
+            return;
+        }
     }
 
     QAction *action = qobject_cast<QAction *>(sender());
@@ -2800,6 +2810,8 @@ MainWindowBase::record()
     updateMenuStates();
     m_recentFiles.addFile(model->getLocation());
     currentPaneChanged(m_paneStack->getCurrentPane());
+
+    emit audioFileLoaded();
 }
 
 void
@@ -3032,11 +3044,12 @@ MainWindowBase::stop()
 {
     if (m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
-        emit audioFileLoaded();
     }
         
     m_playSource->stop();
 
+    if (m_audioIO) m_audioIO->suspend();
+    
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
     } else {

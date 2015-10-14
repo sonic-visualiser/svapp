@@ -62,6 +62,7 @@ public:
 signals:
     void recordStatusChanged(bool recording);
     void recordDurationChanged(sv_frame_t, sv_samplerate_t); // emitted occasionally
+    void recordCompleted();
 
 protected slots:
     void modelAboutToBeDeleted();
