@@ -2200,7 +2200,6 @@ MainWindowBase::createAudioIO()
             createCallbackIO(m_recordTarget, m_playSource);
         m_audioIO->suspend(); // start in suspended state
         m_playSource->setSystemPlaybackTarget(m_audioIO);
-        m_recordTarget->setSystemRecordSource(m_audioIO);
     } else {
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(m_playSource);
@@ -2691,15 +2690,6 @@ MainWindowBase::record()
     if (m_recordTarget->isRecording()) {
         stop();
         return;
-    }
-
-    QAction *action = qobject_cast<QAction *>(sender());
-    
-    if (m_audioRecordMode == RecordReplaceSession) {
-        if (!checkSaveModified()) {
-            if (action) action->setChecked(false);
-            return;
-        }
     }
 
     QAction *action = qobject_cast<QAction *>(sender());

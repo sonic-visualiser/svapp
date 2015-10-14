@@ -41,8 +41,6 @@ public:
     virtual int getApplicationSampleRate() const { return 0; } // don't care
     virtual int getApplicationChannelCount() const { return 2; }
 
-    virtual void setSystemRecordSource(breakfastquay::SystemRecordSource *);
-
     virtual void setSystemRecordBlockSize(int);
     virtual void setSystemRecordSampleRate(int);
     virtual void setSystemRecordLatency(int);
@@ -69,7 +67,6 @@ protected slots:
     
 private:
     ViewManagerBase *m_viewManager;
-    breakfastquay::SystemRecordSource *m_source;
     std::string m_clientName;
     bool m_recording;
     sv_samplerate_t m_recordSampleRate;

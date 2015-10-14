@@ -396,7 +396,6 @@ protected:
     QWaitCondition m_condition;
     FillThread *m_fillThread;
     SRC_STATE *m_converter;
-    SRC_STATE *m_crapConverter; // for use when playing very fast
     int m_resampleQuality;
     void initialiseConverter();
 };
