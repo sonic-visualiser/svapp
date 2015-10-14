@@ -2701,15 +2701,6 @@ MainWindowBase::record()
         }
     }
 
-    QAction *action = qobject_cast<QAction *>(sender());
-    
-    if (m_audioRecordMode == RecordReplaceSession) {
-        if (!checkSaveModified()) {
-            if (action) action->setChecked(false);
-            return;
-        }
-    }
-
     m_audioIO->resume();
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
