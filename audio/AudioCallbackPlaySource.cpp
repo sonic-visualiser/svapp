@@ -35,7 +35,7 @@ using namespace RubberBand;
 #include <iostream>
 #include <cassert>
 
-#define DEBUG_AUDIO_PLAY_SOURCE 1
+//#define DEBUG_AUDIO_PLAY_SOURCE 1
 //#define DEBUG_AUDIO_PLAY_SOURCE_PLAYING 1
 
 static const int DEFAULT_RING_BUFFER_SIZE = 131071;
