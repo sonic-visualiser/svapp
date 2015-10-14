@@ -2203,6 +2203,7 @@ MainWindowBase::createAudioIO()
     } else {
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(m_playSource);
+        m_playTarget->suspend(); // start in suspended state
         m_playSource->setSystemPlaybackTarget(m_playTarget);
     }
 
@@ -2661,6 +2662,7 @@ MainWindowBase::play()
         if (action) action->setChecked(false);
     } else {
         if (m_audioIO) m_audioIO->resume();
+        else if (m_playTarget) m_playTarget->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
@@ -2702,6 +2704,7 @@ MainWindowBase::record()
     }
 
     m_audioIO->resume();
+
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
@@ -3039,6 +3042,7 @@ MainWindowBase::stop()
     m_playSource->stop();
 
     if (m_audioIO) m_audioIO->suspend();
+    else if (m_playTarget) m_playTarget->suspend();
     
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
