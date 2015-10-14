@@ -2681,28 +2681,39 @@ MainWindowBase::record()
     if (!m_audioIO) {
         createAudioIO();
     }
+
+    if (!m_audioIO) {
+        //!!! report
+        return;
+    }
     
     if (m_recordTarget->isRecording()) {
-        m_recordTarget->stopRecording();
-        emit audioFileLoaded();
+        stop();
         return;
     }
 
+    QAction *action = qobject_cast<QAction *>(sender());
+    
     if (m_audioRecordMode == RecordReplaceSession) {
-        if (!checkSaveModified()) return;
+        if (!checkSaveModified()) {
+            if (action) action->setChecked(false);
+            return;
+        }
     }
 
+    m_audioIO->resume();
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
         cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
         //!!! report
+        if (action) action->setChecked(false);
         return;
     }
 
     if (!model->isOK()) {
         m_recordTarget->stopRecording();
+        m_audioIO->suspend();
         delete model;
-        //!!! ???
         return;
     }
     
@@ -2718,6 +2729,9 @@ MainWindowBase::record()
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
+                m_recordTarget->stopRecording();
+                m_audioIO->suspend();
+                PlayParameterRepository::getInstance()->removePlayable(model);
                 return;
             }
             if (tplStatus != FileOpenFailed) {

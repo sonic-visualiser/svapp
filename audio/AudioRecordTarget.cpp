@@ -41,13 +41,7 @@ AudioRecordTarget::~AudioRecordTarget()
 }
 
 void
-AudioRecordTarget::setSystemRecordSource(breakfastquay::SystemRecordSource *s)
-{
-    m_source = s;
-}
-
-void
-AudioRecordTarget::setSystemRecordBlockSize(int sz)
+AudioRecordTarget::setSystemRecordBlockSize(int)
 {
 }
 
@@ -58,7 +52,7 @@ AudioRecordTarget::setSystemRecordSampleRate(int n)
 }
 
 void
-AudioRecordTarget::setSystemRecordLatency(int sz)
+AudioRecordTarget::setSystemRecordLatency(int)
 {
 }
 
@@ -92,7 +86,7 @@ AudioRecordTarget::putSamples(int nframes, float **samples)
 }
 
 void
-AudioRecordTarget::setInputLevels(float peakLeft, float peakRight)
+AudioRecordTarget::setInputLevels(float, float)
 {
 }
 
@@ -122,8 +116,6 @@ AudioRecordTarget::getRecordFolder()
 WritableWaveFileModel *
 AudioRecordTarget::startRecording()
 {
-    if (m_source) m_source->resume();
-    
     {
     QMutexLocker locker(&m_mutex);
     
@@ -181,8 +173,6 @@ AudioRecordTarget::stopRecording()
     m_recording = false;
     }
 
-    if (m_source) m_source->suspend();
-    
     emit recordStatusChanged(false);
 }
 
