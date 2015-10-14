@@ -19,14 +19,11 @@
 
 #include "data/model/WritableWaveFileModel.h"
 
-#include <bqaudioio/SystemRecordSource.h>
-
 #include <QDir>
 
 AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
 				     QString clientName) :
     m_viewManager(manager),
-    m_source(0),
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
