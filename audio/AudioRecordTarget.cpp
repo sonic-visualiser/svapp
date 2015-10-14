@@ -98,10 +98,26 @@ AudioRecordTarget::modelAboutToBeDeleted()
 }
 
 QString
-AudioRecordTarget::getRecordFolder()
+AudioRecordTarget::getRecordContainerFolder()
 {
     QDir parent(TempDirectory::getInstance()->getContainingPath());
-    QString subdirname = "recorded"; //!!! tr?
+    QString subdirname("recorded");
+
+    if (!parent.mkpath(subdirname)) {
+        cerr << "ERROR: AudioRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        return "";
+    } else {
+        return parent.filePath(subdirname);
+    }
+}
+
+QString
+AudioRecordTarget::getRecordFolder()
+{
+    QDir parent(getRecordContainerFolder());
+    QDateTime now = QDateTime::currentDateTime();
+    QString subdirname = QString("%1").arg(now.toString("yyyyMMdd"));
+
     if (!parent.mkpath(subdirname)) {
         cerr << "ERROR: AudioRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
         return "";

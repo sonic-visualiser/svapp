@@ -51,6 +51,7 @@ public:
 
     virtual void audioProcessingOverload() { }
 
+    QString getRecordContainerFolder();
     QString getRecordFolder();
     
     bool isRecording() const { return m_recording; }
