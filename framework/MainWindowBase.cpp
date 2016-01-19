@@ -196,6 +196,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     settings.setValue("view-font-size", viewFontSize);
     settings.endGroup();
 
+#ifdef NOT_DEFINED // This no longer works correctly on any platform AFAICS
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
@@ -203,6 +204,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
         m_viewManager->setGlobalDarkBackground
             (mode == Preferences::DarkBackground);
     }
+#endif
 
     m_paneStack = new PaneStack(0, m_viewManager);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
