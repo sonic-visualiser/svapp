@@ -35,7 +35,7 @@ using namespace RubberBand;
 #include <iostream>
 #include <cassert>
 
-#define DEBUG_AUDIO_PLAY_SOURCE 1
+//#define DEBUG_AUDIO_PLAY_SOURCE 1
 //#define DEBUG_AUDIO_PLAY_SOURCE_PLAYING 1
 
 static const int DEFAULT_RING_BUFFER_SIZE = 131071;
@@ -414,8 +414,6 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 void
 AudioCallbackPlaySource::play(sv_frame_t startFrame)
 {
-    if (m_target) m_target->resume();
-    
     if (!m_sourceSampleRate) {
         cerr << "AudioCallbackPlaySource::play: No source sample rate available, not playing" << endl;
         return;
@@ -526,8 +524,6 @@ AudioCallbackPlaySource::stop()
                        (m_lastCurrentFrame, m_sourceSampleRate).toText().c_str()));
     }
     m_lastCurrentFrame = 0;
-
-    if (m_target) m_target->suspend();
 }
 
 void
