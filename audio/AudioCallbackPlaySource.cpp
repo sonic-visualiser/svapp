@@ -23,10 +23,11 @@
 #include "base/Preferences.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "plugin/RealTimePluginInstance.h"
 
-#include "AudioCallbackPlayTarget.h"
+#include "bqaudioio/SystemPlaybackTarget.h"
 
 #include <rubberband/RubberBandStretcher.h>
 using namespace RubberBand;
@@ -43,7 +44,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
                                                  QString clientName) :
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),
-    m_clientName(clientName),
+    m_clientName(clientName.toUtf8().data()),
     m_readBuffers(0),
     m_writeBuffers(0),
     m_readBufferFill(0),
@@ -78,7 +79,6 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_stretcherInputSizes(0),
     m_fillThread(0),
     m_converter(0),
-    m_crapConverter(0),
     m_resampleQuality(Preferences::getInstance()->getResampleQuality())
 {
     m_viewManager->setAudioPlaySource(this);
@@ -161,8 +161,8 @@ AudioCallbackPlaySource::addModel(Model *model)
     bool buffersChanged = false, srChanged = false;
 
     int modelChannels = 1;
-    DenseTimeValueModel *dtvm = dynamic_cast<DenseTimeValueModel *>(model);
-    if (dtvm) modelChannels = dtvm->getChannelCount();
+    ReadOnlyWaveFileModel *rowfm = qobject_cast<ReadOnlyWaveFileModel *>(model);
+    if (rowfm) modelChannels = rowfm->getChannelCount();
     if (modelChannels > m_sourceChannelCount) {
 	m_sourceChannelCount = modelChannels;
     }
@@ -178,24 +178,26 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     } else if (model->getSampleRate() != m_sourceSampleRate) {
 
-        // If this is a dense time-value model and we have no other, we
-        // can just switch to this model's sample rate
+        // If this is a read-only wave file model and we have no
+        // other, we can just switch to this model's sample rate
 
-        if (dtvm) {
+        if (rowfm) {
 
             bool conflicting = false;
 
             for (std::set<Model *>::const_iterator i = m_models.begin();
                  i != m_models.end(); ++i) {
-                // Only wave file models can be considered conflicting --
-                // writable wave file models are derived and we shouldn't
-                // take their rates into account.  Also, don't give any
-                // particular weight to a file that's already playing at
-                // the wrong rate anyway
-                WaveFileModel *wfm = dynamic_cast<WaveFileModel *>(*i);
-                if (wfm && wfm != dtvm &&
-                    wfm->getSampleRate() != model->getSampleRate() &&
-                    wfm->getSampleRate() == m_sourceSampleRate) {
+                // Only read-only wave file models should be
+                // considered conflicting -- writable wave file models
+                // are derived and we shouldn't take their rates into
+                // account.  Also, don't give any particular weight to
+                // a file that's already playing at the wrong rate
+                // anyway
+                ReadOnlyWaveFileModel *other =
+                    qobject_cast<ReadOnlyWaveFileModel *>(*i);
+                if (other && other != rowfm &&
+                    other->getSampleRate() != model->getSampleRate() &&
+                    other->getSampleRate() == m_sourceSampleRate) {
                     SVDEBUG << "AudioCallbackPlaySource::addModel: Conflicting wave file model " << *i << " found" << endl;
                     conflicting = true;
                     break;
@@ -230,10 +232,11 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     if (buffersChanged || srChanged) {
 	if (m_converter) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+            cerr << "AudioCallbackPlaySource::addModel: Buffers or sample rate changed, deleting existing SR converter" << endl;
+#endif
 	    src_delete(m_converter);
-            src_delete(m_crapConverter);
 	    m_converter = 0;
-            m_crapConverter = 0;
 	}
     }
 
@@ -241,6 +244,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     m_mutex.unlock();
 
+    initialiseConverter();
+    
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
 
     if (!m_fillThread) {
@@ -298,10 +303,11 @@ AudioCallbackPlaySource::removeModel(Model *model)
 
     if (m_models.empty()) {
 	if (m_converter) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+            cerr << "AudioCallbackPlaySource::removeModel: No models left, deleting SR converter" << endl;
+#endif
 	    src_delete(m_converter);
-            src_delete(m_crapConverter);
 	    m_converter = 0;
-            m_crapConverter = 0;
 	}
 	m_sourceSampleRate = 0;
     }
@@ -340,10 +346,11 @@ AudioCallbackPlaySource::clearModels()
     m_models.clear();
 
     if (m_converter) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        cerr << "AudioCallbackPlaySource::clearModels: Deleting SR converter" << endl;
+#endif
 	src_delete(m_converter);
-        src_delete(m_crapConverter);
 	m_converter = 0;
-        m_crapConverter = 0;
     }
 
     m_lastModelEndFrame = 0;
@@ -465,7 +472,6 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
         }
     }
     if (m_converter) src_reset(m_converter);
-    if (m_crapConverter) src_reset(m_crapConverter);
 
     m_mutex.unlock();
 
@@ -581,18 +587,25 @@ AudioCallbackPlaySource::audioProcessingOverload()
 }
 
 void
-AudioCallbackPlaySource::setTarget(AudioCallbackPlayTarget *target, int size)
+AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
     m_target = target;
+}
+
+void
+AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
+{
     cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
     if (size != 0) {
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
-        SVDEBUG << "AudioCallbackPlaySource::setTarget: Buffer size "
-                  << size << " > a quarter of ring buffer size "
-                  << m_ringBufferSize << ", calling for more ring buffer"
-                  << endl;
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        cerr << "AudioCallbackPlaySource::setTarget: Buffer size "
+             << size << " > a quarter of ring buffer size "
+             << m_ringBufferSize << ", calling for more ring buffer"
+             << endl;
+#endif
         m_ringBufferSize = size * 4;
         if (m_writeBuffers && !m_writeBuffers->empty()) {
             clearRingBuffers();
@@ -608,7 +621,7 @@ AudioCallbackPlaySource::getTargetBlockSize() const
 }
 
 void
-AudioCallbackPlaySource::setTargetPlayLatency(sv_frame_t latency)
+AudioCallbackPlaySource::setSystemPlaybackLatency(int latency)
 {
     m_playLatency = latency;
 }
@@ -929,7 +942,7 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 }
 
 void
-AudioCallbackPlaySource::setTargetSampleRate(sv_samplerate_t sr)
+AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 {
     bool first = (m_targetSampleRate == 0);
 
@@ -948,11 +961,14 @@ AudioCallbackPlaySource::initialiseConverter()
 {
     m_mutex.lock();
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    cerr << "AudioCallbackPlaySource::initialiseConverter(): from "
+         << getSourceSampleRate() << " to " << getTargetSampleRate() << endl;
+#endif
+    
     if (m_converter) {
         src_delete(m_converter);
-        src_delete(m_crapConverter);
         m_converter = 0;
-        m_crapConverter = 0;
     }
 
     if (getSourceSampleRate() != getTargetSampleRate()) {
@@ -965,26 +981,9 @@ AudioCallbackPlaySource::initialiseConverter()
                                                        SRC_SINC_MEDIUM_QUALITY,
 			      getTargetChannelCount(), &err);
 
-        if (m_converter) {
-            m_crapConverter = src_new(SRC_LINEAR,
-                                      getTargetChannelCount(),
-                                      &err);
-        }
-
-	if (!m_converter || !m_crapConverter) {
-	    cerr
-		<< "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
-		<< src_strerror(err) << endl;
-
-            if (m_converter) {
-                src_delete(m_converter);
-                m_converter = 0;
-            } 
-
-            if (m_crapConverter) {
-                src_delete(m_crapConverter);
-                m_crapConverter = 0;
-            }
+	if (!m_converter) {
+	    cerr << "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
+                 << src_strerror(err) << endl;
 
             m_mutex.unlock();
 
@@ -1106,8 +1105,8 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
-sv_frame_t
-AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
+int
+AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 {
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1288,7 +1287,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
                       << got << " < " << reqd << ")" << endl;
         }
 
-        ts->process(m_stretcherInputs, got, false);
+        ts->process(m_stretcherInputs, size_t(got), false);
 
         fedToStretcher += got;
 
@@ -1300,7 +1299,7 @@ AudioCallbackPlaySource::getSourceSamples(sv_frame_t count, float **buffer)
         }
     }
 
-    ts->retrieve(buffer, count);
+    ts->retrieve(buffer, size_t(count));
 
     for (int c = stretchChannels; c < getTargetChannelCount(); ++c) {
         for (int i = 0; i < count; ++i) {
@@ -1424,11 +1423,7 @@ AudioCallbackPlaySource::fillBuffers()
     sv_frame_t generatorBlockSize = m_audioGenerator->getBlockSize();
 
     if (resample && !m_converter) {
-	static bool warned = false;
-	if (!warned) {
-	    cerr << "WARNING: sample rates differ, but no converter available!" << endl;
-	    warned = true;
-	}
+        throw std::logic_error("Sample rates differ, but no converter available!");
     }
 
     if (resample && m_converter) {
@@ -1487,21 +1482,12 @@ AudioCallbackPlaySource::fillBuffers()
 	SRC_DATA data;
 	data.data_in = intlv;
 	data.data_out = srcout;
-	data.input_frames = got;
-	data.output_frames = work;
+	data.input_frames = long(got);
+	data.output_frames = long(work);
 	data.src_ratio = ratio;
 	data.end_of_input = 0;
 	
-	int err = 0;
-
-        if (m_timeStretcher && m_timeStretcher->getTimeRatio() < 0.4) {
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cout << "Using crappy converter" << endl;
-#endif
-            err = src_process(m_crapConverter, &data);
-        } else {
-            err = src_process(m_converter, &data);
-        }
+	int err = src_process(m_converter, &data);
 
 	sv_frame_t toCopy = sv_frame_t(double(got) * ratio + 0.1);
 

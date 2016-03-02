@@ -23,10 +23,10 @@ exists(config.pri) {
     }
 
     win* {
-        DEFINES += HAVE_PORTAUDIO_2_0
+        DEFINES += HAVE_PORTAUDIO
     }
     macx* {
-        DEFINES += HAVE_COREAUDIO HAVE_PORTAUDIO_2_0
+        DEFINES += HAVE_COREAUDIO HAVE_PORTAUDIO
     }
 }
 
@@ -35,32 +35,24 @@ QT += network xml gui widgets
 
 TARGET = svapp
 
-DEPENDPATH += . ../svcore ../svgui
-INCLUDEPATH += . ../svcore ../svgui
+DEPENDPATH += . ../bqaudioio ../svcore ../svgui
+INCLUDEPATH += . ../bqaudioio ../svcore ../svgui
 OBJECTS_DIR = o
 MOC_DIR = o
 
-HEADERS += audioio/AudioCallbackPlaySource.h \
-           audioio/AudioCallbackPlayTarget.h \
-           audioio/AudioGenerator.h \
-           audioio/AudioJACKTarget.h \
-           audioio/AudioPortAudioTarget.h \
-           audioio/AudioPulseAudioTarget.h \
-           audioio/AudioTargetFactory.h \
-           audioio/ClipMixer.h \
-           audioio/ContinuousSynth.h \
-           audioio/PlaySpeedRangeMapper.h
+HEADERS += audio/AudioCallbackPlaySource.h \
+           audio/AudioRecordTarget.h \
+           audio/AudioGenerator.h \
+           audio/ClipMixer.h \
+           audio/ContinuousSynth.h \
+           audio/PlaySpeedRangeMapper.h
 
-SOURCES += audioio/AudioCallbackPlaySource.cpp \
-           audioio/AudioCallbackPlayTarget.cpp \
-           audioio/AudioGenerator.cpp \
-           audioio/AudioJACKTarget.cpp \
-           audioio/AudioPortAudioTarget.cpp \
-           audioio/AudioPulseAudioTarget.cpp \
-           audioio/AudioTargetFactory.cpp \
-           audioio/ClipMixer.cpp \
-           audioio/ContinuousSynth.cpp \
-           audioio/PlaySpeedRangeMapper.cpp
+SOURCES += audio/AudioCallbackPlaySource.cpp \
+           audio/AudioRecordTarget.cpp \
+           audio/AudioGenerator.cpp \
+           audio/ClipMixer.cpp \
+           audio/ContinuousSynth.cpp \
+           audio/PlaySpeedRangeMapper.cpp
 
 HEADERS += framework/Align.h \
 	   framework/Document.h \

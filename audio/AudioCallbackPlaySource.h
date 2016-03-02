@@ -13,13 +13,15 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _AUDIO_CALLBACK_PLAY_SOURCE_H_
-#define _AUDIO_CALLBACK_PLAY_SOURCE_H_
+#ifndef AUDIO_CALLBACK_PLAY_SOURCE_H
+#define AUDIO_CALLBACK_PLAY_SOURCE_H
 
 #include "base/RingBuffer.h"
 #include "base/AudioPlaySource.h"
 #include "base/PropertyContainer.h"
 #include "base/Scavenger.h"
+
+#include <bqaudioio/ApplicationPlaybackSource.h>
 
 #include <QObject>
 #include <QMutex>
@@ -52,7 +54,8 @@ class AudioCallbackPlayTarget;
  * available sample data from these buffers.
  */
 class AudioCallbackPlaySource : public QObject,
-				public AudioPlaySource
+				public AudioPlaySource,
+                                public breakfastquay::ApplicationPlaybackSource
 {
     Q_OBJECT
 
@@ -113,10 +116,15 @@ public:
     virtual sv_frame_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
-     * Set the target and the block size of the target audio device.
-     * This should be called by the target class.
+     * Set the playback target.
      */
-    void setTarget(AudioCallbackPlayTarget *, int blockSize);
+    virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
+
+    /**
+     * Set the block size of the target audio device.  This should be
+     * called by the target class.
+     */
+    virtual void setSystemPlaybackBlockSize(int blockSize);
 
     /**
      * Get the block size of the target audio device.  This may be an
@@ -133,7 +141,7 @@ public:
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
      */
-    void setTargetPlayLatency(sv_frame_t);
+    void setSystemPlaybackLatency(int);
 
     /**
      * Get the playback latency of the target audio device.
@@ -147,7 +155,7 @@ public:
      * source sample rate, this class will resample automatically to
      * fit.
      */
-    void setTargetSampleRate(sv_samplerate_t);
+    void setSystemPlaybackSampleRate(int);
 
     /**
      * Return the sample rate set by the target audio device (or the
@@ -185,6 +193,13 @@ public:
     int getTargetChannelCount() const;
 
     /**
+     * ApplicationPlaybackSource equivalent of the above.
+     */
+    virtual int getApplicationChannelCount() const {
+        return getTargetChannelCount();
+    }
+    
+    /**
      * Get the actual sample rate of the source material.  This may
      * safely be called from a realtime thread.  Returns 0 if there is
      * no source yet available.
@@ -192,11 +207,18 @@ public:
     virtual sv_samplerate_t getSourceSampleRate() const;
 
     /**
+     * ApplicationPlaybackSource equivalent of the above.
+     */
+    virtual int getApplicationSampleRate() const {
+        return int(round(getSourceSampleRate()));
+    }
+
+    /**
      * Get "count" samples (at the target sample rate) of the mixed
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    sv_frame_t getSourceSamples(sv_frame_t count, float **buffer);
+    virtual int getSourceSamples(int count, float **buffer);
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
@@ -237,7 +259,7 @@ public:
      */
     void clearSoloModelSet();
 
-    QString getClientName() const { return m_clientName; }
+    std::string getClientName() const { return m_clientName; }
 
 signals:
     void modelReplaced();
@@ -267,7 +289,7 @@ protected slots:
 protected:
     ViewManagerBase                  *m_viewManager;
     AudioGenerator                   *m_audioGenerator;
-    QString                           m_clientName;
+    std::string                       m_clientName;
 
     class RingBufferVector : public std::vector<RingBuffer<float> *> {
     public:
@@ -290,7 +312,7 @@ protected:
     sv_samplerate_t                   m_sourceSampleRate;
     sv_samplerate_t                   m_targetSampleRate;
     sv_frame_t                        m_playLatency;
-    AudioCallbackPlayTarget          *m_target;
+    breakfastquay::SystemPlaybackTarget *m_target;
     double                            m_lastRetrievalTimestamp;
     sv_frame_t                        m_lastRetrievedBlockSize;
     bool                              m_trustworthyTimestamps;
@@ -374,7 +396,6 @@ protected:
     QWaitCondition m_condition;
     FillThread *m_fillThread;
     SRC_STATE *m_converter;
-    SRC_STATE *m_crapConverter; // for use when playing very fast
     int m_resampleQuality;
     void initialiseConverter();
 };

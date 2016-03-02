@@ -16,6 +16,7 @@
 #include "Align.h"
 
 #include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/AggregateWaveModel.h"
 #include "data/model/RangeSummarisableTimeValueModel.h"
 #include "data/model/SparseTimeValueModel.h"
@@ -173,7 +174,9 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
     WaveFileModel *reference = qobject_cast<WaveFileModel *>(ref);
     WaveFileModel *rm = qobject_cast<WaveFileModel *>(other);
 
-    if (!rm) return false; // but this should have been tested already
+    if (!reference || !rm) {
+        return false; // but this should have been tested already
+    }
 
     while (!reference->isReady(0) || !rm->isReady(0)) {
         qApp->processEvents();
@@ -183,8 +186,15 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
     // model's audio file and the new model's audio file. It returns
     // the path in CSV form through stdout.
 
-    QString refPath = reference->getLocalFilename();
-    QString otherPath = rm->getLocalFilename();
+    ReadOnlyWaveFileModel *roref = qobject_cast<ReadOnlyWaveFileModel *>(reference);
+    ReadOnlyWaveFileModel *rorm = qobject_cast<ReadOnlyWaveFileModel *>(rm);
+    if (!roref || !rorm) {
+        cerr << "ERROR: Align::alignModelViaProgram: Can't align non-read-only models via program (no local filename available)" << endl;
+        return false;
+    }
+    
+    QString refPath = roref->getLocalFilename();
+    QString otherPath = rorm->getLocalFilename();
 
     if (refPath == "" || otherPath == "") {
 	m_error = "Failed to find local filepath for wave-file model";
