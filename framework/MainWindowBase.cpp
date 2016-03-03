@@ -2706,7 +2706,8 @@ MainWindowBase::preferenceChanged(PropertyContainer::PropertyName name)
 void
 MainWindowBase::play()
 {
-    if (m_recordTarget->isRecording() || m_playSource->isPlaying()) {
+    if ((m_recordTarget && m_recordTarget->isRecording()) ||
+        (m_playSource && m_playSource->isPlaying())) {
         stop();
         QAction *action = qobject_cast<QAction *>(sender());
         if (action) action->setChecked(false);
@@ -3085,10 +3086,13 @@ MainWindowBase::getSnapLayer() const
 void
 MainWindowBase::stop()
 {
-    if (m_recordTarget->isRecording()) {
+    if (m_recordTarget &&
+        m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
     }
-        
+
+    if (!m_playSource) return;
+    
     m_playSource->stop();
 
     if (m_audioIO) m_audioIO->suspend();
