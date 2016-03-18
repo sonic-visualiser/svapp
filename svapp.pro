@@ -1,6 +1,9 @@
 
 TEMPLATE = lib
 
+INCLUDEPATH += ../vamp-plugin-sdk
+DEFINES += HAVE_VAMP HAVE_VAMPHOSTSDK
+
 exists(config.pri) {
     include(config.pri)
 }
