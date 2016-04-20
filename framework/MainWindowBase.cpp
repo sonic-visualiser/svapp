@@ -488,7 +488,8 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
 
     QString lastPath = m_sessionFile;
 
-    if (type == FileFinder::AudioFile) {
+    if (type == FileFinder::AudioFile ||
+        type == FileFinder::IMAFile) {
         lastPath = m_audioFile;
     }
 
