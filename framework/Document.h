@@ -32,6 +32,8 @@ class WaveFileModel;
 
 class AdditionalModelConverter;
 
+class Align;
+
 /**
  * A Sonic Visualiser document consists of a set of data models, and
  * also the visualisation layers used to display them.  Changes to the
@@ -301,7 +303,9 @@ signals:
                                  QString message);
     void modelRegenerationWarning(QString layerName, QString transformName,
                                   QString message);
-    void alignmentFailed(QString transformName, QString message);
+
+    void alignmentComplete(AlignmentModel *);
+    void alignmentFailed(QString message);
 
     void activity(QString);
 
@@ -407,8 +411,6 @@ protected:
     void writeBackwardCompatibleDerivation(QTextStream &, QString, Model *,
                                            const ModelRecord &) const;
 
-    static TransformId getAlignmentTransformName();
-    
     void toXml(QTextStream &, QString, QString, bool asTemplate) const;
     void writePlaceholderMainModel(QTextStream &, QString) const;
 
@@ -423,6 +425,7 @@ protected:
     LayerSet m_layers;
 
     bool m_autoAlignment;
+    Align *m_align;
 };
 
 #endif
