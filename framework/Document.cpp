@@ -15,6 +15,8 @@
 
 #include "Document.h"
 
+#include "Align.h"
+
 #include "data/model/WaveFileModel.h"
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/DenseThreeDimensionalModel.h"
@@ -36,10 +38,8 @@
 #include <iostream>
 #include <typeinfo>
 
-// For alignment:
-#include "data/model/AggregateWaveModel.h"
-#include "data/model/SparseTimeValueModel.h"
 #include "data/model/AlignmentModel.h"
+#include "Align.h"
 
 using std::vector;
 
@@ -49,7 +49,8 @@ using std::vector;
 
 Document::Document() :
     m_mainModel(0),
-    m_autoAlignment(false)
+    m_autoAlignment(false),
+    m_align(new Align())
 {
     connect(this,
             SIGNAL(modelAboutToBeDeleted(Model *)),
@@ -60,6 +61,9 @@ Document::Document() :
             SIGNAL(transformFailed(QString, QString)),
             this,
             SIGNAL(modelGenerationFailed(QString, QString)));
+
+    connect(m_align, SIGNAL(alignmentComplete(AlignmentModel *)),
+            this, SIGNAL(alignmentComplete(AlignmentModel *)));
 }
 
 Document::~Document()
@@ -1038,24 +1042,10 @@ Document::isKnownModel(const Model *model) const
     return (m_models.find(const_cast<Model *>(model)) != m_models.end());
 }
 
-TransformId
-Document::getAlignmentTransformName()
-{
-    QSettings settings;
-    settings.beginGroup("Alignment");
-    TransformId id =
-        settings.value("transform-id",
-                       "vamp:match-vamp-plugin:match:path").toString();
-    settings.endGroup();
-    return id;
-}
-
 bool
-Document::canAlign() 
+Document::canAlign()
 {
-    TransformId id = getAlignmentTransformName();
-    TransformFactory *factory = TransformFactory::getInstance();
-    return factory->haveTransform(id);
+    return Align::canAlign();
 }
 
 void
@@ -1090,75 +1080,10 @@ Document::alignModel(Model *model)
         return;
     }
 
-    // This involves creating three new models:
-
-    // 1. an AggregateWaveModel to provide the mixdowns of the main
-    // model and the new model in its two channels, as input to the
-    // MATCH plugin
-
-    // 2. a SparseTimeValueModel, which is the model automatically
-    // created by FeatureExtractionPluginTransformer when running the
-    // MATCH plugin (thus containing the alignment path)
-
-    // 3. an AlignmentModel, which stores the path model and carries
-    // out alignment lookups on it.
-
-    // The first two of these are provided as arguments to the
-    // constructor for the third, which takes responsibility for
-    // deleting them.  The AlignmentModel, meanwhile, is passed to the
-    // new model we are aligning, which also takes responsibility for
-    // it.  We should not have to delete any of these new models here.
-
-    AggregateWaveModel::ChannelSpecList components;
-
-    components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (m_mainModel, -1));
-
-    components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (rm, -1));
-
-    Model *aggregateModel = new AggregateWaveModel(components);
-    ModelTransformer::Input aggregate(aggregateModel);
-
-    TransformId id = "vamp:match-vamp-plugin:match:path"; //!!! configure
-    
-    TransformFactory *tf = TransformFactory::getInstance();
-
-    Transform transform = tf->getDefaultTransformFor
-        (id, aggregateModel->getSampleRate());
-
-    transform.setStepSize(transform.getBlockSize()/2);
-    transform.setParameter("serialise", 1);
-
-    SVDEBUG << "Document::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
-
-    ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
-
-    QString message;
-    Model *transformOutput = mtf->transform(transform, aggregate, message);
-
-    if (!transformOutput) {
-        transform.setStepSize(0);
-        transformOutput = mtf->transform(transform, aggregate, message);
+    if (!m_align->alignModel(m_mainModel, rm)) {
+        cerr << "Alignment failed: " << m_align->getError() << endl;
+        emit alignmentFailed(m_align->getError());
     }
-
-    SparseTimeValueModel *path = dynamic_cast<SparseTimeValueModel *>
-        (transformOutput);
-
-    if (!path) {
-        cerr << "Document::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
-        emit alignmentFailed(id, message);
-        delete transformOutput;
-        delete aggregateModel;
-        return;
-    }
-
-    path->setCompletion(0);
-
-    AlignmentModel *alignmentModel = new AlignmentModel
-        (m_mainModel, model, aggregateModel, path);
-
-    rm->setAlignment(alignmentModel);
 }
 
 void

@@ -62,6 +62,7 @@ class Labeller;
 class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
+class AlignmentModel;
 
 namespace breakfastquay {
 class SystemPlaybackTarget;
@@ -86,7 +87,8 @@ public:
         WithAudioOutput = 0x01,
         WithAudioInput  = 0x02,
         WithMIDIInput   = 0x04,
-        WithEverything  = 0xff
+        WithEverything  = 0xff,
+        WithNothing     = 0x00
     };
     typedef int SoundOptions;
     
@@ -120,6 +122,8 @@ public:
     virtual FileOpenStatus openLayer(FileSource source);
     virtual FileOpenStatus openImage(FileSource source);
 
+    virtual FileOpenStatus openDirOfAudio(QString dirPath);
+    
     virtual FileOpenStatus openSession(FileSource source);
     virtual FileOpenStatus openSessionPath(QString fileOrUrl);
     virtual FileOpenStatus openSessionTemplate(QString templateName);
@@ -291,7 +295,9 @@ protected slots:
     virtual void modelGenerationWarning(QString, QString) = 0;
     virtual void modelRegenerationFailed(QString, QString, QString) = 0;
     virtual void modelRegenerationWarning(QString, QString, QString) = 0;
-    virtual void alignmentFailed(QString, QString) = 0;
+
+    virtual void alignmentComplete(AlignmentModel *);
+    virtual void alignmentFailed(QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
 
@@ -460,10 +466,14 @@ protected:
     virtual void updatePositionStatusDisplays() const = 0;
 
     // Call this after setting up the menu bar, to fix up single-key
-    // shortcuts on OS/X
+    // shortcuts on OS/X and do any other platform-specific tidying
     virtual void finaliseMenus();
     virtual void finaliseMenu(QMenu *);
 
+    // Call before finaliseMenus if you wish to have a say in this question
+    void setIconsVisibleInMenus(bool visible) { m_iconsVisibleInMenus = visible; }
+    bool m_iconsVisibleInMenus;
+    
     // Only used on OS/X to work around a Qt/Cocoa bug, see finaliseMenus
     QSignalMapper *m_menuShortcutMapper;
     QList<QShortcut *> m_appShortcuts;

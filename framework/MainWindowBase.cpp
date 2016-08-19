@@ -157,6 +157,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_defaultFfwdRwdStep(2, 0),
     m_audioRecordMode(RecordCreateAdditionalModel),
     m_statusLabel(0),
+    m_iconsVisibleInMenus(true),
     m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
@@ -196,6 +197,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     settings.setValue("view-font-size", viewFontSize);
     settings.endGroup();
 
+#ifdef NOT_DEFINED // This no longer works correctly on any platform AFAICS
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
@@ -203,6 +205,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
         m_viewManager->setGlobalDarkBackground
             (mode == Preferences::DarkBackground);
     }
+#endif
 
     m_paneStack = new PaneStack(0, m_viewManager);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
@@ -332,12 +335,12 @@ MainWindowBase::finaliseMenus()
 }
 
 void
-MainWindowBase::finaliseMenu(QMenu *
-#ifdef Q_OS_MAC
-                             menu
-#endif
-    )
+MainWindowBase::finaliseMenu(QMenu *menu)
 {
+    foreach (QAction *a, menu->actions()) {
+        a->setIconVisibleInMenu(m_iconsVisibleInMenus);
+    }
+
 #ifdef Q_OS_MAC
     // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
     // our issue #890 http://code.soundsoftware.ac.uk/issues/890 --
@@ -1785,6 +1788,51 @@ MainWindowBase::openImage(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
+MainWindowBase::openDirOfAudio(QString dirPath)
+{
+    QDir dir(dirPath);
+    QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+    files.sort();
+
+    FileOpenStatus status = FileOpenFailed;
+    bool first = true;
+    bool cancelled = false;
+
+    foreach (QString file, files) {
+
+        FileSource source(dir.filePath(file));
+        if (!source.isAvailable()) {
+            continue;
+        }
+
+        if (AudioFileReaderFactory::getKnownExtensions().contains
+            (source.getExtension().toLower())) {
+            
+            AudioFileOpenMode mode = CreateAdditionalModel;
+            if (first) mode = ReplaceSession;
+            
+            switch (openAudio(source, mode)) {
+            case FileOpenSucceeded:
+                status = FileOpenSucceeded;
+                first = false;
+                break;
+            case FileOpenFailed:
+                break;
+            case FileOpenCancelled:
+                cancelled = true;
+                break;
+            case FileOpenWrongMode:
+                break;
+            }
+        }
+
+        if (cancelled) break;
+    }
+
+    return status;
+}
+
+MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionPath(QString fileOrUrl)
 {
     ProgressDialog dialog(tr("Opening session..."), true, 2000, this);
@@ -2271,8 +2319,10 @@ MainWindowBase::createDocument()
             this, SLOT(modelGenerationFailed(QString, QString)));
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
-    connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
-            this, SLOT(alignmentFailed(QString, QString)));
+    connect(m_document, SIGNAL(alignmentComplete(AlignmentModel *)),
+            this, SLOT(alignmentComplete(AlignmentModel *)));
+    connect(m_document, SIGNAL(alignmentFailed(QString)),
+            this, SLOT(alignmentFailed(QString)));
 
     emit replacedDocument();
 }
@@ -2656,7 +2706,8 @@ MainWindowBase::preferenceChanged(PropertyContainer::PropertyName name)
 void
 MainWindowBase::play()
 {
-    if (m_recordTarget->isRecording() || m_playSource->isPlaying()) {
+    if ((m_recordTarget && m_recordTarget->isRecording()) ||
+        (m_playSource && m_playSource->isPlaying())) {
         stop();
         QAction *action = qobject_cast<QAction *>(sender());
         if (action) action->setChecked(false);
@@ -3035,10 +3086,13 @@ MainWindowBase::getSnapLayer() const
 void
 MainWindowBase::stop()
 {
-    if (m_recordTarget->isRecording()) {
+    if (m_recordTarget &&
+        m_recordTarget->isRecording()) {
         m_recordTarget->stopRecording();
     }
-        
+
+    if (!m_playSource) return;
+    
     m_playSource->stop();
 
     if (m_audioIO) m_audioIO->suspend();
@@ -3573,6 +3627,12 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
     CommandHistory::getInstance()->endCompoundOperation();
 
     updateMenuStates();
+}
+
+void
+MainWindowBase::alignmentComplete(AlignmentModel *model)
+{
+    cerr << "MainWindowBase::alignmentComplete(" << model << ")" << endl;
 }
 
 void

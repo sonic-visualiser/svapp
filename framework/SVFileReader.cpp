@@ -1166,7 +1166,7 @@ SVFileReader::readRowData(const QString &text)
 
 	for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
 
-	    if (values.size() == (int)dtdm->getHeight()) {
+	    if (int(values.size()) == dtdm->getHeight()) {
 		if (!warned) {
 		    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
 			      << m_rowNumber << endl;
