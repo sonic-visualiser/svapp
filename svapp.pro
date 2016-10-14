@@ -38,8 +38,8 @@ QT += network xml gui widgets
 
 TARGET = svapp
 
-DEPENDPATH += . ../bqaudioio ../svcore ../svgui
-INCLUDEPATH += . ../bqaudioio ../svcore ../svgui
+DEPENDPATH += . ../bqaudioio ../svcore ../svgui ../piper-cpp
+INCLUDEPATH += . ../bqaudioio ../svcore ../svgui ../piper-cpp
 OBJECTS_DIR = o
 MOC_DIR = o
 
