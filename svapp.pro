@@ -10,7 +10,8 @@ exists(config.pri) {
 !exists(config.pri) {
 
     CONFIG += release
-    DEFINES += NDEBUG BUILD_RELEASE NO_TIMING
+    DEFINES += NDEBUG BUILD_RELEASE
+    DEFINES += NO_TIMING
 
     win32-g++ {
         INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
