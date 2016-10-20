@@ -2246,13 +2246,17 @@ MainWindowBase::createAudioIO()
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
             createCallbackIO(m_recordTarget, m_playSource);
-        m_audioIO->suspend(); // start in suspended state
-        m_playSource->setSystemPlaybackTarget(m_audioIO);
+        if (m_audioIO) {
+            m_audioIO->suspend(); // start in suspended state
+            m_playSource->setSystemPlaybackTarget(m_audioIO);
+        }
     } else {
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(m_playSource);
-        m_playTarget->suspend(); // start in suspended state
-        m_playSource->setSystemPlaybackTarget(m_playTarget);
+        if (m_playTarget) {
+            m_playTarget->suspend(); // start in suspended state
+            m_playSource->setSystemPlaybackTarget(m_playTarget);
+        }
     }
 
     if (!m_playTarget && !m_audioIO) {

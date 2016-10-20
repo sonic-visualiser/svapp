@@ -10,15 +10,18 @@ exists(config.pri) {
 !exists(config.pri) {
 
     CONFIG += release
-    DEFINES += NDEBUG BUILD_RELEASE NO_TIMING
+    DEFINES += NDEBUG BUILD_RELEASE
+    DEFINES += NO_TIMING
 
     win32-g++ {
         INCLUDEPATH += ../sv-dependency-builds/win32-mingw/include
         LIBS += -L../sv-dependency-builds/win32-mingw/lib
     }
     win32-msvc* {
-        INCLUDEPATH += ../sv-dependency-builds/win32-msvc/include
-        LIBS += -L../sv-dependency-builds/win32-msvc/lib
+        # We actually expect MSVC to be used only for 64-bit builds,
+        # though the qmake spec is still called win32-msvc*
+        INCLUDEPATH += ../sv-dependency-builds/win64-msvc/include
+        LIBS += -L../sv-dependency-builds/win64-msvc/lib
     }
     macx* {
         INCLUDEPATH += ../sv-dependency-builds/osx/include
@@ -30,6 +33,10 @@ exists(config.pri) {
     }
     macx* {
         DEFINES += HAVE_COREAUDIO HAVE_PORTAUDIO
+    }
+    win32-msvc* {
+        DEFINES += NOMINMAX _USE_MATH_DEFINES
+        DEFINES -= HAVE_LIBLO
     }
 }
 
