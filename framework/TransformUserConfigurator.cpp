@@ -80,28 +80,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
     if (!plugin) return false;
 
-    if (FeatureExtractionPluginFactory::instanceFor(id)) {
-
-        Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
-
-	frequency = (vp->getInputDomain() == Vamp::Plugin::FrequencyDomain);
-
-	std::vector<Vamp::Plugin::OutputDescriptor> od =
-	    vp->getOutputDescriptors();
-
-	cerr << "configure: looking for output: " << output << endl;
-
-	if (od.size() > 1) {
-	    for (size_t i = 0; i < od.size(); ++i) {
-		if (od[i].identifier == output.toStdString()) {
-		    outputLabel = od[i].name.c_str();
-		    outputDescription = od[i].description.c_str();
-		    break;
-		}
-	    }
-        }
-
-    } else if (RealTimePluginFactory::instanceFor(id)) {
+    if (RealTimePluginFactory::instanceFor(id)) {
 
         RealTimePluginFactory *factory = RealTimePluginFactory::instanceFor(id);
         const RealTimePluginDescriptor *desc = factory->getPluginDescriptor(id);
@@ -130,8 +109,29 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 	    SVDEBUG << "Setting auditioning effect" << endl;
             source->setAuditioningEffect(rtp);
         }
-    }
 
+    } else {
+
+        Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
+
+	frequency = (vp->getInputDomain() == Vamp::Plugin::FrequencyDomain);
+
+	std::vector<Vamp::Plugin::OutputDescriptor> od =
+	    vp->getOutputDescriptors();
+
+	cerr << "configure: looking for output: " << output << endl;
+
+	if (od.size() > 1) {
+	    for (size_t i = 0; i < od.size(); ++i) {
+		if (od[i].identifier == output.toStdString()) {
+		    outputLabel = od[i].name.c_str();
+		    outputDescription = od[i].description.c_str();
+		    break;
+		}
+	    }
+        }
+    }
+    
     int sourceChannels = 1;
     if (dynamic_cast<DenseTimeValueModel *>(inputModel)) {
 	sourceChannels = dynamic_cast<DenseTimeValueModel *>(inputModel)
