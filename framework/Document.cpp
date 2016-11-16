@@ -740,6 +740,10 @@ Document::addDerivedModels(const Transforms &transforms,
         // remember is correct for what was actually applied, with the
         // current plugin version.
 
+        //!!! would be nice to short-circuit this -- the version is
+        //!!! static data, shouldn't have to construct a plugin for it
+        //!!! (which may be expensive in Piper-world)
+        
         Transform applied = transforms[j];
         applied.setPluginVersion
             (TransformFactory::getInstance()->

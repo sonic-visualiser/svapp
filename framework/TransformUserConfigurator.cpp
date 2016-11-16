@@ -45,12 +45,12 @@ TransformUserConfigurator::getChannelRange(TransformId identifier,
 {
     if (plugin && plugin->getType() == "Feature Extraction Plugin") {
 	Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
-	SVDEBUG << "TransformUserConfigurator::getChannelRange: is a VP" << endl;
+	SVDEBUG << "TransformUserConfigurator::getChannelRange: is a Vamp plugin" << endl;
         minChannels = int(vp->getMinChannelCount());
         maxChannels = int(vp->getMaxChannelCount());
         return true;
     } else {
-	SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a VP" << endl;
+	SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a Vamp plugin" << endl;
         return TransformFactory::getInstance()->
             getTransformChannelRange(identifier, minChannels, maxChannels);
     }
@@ -80,6 +80,8 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
     if (!plugin) return false;
 
+    SVDEBUG << "TransformUserConfigurator::configure: identifier " << id << endl;
+    
     if (RealTimePluginFactory::instanceFor(id)) {
 
         RealTimePluginFactory *factory = RealTimePluginFactory::instanceFor(id);
@@ -119,7 +121,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 	std::vector<Vamp::Plugin::OutputDescriptor> od =
 	    vp->getOutputDescriptors();
 
-	cerr << "configure: looking for output: " << output << endl;
+//	cerr << "configure: looking for output: " << output << endl;
 
 	if (od.size() > 1) {
 	    for (size_t i = 0; i < od.size(); ++i) {
@@ -182,12 +184,12 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     if (selectedInput != "") {
 	if (modelMap.contains(selectedInput)) {
 	    inputModel = modelMap.value(selectedInput);
-	    cerr << "Found selected input \"" << selectedInput << "\" in model map, result is " << inputModel << endl;
+	    SVDEBUG << "Found selected input \"" << selectedInput << "\" in model map, result is " << inputModel << endl;
 	} else {
-	    cerr << "Failed to find selected input \"" << selectedInput << "\" in model map" << endl;
+	    SVDEBUG << "Failed to find selected input \"" << selectedInput << "\" in model map" << endl;
 	}
     } else {
-	cerr << "Selected input empty: \"" << selectedInput << "\"" << endl;
+	SVDEBUG << "Selected input empty: \"" << selectedInput << "\"" << endl;
     }
         
     // Write parameters back to transform object
