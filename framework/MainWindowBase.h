@@ -169,6 +169,7 @@ signals:
     void canInsertItemAtSelection(bool);
     void canRenumberInstants(bool);
     void canSubdivideInstants(bool);
+    void canWinnowInstants(bool);
     void canDeleteCurrentLayer(bool);
     void canZoom(bool);
     void canScroll(bool);
@@ -277,6 +278,7 @@ protected slots:
     virtual void insertItemAt(sv_frame_t, sv_frame_t);
     virtual void renumberInstants();
     virtual void subdivideInstantsBy(int);
+    virtual void winnowInstantsBy(int);
 
     virtual void documentModified();
     virtual void documentRestored();
