@@ -625,6 +625,8 @@ MainWindowBase::updateMenuStates()
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
     emit canInsertItemAtSelection(haveCurrentPane && haveSelection && haveCurrentDurationLayer);
     emit canRenumberInstants(haveCurrentTimeInstantsLayer && haveSelection);
+    emit canSubdivideInstants(haveCurrentTimeInstantsLayer && haveSelection);
+    emit canWinnowInstants(haveCurrentTimeInstantsLayer && haveSelection);
     emit canPlaySelection(haveMainModel && havePlayTarget && haveSelection);
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
@@ -1217,9 +1219,60 @@ MainWindowBase::renumberInstants()
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
-    // This uses a command
+    Command *c = labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
+}
 
-    labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
+void
+MainWindowBase::subdivideInstantsBy(int n)
+{
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (!pane) return;
+
+    Layer *layer = dynamic_cast<TimeInstantLayer *>(pane->getSelectedLayer());
+    if (!layer) return;
+
+    MultiSelection ms(m_viewManager->getSelection());
+    
+    Model *model = layer->getModel();
+    SparseOneDimensionalModel *sodm =
+        dynamic_cast<SparseOneDimensionalModel *>(model);
+    if (!sodm) return;
+
+    if (!m_labeller) return;
+
+    Labeller labeller(*m_labeller);
+    labeller.setSampleRate(sodm->getSampleRate());
+
+    Command *c = labeller.subdivide<SparseOneDimensionalModel::Point>
+        (*sodm, &ms, n);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
+}
+
+void
+MainWindowBase::winnowInstantsBy(int n)
+{
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (!pane) return;
+
+    Layer *layer = dynamic_cast<TimeInstantLayer *>(pane->getSelectedLayer());
+    if (!layer) return;
+
+    MultiSelection ms(m_viewManager->getSelection());
+    
+    Model *model = layer->getModel();
+    SparseOneDimensionalModel *sodm =
+        dynamic_cast<SparseOneDimensionalModel *>(model);
+    if (!sodm) return;
+
+    if (!m_labeller) return;
+
+    Labeller labeller(*m_labeller);
+    labeller.setSampleRate(sodm->getSampleRate());
+
+    Command *c = labeller.winnow<SparseOneDimensionalModel::Point>
+        (*sodm, &ms, n);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
 }
 
 MainWindowBase::FileOpenStatus
