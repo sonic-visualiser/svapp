@@ -414,6 +414,8 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 void
 AudioCallbackPlaySource::play(sv_frame_t startFrame)
 {
+    if (!m_target) return;
+    
     if (!m_sourceSampleRate) {
         cerr << "AudioCallbackPlaySource::play: No source sample rate available, not playing" << endl;
         return;

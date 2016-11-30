@@ -287,10 +287,25 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 MainWindowBase::~MainWindowBase()
 {
     SVDEBUG << "MainWindowBase::~MainWindowBase" << endl;
-    delete m_playTarget;
-    delete m_playSource;
+
+    // We have to delete the breakfastquay::SystemPlaybackTarget or
+    // breakfastquay::SystemAudioIO object (whichever we have -- it
+    // depends on whether we handle recording or not) before we delete
+    // the ApplicationPlaybackSource and ApplicationRecordTarget that
+    // they refer to.
+    
+    // First prevent this trying to call target.
+    if (m_playSource) m_playSource->setSystemPlaybackTarget(0);
+
+    // Then delete the breakfastquay::System object.
+    // Only one of these two exists!
     delete m_audioIO;
+    delete m_playTarget;
+
+    // Then delete the Application objects.
+    delete m_playSource;
     delete m_recordTarget;
+    
     delete m_viewManager;
     delete m_oscQueue;
     delete m_oscQueueStarter;
