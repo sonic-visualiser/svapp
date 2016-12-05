@@ -78,8 +78,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_stretcherInputs(0),
     m_stretcherInputSizes(0),
     m_fillThread(0),
-    m_converter(0),
-    m_resampleQuality(Preferences::getInstance()->getResampleQuality())
+    m_converter(0)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -559,9 +558,6 @@ AudioCallbackPlaySource::playParametersChanged(PlayParameters *)
 void
 AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName n)
 {
-    if (n == "Resample Quality") {
-        setResampleQuality(Preferences::getInstance()->getResampleQuality());
-    }
 }
 
 void
@@ -977,11 +973,7 @@ AudioCallbackPlaySource::initialiseConverter()
 
 	int err = 0;
 
-	m_converter = src_new(m_resampleQuality == 2 ? SRC_SINC_BEST_QUALITY :
-                              m_resampleQuality == 1 ? SRC_SINC_MEDIUM_QUALITY :
-                              m_resampleQuality == 0 ? SRC_SINC_FASTEST :
-                                                       SRC_SINC_MEDIUM_QUALITY,
-			      getTargetChannelCount(), &err);
+	m_converter = src_new(SRC_SINC_FASTEST, getTargetChannelCount(), &err);
 
 	if (!m_converter) {
 	    cerr << "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
@@ -1003,20 +995,6 @@ AudioCallbackPlaySource::initialiseConverter()
     } else {
         m_mutex.unlock();
     }
-}
-
-void
-AudioCallbackPlaySource::setResampleQuality(int q)
-{
-    if (q == m_resampleQuality) return;
-    m_resampleQuality = q;
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-    SVDEBUG << "AudioCallbackPlaySource::setResampleQuality: setting to "
-              << m_resampleQuality << endl;
-#endif
-
-    initialiseConverter();
 }
 
 void
