@@ -78,7 +78,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_stretcherInputs(0),
     m_stretcherInputSizes(0),
     m_fillThread(0),
-    m_converter(0)
+    m_resampler(0)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -230,12 +230,12 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     if (buffersChanged || srChanged) {
-	if (m_converter) {
+	if (m_resampler) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cerr << "AudioCallbackPlaySource::addModel: Buffers or sample rate changed, deleting existing SR converter" << endl;
+            cerr << "AudioCallbackPlaySource::addModel: Buffers or sample rate changed, deleting existing resampler" << endl;
 #endif
-	    src_delete(m_converter);
-	    m_converter = 0;
+            delete m_resampler;
+	    m_resampler = 0;
 	}
     }
 
@@ -243,7 +243,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     m_mutex.unlock();
 
-    initialiseConverter();
+    initialiseResampler();
     
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
 
@@ -301,12 +301,12 @@ AudioCallbackPlaySource::removeModel(Model *model)
     m_models.erase(model);
 
     if (m_models.empty()) {
-	if (m_converter) {
+	if (m_resampler) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cerr << "AudioCallbackPlaySource::removeModel: No models left, deleting SR converter" << endl;
+            cerr << "AudioCallbackPlaySource::removeModel: No models left, deleting resampler" << endl;
 #endif
-	    src_delete(m_converter);
-	    m_converter = 0;
+	    delete m_resampler;
+	    m_resampler = 0;
 	}
 	m_sourceSampleRate = 0;
     }
@@ -344,12 +344,12 @@ AudioCallbackPlaySource::clearModels()
 
     m_models.clear();
 
-    if (m_converter) {
+    if (m_resampler) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cerr << "AudioCallbackPlaySource::clearModels: Deleting SR converter" << endl;
+        cerr << "AudioCallbackPlaySource::clearModels: Deleting resampler" << endl;
 #endif
-	src_delete(m_converter);
-	m_converter = 0;
+	delete m_resampler;
+	m_resampler = 0;
     }
 
     m_lastModelEndFrame = 0;
@@ -472,7 +472,9 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
             if (rb) rb->reset();
         }
     }
-    if (m_converter) src_reset(m_converter);
+    if (m_resampler) {
+        m_resampler->reset();
+    }
 
     m_mutex.unlock();
 
@@ -945,7 +947,7 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
     bool first = (m_targetSampleRate == 0);
 
     m_targetSampleRate = sr;
-    initialiseConverter();
+    initialiseResampler();
 
     if (first && (m_stretchRatio != 1.f)) {
         // couldn't create a stretcher before because we had no sample
@@ -955,43 +957,31 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 }
 
 void
-AudioCallbackPlaySource::initialiseConverter()
+AudioCallbackPlaySource::initialiseResampler()
 {
     m_mutex.lock();
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cerr << "AudioCallbackPlaySource::initialiseConverter(): from "
+    cerr << "AudioCallbackPlaySource::initialiseResampler(): from "
          << getSourceSampleRate() << " to " << getTargetSampleRate() << endl;
 #endif
     
-    if (m_converter) {
-        src_delete(m_converter);
-        m_converter = 0;
+    if (m_resampler) {
+        delete m_resampler;
+        m_resampler = 0;
     }
 
     if (getSourceSampleRate() != getTargetSampleRate()) {
 
-	int err = 0;
+        m_resampler = new breakfastquay::Resampler
+            (breakfastquay::Resampler::FastestTolerable,
+             getTargetChannelCount());
 
-	m_converter = src_new(SRC_SINC_FASTEST, getTargetChannelCount(), &err);
+        m_mutex.unlock();
 
-	if (!m_converter) {
-	    cerr << "AudioCallbackPlaySource::setModel: ERROR in creating samplerate converter: "
-                 << src_strerror(err) << endl;
-
-            m_mutex.unlock();
-
-            emit sampleRateMismatch(getSourceSampleRate(),
-                                    getTargetSampleRate(),
-                                    false);
-	} else {
-
-            m_mutex.unlock();
-
-            emit sampleRateMismatch(getSourceSampleRate(),
-                                    getTargetSampleRate(),
-                                    true);
-        }
+        emit sampleRateMismatch(getSourceSampleRate(),
+                                getTargetSampleRate(),
+                                true);
     } else {
         m_mutex.unlock();
     }
@@ -1402,11 +1392,11 @@ AudioCallbackPlaySource::fillBuffers()
 
     sv_frame_t generatorBlockSize = m_audioGenerator->getBlockSize();
 
-    if (resample && !m_converter) {
-        throw std::logic_error("Sample rates differ, but no converter available!");
+    if (resample && !m_resampler) {
+        throw std::logic_error("Sample rates differ, but no resampler available!");
     }
 
-    if (resample && m_converter) {
+    if (resample && m_resampler) {
 
 	double ratio =
 	    double(getTargetSampleRate()) / double(getSourceSampleRate());
