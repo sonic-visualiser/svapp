@@ -39,6 +39,10 @@ namespace RubberBand {
     class RubberBandStretcher;
 }
 
+namespace breakfastquay {
+    class Resampler;
+}
+
 class Model;
 class ViewManagerBase;
 class AudioGenerator;
@@ -226,12 +230,6 @@ public:
     void setTimeStretch(double factor);
 
     /**
-     * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
-     * highest quality.
-     */
-    void setResampleQuality(int q);
-
-    /**
      * Set a single real-time plugin as a processing effect for
      * auditioning during playback.
      *
@@ -395,9 +393,8 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    SRC_STATE *m_converter;
-    int m_resampleQuality;
-    void initialiseConverter();
+    breakfastquay::Resampler *m_resampler;
+    void initialiseResampler();
 };
 
 #endif
