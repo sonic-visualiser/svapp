@@ -27,6 +27,7 @@ AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
+    m_recordChannelCount(2),
     m_frameCount(0),
     m_model(0)
 {
@@ -51,6 +52,12 @@ AudioRecordTarget::setSystemRecordSampleRate(int n)
 void
 AudioRecordTarget::setSystemRecordLatency(int)
 {
+}
+
+void
+AudioRecordTarget::setSystemRecordChannelCount(int c)
+{
+    m_recordChannelCount = c;
 }
 
 void
@@ -153,7 +160,9 @@ AudioRecordTarget::startRecording()
 
     m_audioFileName = recordedDir.filePath(filename);
 
-    m_model = new WritableWaveFileModel(m_recordSampleRate, 2, m_audioFileName);
+    m_model = new WritableWaveFileModel(m_recordSampleRate,
+                                        m_recordChannelCount,
+                                        m_audioFileName);
 
     if (!m_model->isOK()) {
         cerr << "ERROR: AudioRecordTarget::startRecording: Recording failed"

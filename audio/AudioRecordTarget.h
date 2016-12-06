@@ -44,6 +44,7 @@ public:
     virtual void setSystemRecordBlockSize(int);
     virtual void setSystemRecordSampleRate(int);
     virtual void setSystemRecordLatency(int);
+    virtual void setSystemRecordChannelCount(int);
 
     virtual void putSamples(int nframes, float **samples);
     
@@ -71,6 +72,7 @@ private:
     std::string m_clientName;
     bool m_recording;
     sv_samplerate_t m_recordSampleRate;
+    int m_recordChannelCount;
     sv_frame_t m_frameCount;
     QString m_audioFileName;
     WritableWaveFileModel *m_model;

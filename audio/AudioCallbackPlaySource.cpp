@@ -77,8 +77,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_stretcherInputCount(0),
     m_stretcherInputs(0),
     m_stretcherInputSizes(0),
-    m_fillThread(0),
-    m_resampler(0)
+    m_fillThread(0)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -230,20 +229,19 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     if (buffersChanged || srChanged) {
-	if (m_resampler) {
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cerr << "AudioCallbackPlaySource::addModel: Buffers or sample rate changed, deleting existing resampler" << endl;
-#endif
-            delete m_resampler;
-	    m_resampler = 0;
-	}
+
+        // There are more channels than there were before, or the
+        // source sample rate has changed
+
+        //!!!
+
     }
 
     rebuildRangeLists();
 
     m_mutex.unlock();
 
-    initialiseResampler();
+    //!!!
     
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
 
@@ -301,13 +299,6 @@ AudioCallbackPlaySource::removeModel(Model *model)
     m_models.erase(model);
 
     if (m_models.empty()) {
-	if (m_resampler) {
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cerr << "AudioCallbackPlaySource::removeModel: No models left, deleting resampler" << endl;
-#endif
-	    delete m_resampler;
-	    m_resampler = 0;
-	}
 	m_sourceSampleRate = 0;
     }
 
@@ -343,14 +334,6 @@ AudioCallbackPlaySource::clearModels()
 #endif
 
     m_models.clear();
-
-    if (m_resampler) {
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cerr << "AudioCallbackPlaySource::clearModels: Deleting resampler" << endl;
-#endif
-	delete m_resampler;
-	m_resampler = 0;
-    }
 
     m_lastModelEndFrame = 0;
 
@@ -471,9 +454,6 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
 #endif
             if (rb) rb->reset();
         }
-    }
-    if (m_resampler) {
-        m_resampler->reset();
     }
 
     m_mutex.unlock();
@@ -947,7 +927,6 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
     bool first = (m_targetSampleRate == 0);
 
     m_targetSampleRate = sr;
-    initialiseResampler();
 
     if (first && (m_stretchRatio != 1.f)) {
         // couldn't create a stretcher before because we had no sample
@@ -957,34 +936,8 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 }
 
 void
-AudioCallbackPlaySource::initialiseResampler()
+AudioCallbackPlaySource::setSystemPlaybackChannelCount(int c)
 {
-    m_mutex.lock();
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cerr << "AudioCallbackPlaySource::initialiseResampler(): from "
-         << getSourceSampleRate() << " to " << getTargetSampleRate() << endl;
-#endif
-    
-    if (m_resampler) {
-        delete m_resampler;
-        m_resampler = 0;
-    }
-
-    if (getSourceSampleRate() != getTargetSampleRate()) {
-
-        m_resampler = new breakfastquay::Resampler
-            (breakfastquay::Resampler::FastestTolerable,
-             getTargetChannelCount());
-
-        m_mutex.unlock();
-
-        emit sampleRateMismatch(getSourceSampleRate(),
-                                getTargetSampleRate(),
-                                true);
-    } else {
-        m_mutex.unlock();
-    }
 }
 
 void
@@ -1370,16 +1323,9 @@ AudioCallbackPlaySource::fillBuffers()
     cout << "buffered to " << f << " already" << endl;
 #endif
 
-    bool resample = (getSourceSampleRate() != getTargetSampleRate());
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cout << (resample ? "" : "not ") << "resampling (source " << getSourceSampleRate() << ", target " << getTargetSampleRate() << ")" << endl;
-#endif
-
     int channels = getTargetChannelCount();
 
     sv_frame_t orig = space;
-    sv_frame_t got = 0;
 
     static float **bufferPtrs = 0;
     static int bufferPtrCount = 0;
@@ -1392,157 +1338,61 @@ AudioCallbackPlaySource::fillBuffers()
 
     sv_frame_t generatorBlockSize = m_audioGenerator->getBlockSize();
 
-    if (resample && !m_resampler) {
-        throw std::logic_error("Sample rates differ, but no resampler available!");
+    // space must be a multiple of generatorBlockSize
+    sv_frame_t reqSpace = space;
+    space = (reqSpace / generatorBlockSize) * generatorBlockSize;
+    if (space == 0) {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+        cout << "requested fill of " << reqSpace
+             << " is less than generator block size of "
+             << generatorBlockSize << ", leaving it" << endl;
+#endif
+        return false;
     }
 
-    if (resample && m_resampler) {
+    if (tmpSize < channels * space) {
+        delete[] tmp;
+        tmp = new float[channels * space];
+        tmpSize = channels * space;
+    }
 
-	double ratio =
-	    double(getTargetSampleRate()) / double(getSourceSampleRate());
-	orig = sv_frame_t(double(orig) / ratio + 0.1);
+    for (int c = 0; c < channels; ++c) {
 
-	// orig must be a multiple of generatorBlockSize
-	orig = (orig / generatorBlockSize) * generatorBlockSize;
-	if (orig == 0) return false;
-
-	sv_frame_t work = std::max(orig, space);
-
-	// We only allocate one buffer, but we use it in two halves.
-	// We place the non-interleaved values in the second half of
-	// the buffer (orig samples for channel 0, orig samples for
-	// channel 1 etc), and then interleave them into the first
-	// half of the buffer.  Then we resample back into the second
-	// half (interleaved) and de-interleave the results back to
-	// the start of the buffer for insertion into the ringbuffers.
-	// What a faff -- especially as we've already de-interleaved
-	// the audio data from the source file elsewhere before we
-	// even reach this point.
-	
-	if (tmpSize < channels * work * 2) {
-	    delete[] tmp;
-	    tmp = new float[channels * work * 2];
-	    tmpSize = channels * work * 2;
-	}
-
-	float *nonintlv = tmp + channels * work;
-	float *intlv = tmp;
-	float *srcout = tmp + channels * work;
-	
-	for (int c = 0; c < channels; ++c) {
-	    for (int i = 0; i < orig; ++i) {
-		nonintlv[channels * i + c] = 0.0f;
-	    }
-	}
-
-	for (int c = 0; c < channels; ++c) {
-	    bufferPtrs[c] = nonintlv + c * orig;
-	}
-
-	got = mixModels(f, orig, bufferPtrs); // also modifies f
-
-	// and interleave into first half
-	for (int c = 0; c < channels; ++c) {
-	    for (int i = 0; i < got; ++i) {
-		float sample = nonintlv[c * got + i];
-		intlv[channels * i + c] = sample;
-	    }
-	}
-		
-	SRC_DATA data;
-	data.data_in = intlv;
-	data.data_out = srcout;
-	data.input_frames = long(got);
-	data.output_frames = long(work);
-	data.src_ratio = ratio;
-	data.end_of_input = 0;
-	
-	int err = src_process(m_converter, &data);
-
-	sv_frame_t toCopy = sv_frame_t(double(got) * ratio + 0.1);
-
-	if (err) {
-	    cerr
-		<< "AudioCallbackPlaySourceFillThread: ERROR in samplerate conversion: "
-		<< src_strerror(err) << endl;
-	    //!!! Then what?
-	} else {
-	    got = data.input_frames_used;
-	    toCopy = data.output_frames_gen;
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-	    cout << "Resampled " << got << " frames to " << toCopy << " frames" << endl;
-#endif
-	}
-	
-	for (int c = 0; c < channels; ++c) {
-	    for (int i = 0; i < toCopy; ++i) {
-		tmp[i] = srcout[channels * i + c];
-	    }
-	    RingBuffer<float> *wb = getWriteRingBuffer(c);
-	    if (wb) wb->write(tmp, int(toCopy));
-	}
-
-	m_writeBufferFill = f;
-	if (readWriteEqual) m_readBufferFill = f;
-
-    } else {
-
-	// space must be a multiple of generatorBlockSize
-        sv_frame_t reqSpace = space;
-	space = (reqSpace / generatorBlockSize) * generatorBlockSize;
-	if (space == 0) {
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cout << "requested fill of " << reqSpace
-                      << " is less than generator block size of "
-                      << generatorBlockSize << ", leaving it" << endl;
-#endif
-            return false;
-        }
-
-	if (tmpSize < channels * space) {
-	    delete[] tmp;
-	    tmp = new float[channels * space];
-	    tmpSize = channels * space;
-	}
-
-	for (int c = 0; c < channels; ++c) {
-
-	    bufferPtrs[c] = tmp + c * space;
+        bufferPtrs[c] = tmp + c * space;
 	    
-	    for (int i = 0; i < space; ++i) {
-		tmp[c * space + i] = 0.0f;
-	    }
-	}
-
-	sv_frame_t got = mixModels(f, space, bufferPtrs); // also modifies f
-
-	for (int c = 0; c < channels; ++c) {
-
-	    RingBuffer<float> *wb = getWriteRingBuffer(c);
-	    if (wb) {
-                int actual = wb->write(bufferPtrs[c], int(got));
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-		cout << "Wrote " << actual << " samples for ch " << c << ", now "
-			  << wb->getReadSpace() << " to read" 
-			  << endl;
-#endif
-                if (actual < got) {
-                    cerr << "WARNING: Buffer overrun in channel " << c
-                              << ": wrote " << actual << " of " << got
-                              << " samples" << endl;
-                }
-            }
-	}
-
-	m_writeBufferFill = f;
-	if (readWriteEqual) m_readBufferFill = f;
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cout << "Read buffer fill is now " << m_readBufferFill << endl;
-#endif
-
-	//!!! how do we know when ended? need to mark up a fully-buffered flag and check this if we find the buffers empty in getSourceSamples
+        for (int i = 0; i < space; ++i) {
+            tmp[c * space + i] = 0.0f;
+        }
     }
+
+    sv_frame_t got = mixModels(f, space, bufferPtrs); // also modifies f
+
+    for (int c = 0; c < channels; ++c) {
+
+        RingBuffer<float> *wb = getWriteRingBuffer(c);
+        if (wb) {
+            int actual = wb->write(bufferPtrs[c], int(got));
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+            cout << "Wrote " << actual << " samples for ch " << c << ", now "
+                 << wb->getReadSpace() << " to read" 
+                 << endl;
+#endif
+            if (actual < got) {
+                cerr << "WARNING: Buffer overrun in channel " << c
+                     << ": wrote " << actual << " of " << got
+                     << " samples" << endl;
+            }
+        }
+    }
+
+    m_writeBufferFill = f;
+    if (readWriteEqual) m_readBufferFill = f;
+
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+    cout << "Read buffer fill is now " << m_readBufferFill << endl;
+#endif
+
+    //!!! how do we know when ended? need to mark up a fully-buffered flag and check this if we find the buffers empty in getSourceSamples
 
     return true;
 }    
