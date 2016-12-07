@@ -40,7 +40,7 @@ namespace RubberBand {
 }
 
 namespace breakfastquay {
-    class Resampler;
+    class ResamplerWrapper;
 }
 
 class Model;
@@ -124,6 +124,11 @@ public:
      */
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
 
+    /**
+     * Set the resampler wrapper, if one is in use.
+     */
+    virtual void setResamplerWrapper(breakfastquay::ResamplerWrapper *);
+    
     /**
      * Set the block size of the target audio device.  This should be
      * called by the target class.
@@ -400,6 +405,7 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper; // I don't own this
 };
 
 #endif

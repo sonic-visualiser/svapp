@@ -76,6 +76,7 @@
 #include <bqaudioio/SystemPlaybackTarget.h>
 #include <bqaudioio/SystemAudioIO.h>
 #include <bqaudioio/AudioFactory.h>
+#include <bqaudioio/ResamplerWrapper.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -141,6 +142,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_soundOptions(options),
     m_playSource(0),
     m_recordTarget(0),
+    m_resamplerWrapper(0),
     m_playTarget(0),
     m_audioIO(0),
     m_oscQueue(0),
@@ -303,6 +305,7 @@ MainWindowBase::~MainWindowBase()
     delete m_playTarget;
 
     // Then delete the Application objects.
+    delete m_resamplerWrapper;
     delete m_playSource;
     delete m_recordTarget;
     
@@ -2328,16 +2331,21 @@ MainWindowBase::createAudioIO()
     SVCERR << "createAudioIO: Preferred record device = \""
             << preference.recordDevice << "\"" << endl;
 
+    if (!m_resamplerWrapper) {
+        m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
+        m_playSource->setResamplerWrapper(m_resamplerWrapper);
+    }
+    
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
-            createCallbackIO(m_recordTarget, m_playSource, preference);
+            createCallbackIO(m_recordTarget, m_resamplerWrapper, preference);
         if (m_audioIO) {
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         }
     } else {
         m_playTarget = breakfastquay::AudioFactory::
-            createCallbackPlayTarget(m_playSource, preference);
+            createCallbackPlayTarget(m_resamplerWrapper, preference);
         if (m_playTarget) {
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);

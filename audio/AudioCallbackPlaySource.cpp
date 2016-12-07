@@ -28,6 +28,7 @@
 #include "plugin/RealTimePluginInstance.h"
 
 #include "bqaudioio/SystemPlaybackTarget.h"
+#include "bqaudioio/ResamplerWrapper.h"
 
 #include <rubberband/RubberBandStretcher.h>
 using namespace RubberBand;
@@ -77,7 +78,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_stretcherInputCount(0),
     m_stretcherInputs(0),
     m_stretcherInputSizes(0),
-    m_fillThread(0)
+    m_fillThread(0),
+    m_resamplerWrapper(0)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -570,6 +572,12 @@ void
 AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
     m_target = target;
+}
+
+void
+AudioCallbackPlaySource::setResamplerWrapper(breakfastquay::ResamplerWrapper *w)
+{
+    m_resamplerWrapper = w;
 }
 
 void
