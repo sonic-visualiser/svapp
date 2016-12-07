@@ -168,6 +168,13 @@ public:
     virtual sv_samplerate_t getTargetSampleRate() const;
 
     /**
+     * Indicate how many channels the target audio device was opened
+     * with. Note that the target device does channel mixing in the
+     * case where our requested channel count does not match its.
+     */
+    void setSystemPlaybackChannelCount(int);
+    
+    /**
      * Set the current output levels for metering (for call from the
      * target)
      */
@@ -393,8 +400,6 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    breakfastquay::Resampler *m_resampler;
-    void initialiseResampler();
 };
 
 #endif
