@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _AUDIO_CALLBACK_PLAY_SOURCE_H_
-#define _AUDIO_CALLBACK_PLAY_SOURCE_H_
+#ifndef AUDIO_CALLBACK_PLAY_SOURCE_H
+#define AUDIO_CALLBACK_PLAY_SOURCE_H
 
 #include "base/RingBuffer.h"
 #include "base/AudioPlaySource.h"
@@ -37,6 +37,10 @@
 
 namespace RubberBand {
     class RubberBandStretcher;
+}
+
+namespace breakfastquay {
+    class Resampler;
 }
 
 class Model;
@@ -116,8 +120,7 @@ public:
     virtual sv_frame_t getPlayEndFrame() { return m_lastModelEndFrame; }
 
     /**
-     * Set the playback target.  This should be called by the target
-     * class.
+     * Set the playback target.
      */
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
 
@@ -225,12 +228,6 @@ public:
      * Set the time stretcher factor (i.e. playback speed).
      */
     void setTimeStretch(double factor);
-
-    /**
-     * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
-     * highest quality.
-     */
-    void setResampleQuality(int q);
 
     /**
      * Set a single real-time plugin as a processing effect for
@@ -396,10 +393,8 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    SRC_STATE *m_converter;
-    SRC_STATE *m_crapConverter; // for use when playing very fast
-    int m_resampleQuality;
-    void initialiseConverter();
+    breakfastquay::Resampler *m_resampler;
+    void initialiseResampler();
 };
 
 #endif
