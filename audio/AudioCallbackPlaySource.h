@@ -145,7 +145,7 @@ public:
 
     /**
      * Set the playback latency of the target audio device, in frames
-     * at the target sample rate.  This is the difference between the
+     * at the device sample rate.  This is the difference between the
      * frame currently "leaving the speakers" and the last frame (or
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
@@ -170,7 +170,7 @@ public:
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    virtual sv_samplerate_t getTargetSampleRate() const;
+    sv_samplerate_t getDeviceSampleRate() const;
 
     /**
      * Indicate how many channels the target audio device was opened
@@ -335,7 +335,7 @@ protected:
     int                               m_sourceChannelCount;
     sv_frame_t                        m_blockSize;
     sv_samplerate_t                   m_sourceSampleRate;
-    sv_samplerate_t                   m_targetSampleRate;
+    sv_samplerate_t                   m_deviceSampleRate;
     sv_frame_t                        m_playLatency;
     breakfastquay::SystemPlaybackTarget *m_target;
     double                            m_lastRetrievalTimestamp;

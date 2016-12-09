@@ -54,7 +54,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_sourceChannelCount(0),
     m_blockSize(1024),
     m_sourceSampleRate(0),
-    m_targetSampleRate(0),
+    m_deviceSampleRate(0),
     m_playLatency(0),
     m_target(0),
     m_lastRetrievalTimestamp(0.0),
@@ -231,13 +231,24 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     if (srChanged) {
+
         SVCERR << "AudioCallbackPlaySource: Source rate changed" << endl;
+
         if (m_resamplerWrapper) {
             SVCERR << "AudioCallbackPlaySource: Source sample rate changed to "
                 << m_sourceSampleRate << ", updating resampler wrapper" << endl;
             m_resamplerWrapper->changeApplicationSampleRate
                 (int(round(m_sourceSampleRate)));
             m_resamplerWrapper->reset();
+        }
+
+        delete m_timeStretcher;
+        delete m_monoStretcher;
+        m_timeStretcher = 0;
+        m_monoStretcher = 0;
+        
+        if (m_stretchRatio != 1.f) {
+            setTimeStretch(m_stretchRatio);
         }
     }
 
@@ -632,12 +643,12 @@ AudioCallbackPlaySource::getCurrentPlayingFrame()
     // This method attempts to estimate which audio sample frame is
     // "currently coming through the speakers".
 
-    sv_samplerate_t targetRate = getTargetSampleRate();
+    sv_samplerate_t deviceRate = getDeviceSampleRate();
     sv_frame_t latency = m_playLatency; // at target rate
     RealTime latency_t = RealTime::zeroTime;
 
-    if (targetRate != 0) {
-        latency_t = RealTime::frame2RealTime(latency, targetRate);
+    if (deviceRate != 0) {
+        latency_t = RealTime::frame2RealTime(latency, deviceRate);
     }
 
     return getCurrentFrame(latency_t);
@@ -652,16 +663,18 @@ AudioCallbackPlaySource::getCurrentBufferedFrame()
 sv_frame_t
 AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 {
-    // We resample when filling the ring buffer, and time-stretch when
-    // draining it.  The buffer contains data at the "target rate" and
-    // the latency provided by the target is also at the target rate.
-    // Because of the multiple rates involved, we do the actual
-    // calculation using RealTime instead.
+    // The ring buffers contain data at the source sample rate and all
+    // processing (including time stretching) happens at this
+    // rate. Resampling only happens after the audio data leaves this
+    // class.
+    
+    // (But because historically more than one sample rate could have
+    // been involved here, we do latency calculations using RealTime
+    // values instead of samples.)
 
-    sv_samplerate_t sourceRate = getSourceSampleRate();
-    sv_samplerate_t targetRate = getTargetSampleRate();
+    sv_samplerate_t rate = getSourceSampleRate();
 
-    if (sourceRate == 0 || targetRate == 0) return 0;
+    if (rate == 0) return 0;
 
     int inbuffer = 0; // at target rate
 
@@ -681,7 +694,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 
     bool looping = m_viewManager->getPlayLoopMode();
 
-    RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, targetRate);
+    RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, rate);
 
     sv_frame_t stretchlat = 0;
     double timeRatio = 1.0;
@@ -691,7 +704,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         timeRatio = m_timeStretcher->getTimeRatio();
     }
 
-    RealTime stretchlat_t = RealTime::frame2RealTime(stretchlat, targetRate);
+    RealTime stretchlat_t = RealTime::frame2RealTime(stretchlat, rate);
 
     // When the target has just requested a block from us, the last
     // sample it obtained was our buffer fill frame count minus the
@@ -709,8 +722,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         m_trustworthyTimestamps &&
         lastRetrievalTimestamp != 0.0) {
 
-        lastretrieved_t = RealTime::frame2RealTime
-            (lastRetrievedBlockSize, targetRate);
+        lastretrieved_t = RealTime::frame2RealTime(lastRetrievedBlockSize, rate);
 
         // calculate number of frames at target rate that have elapsed
         // since the end of the last call to getSourceSamples
@@ -727,11 +739,10 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 
     } else {
 
-        lastretrieved_t = RealTime::frame2RealTime
-            (getTargetBlockSize(), targetRate);
+        lastretrieved_t = RealTime::frame2RealTime(getTargetBlockSize(), rate);
     }
 
-    RealTime bufferedto_t = RealTime::frame2RealTime(readBufferFill, sourceRate);
+    RealTime bufferedto_t = RealTime::frame2RealTime(readBufferFill, rate);
 
     if (timeRatio != 1.0) {
         lastretrieved_t = lastretrieved_t / timeRatio;
@@ -757,7 +768,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
             - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
             + sincerequest_t;
         if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
-        sv_frame_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
+        sv_frame_t frame = RealTime::realTime2Frame(playing_t, rate);
         return m_viewManager->alignPlaybackFrameToReference(frame);
     }
 
@@ -794,8 +805,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     // duration of playback!
 
     if (!m_playStartFramePassed) {
-        RealTime playstart_t = RealTime::frame2RealTime(m_playStartFrame,
-                                                        sourceRate);
+        RealTime playstart_t = RealTime::frame2RealTime(m_playStartFrame, rate);
         if (playing_t < playstart_t) {
 //            cerr << "playing_t " << playing_t << " < playstart_t " 
 //                      << playstart_t << endl;
@@ -853,7 +863,7 @@ cerr << "Not looping, inRange " << inRange << " == rangeStarts.size()-1, playing
 
     if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
 
-    sv_frame_t frame = RealTime::realTime2Frame(playing_t, sourceRate);
+    sv_frame_t frame = RealTime::realTime2Frame(playing_t, rate);
 
     if (m_lastCurrentFrame > 0 && !looping) {
         if (frame < m_lastCurrentFrame) {
@@ -938,15 +948,7 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 void
 AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 {
-    bool first = (m_targetSampleRate == 0);
-
-    m_targetSampleRate = sr;
-
-    if (first && (m_stretchRatio != 1.f)) {
-        // couldn't create a stretcher before because we had no sample
-        // rate: make one now
-        setTimeStretch(m_stretchRatio);
-    }
+    m_deviceSampleRate = sr;
 }
 
 void
@@ -983,10 +985,9 @@ AudioCallbackPlaySource::clearSoloModelSet()
 }
 
 sv_samplerate_t
-AudioCallbackPlaySource::getTargetSampleRate() const
+AudioCallbackPlaySource::getDeviceSampleRate() const
 {
-    if (m_targetSampleRate) return m_targetSampleRate;
-    else return getSourceSampleRate();
+    return m_deviceSampleRate;
 }
 
 int
@@ -1013,19 +1014,20 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
 {
     m_stretchRatio = factor;
 
-    if (!getTargetSampleRate()) return; // have to make our stretcher later
+    int rate = int(getSourceSampleRate());
+    if (!rate) return; // have to make our stretcher later
 
     if (m_timeStretcher || (factor == 1.0)) {
         // stretch ratio will be set in next process call if appropriate
     } else {
         m_stretcherInputCount = getTargetChannelCount();
         RubberBandStretcher *stretcher = new RubberBandStretcher
-            (int(getTargetSampleRate()),
+            (rate,
              m_stretcherInputCount,
              RubberBandStretcher::OptionProcessRealTime,
              factor);
         RubberBandStretcher *monoStretcher = new RubberBandStretcher
-            (int(getTargetSampleRate()),
+            (rate,
              1,
              RubberBandStretcher::OptionProcessRealTime,
              factor);
