@@ -76,6 +76,7 @@
 #include <bqaudioio/SystemPlaybackTarget.h>
 #include <bqaudioio/SystemAudioIO.h>
 #include <bqaudioio/AudioFactory.h>
+#include <bqaudioio/ResamplerWrapper.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -141,6 +142,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_soundOptions(options),
     m_playSource(0),
     m_recordTarget(0),
+    m_resamplerWrapper(0),
     m_playTarget(0),
     m_audioIO(0),
     m_oscQueue(0),
@@ -303,6 +305,7 @@ MainWindowBase::~MainWindowBase()
     delete m_playTarget;
 
     // Then delete the Application objects.
+    delete m_resamplerWrapper;
     delete m_playSource;
     delete m_recordTarget;
     
@@ -1399,7 +1402,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     if (Preferences::getInstance()->getFixedSampleRate() != 0) {
         rate = Preferences::getInstance()->getFixedSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
     ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
@@ -2158,7 +2163,9 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     if (getMainModel()) {
         rate = getMainModel()->getSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
     RDFImporter importer
@@ -2300,27 +2307,49 @@ MainWindowBase::createAudioIO()
 
     if (!(m_soundOptions & WithAudioOutput)) return;
 
-    //!!! how to handle preferences
-/*    
     QSettings settings;
     settings.beginGroup("Preferences");
-    QString targetName = settings.value("audio-target", "").toString();
+    QString implementation = settings.value
+        ("audio-target", "").toString();
+    QString suffix;
+    if (implementation != "") suffix = "-" + implementation;
+    QString recordDevice = settings.value
+        ("audio-record-device" + suffix, "").toString();
+    QString playbackDevice = settings.value
+        ("audio-playback-device" + suffix, "").toString();
     settings.endGroup();
-    AudioTargetFactory *factory = AudioTargetFactory::getInstance();
 
-    factory->setDefaultCallbackTarget(targetName);
-*/
+    if (implementation == "auto") {
+        implementation = "";
+    }
+    
+    breakfastquay::AudioFactory::Preference preference;
+    preference.implementation = implementation.toStdString();
+    preference.recordDevice = recordDevice.toStdString();
+    preference.playbackDevice = playbackDevice.toStdString();
 
+    SVCERR << "createAudioIO: Preferred implementation = \""
+            << preference.implementation << "\"" << endl;
+    SVCERR << "createAudioIO: Preferred playback device = \""
+            << preference.playbackDevice << "\"" << endl;
+    SVCERR << "createAudioIO: Preferred record device = \""
+            << preference.recordDevice << "\"" << endl;
+
+    if (!m_resamplerWrapper) {
+        m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
+        m_playSource->setResamplerWrapper(m_resamplerWrapper);
+    }
+    
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
-            createCallbackIO(m_recordTarget, m_playSource);
+            createCallbackIO(m_recordTarget, m_resamplerWrapper, preference);
         if (m_audioIO) {
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         }
     } else {
         m_playTarget = breakfastquay::AudioFactory::
-            createCallbackPlayTarget(m_playSource);
+            createCallbackPlayTarget(m_resamplerWrapper, preference);
         if (m_playTarget) {
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);
@@ -2329,22 +2358,20 @@ MainWindowBase::createAudioIO()
 
     if (!m_playTarget && !m_audioIO) {
         emit hideSplash();
-
-//        if (factory->isAutoCallbackTarget(targetName)) {
+        if (implementation == "") {
             QMessageBox::warning
 	    (this, tr("Couldn't open audio device"),
 	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
 	     QMessageBox::Ok);
-/*
         } else {
             QMessageBox::warning
                 (this, tr("Couldn't open audio device"),
                  tr("<b>No audio available</b><p>Failed to open your preferred audio device (\"%1\").<p>Audio playback will not be available during this session.</p>")
-                 .arg(factory->getCallbackTargetDescription(targetName)),
+                 .arg(breakfastquay::AudioFactory::
+                      getImplementationDescription(implementation.toStdString())
+                      .c_str()),
                  QMessageBox::Ok);
         }
-*/
-            return;
     }
 }
 

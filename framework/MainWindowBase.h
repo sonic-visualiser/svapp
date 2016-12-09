@@ -65,8 +65,9 @@ class QShortcut;
 class AlignmentModel;
 
 namespace breakfastquay {
-class SystemPlaybackTarget;
-class SystemAudioIO;
+    class SystemPlaybackTarget;
+    class SystemAudioIO;
+    class ResamplerWrapper;
 }
 
 /**
@@ -343,6 +344,7 @@ protected:
 
     AudioCallbackPlaySource *m_playSource;
     AudioRecordTarget       *m_recordTarget;
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
     breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
 
