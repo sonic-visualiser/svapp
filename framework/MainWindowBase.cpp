@@ -1402,7 +1402,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     if (Preferences::getInstance()->getFixedSampleRate() != 0) {
         rate = Preferences::getInstance()->getFixedSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
     ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
@@ -2161,7 +2163,9 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     if (getMainModel()) {
         rate = getMainModel()->getSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
     RDFImporter importer

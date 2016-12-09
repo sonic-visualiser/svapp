@@ -203,30 +203,45 @@ public:
      * to the play target.  This may be more than the source channel
      * count: for example, a mono source will provide 2 channels
      * after pan.
+     *
      * This may safely be called from a realtime thread.  Returns 0 if
      * there is no source yet available.
+     *
+     * override from AudioPlaySource
      */
-    int getTargetChannelCount() const;
+    virtual int getTargetChannelCount() const override;
 
     /**
      * ApplicationPlaybackSource equivalent of the above.
+     *
+     * override from breakfastquay::ApplicationPlaybackSource
      */
-    virtual int getApplicationChannelCount() const {
+    virtual int getApplicationChannelCount() const override {
         return getTargetChannelCount();
     }
     
     /**
-     * Get the actual sample rate of the source material.  This may
-     * safely be called from a realtime thread.  Returns 0 if there is
-     * no source yet available.
+     * Get the actual sample rate of the source material (the main
+     * model).  This may safely be called from a realtime thread.
+     * Returns 0 if there is no source yet available.
+     *
+     * When this changes, the AudioCallbackPlaySource notifies its
+     * ResamplerWrapper of the new sample rate so that it can resample
+     * correctly on the way to the device (which is opened at a fixed
+     * rate, see getApplicationSampleRate).
      */
-    virtual sv_samplerate_t getSourceSampleRate() const;
+    virtual sv_samplerate_t getSourceSampleRate() const override;
 
     /**
-     * ApplicationPlaybackSource equivalent of the above.
+     * ApplicationPlaybackSource interface method: get the sample rate
+     * at which the application wants the device to be opened. We
+     * always allow the device to open at its default rate, and then
+     * we resample if the audio is at a different rate. This avoids
+     * having to close and re-open the device to obtain consistent
+     * behaviour for consecutive sessions with different source rates.
      */
-    virtual int getApplicationSampleRate() const {
-        return int(round(getSourceSampleRate()));
+    virtual int getApplicationSampleRate() const override {
+        return 0;
     }
 
     /**

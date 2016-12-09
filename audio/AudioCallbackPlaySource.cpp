@@ -230,13 +230,15 @@ AudioCallbackPlaySource::addModel(Model *model)
 	if (willPlay) clearRingBuffers(true);
     }
 
-    if (buffersChanged || srChanged) {
-
-        // There are more channels than there were before, or the
-        // source sample rate has changed
-
-        //!!!
-
+    if (srChanged) {
+        SVCERR << "AudioCallbackPlaySource: Source rate changed" << endl;
+        if (m_resamplerWrapper) {
+            SVCERR << "AudioCallbackPlaySource: Source sample rate changed to "
+                << m_sourceSampleRate << ", updating resampler wrapper" << endl;
+            m_resamplerWrapper->changeApplicationSampleRate
+                (int(round(m_sourceSampleRate)));
+            m_resamplerWrapper->reset();
+        }
     }
 
     rebuildRangeLists();
@@ -540,7 +542,7 @@ AudioCallbackPlaySource::playParametersChanged(PlayParameters *)
 }
 
 void
-AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName n)
+AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName )
 {
 }
 
@@ -578,6 +580,10 @@ void
 AudioCallbackPlaySource::setResamplerWrapper(breakfastquay::ResamplerWrapper *w)
 {
     m_resamplerWrapper = w;
+    if (m_resamplerWrapper && m_sourceSampleRate != 0) {
+        m_resamplerWrapper->changeApplicationSampleRate
+            (int(round(m_sourceSampleRate)));
+    }
 }
 
 void
@@ -944,7 +950,7 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 }
 
 void
-AudioCallbackPlaySource::setSystemPlaybackChannelCount(int c)
+AudioCallbackPlaySource::setSystemPlaybackChannelCount(int)
 {
 }
 
@@ -1335,8 +1341,6 @@ AudioCallbackPlaySource::fillBuffers()
 #endif
 
     int channels = getTargetChannelCount();
-
-    sv_frame_t orig = space;
 
     static float **bufferPtrs = 0;
     static int bufferPtrCount = 0;
