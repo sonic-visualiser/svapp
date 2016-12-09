@@ -1129,6 +1129,8 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 
 	int got = 0;
 
+        cerr << "getTargetChannelCount() == " << getTargetChannelCount() << endl;
+        
 	for (int ch = 0; ch < getTargetChannelCount(); ++ch) {
 
 	    RingBuffer<float> *rb = getReadRingBuffer(ch);
