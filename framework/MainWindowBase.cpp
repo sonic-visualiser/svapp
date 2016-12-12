@@ -295,14 +295,8 @@ MainWindowBase::~MainWindowBase()
     // depends on whether we handle recording or not) before we delete
     // the ApplicationPlaybackSource and ApplicationRecordTarget that
     // they refer to.
-    
-    // First prevent this trying to call target.
-    if (m_playSource) m_playSource->setSystemPlaybackTarget(0);
 
-    // Then delete the breakfastquay::System object.
-    // Only one of these two exists!
-    delete m_audioIO;
-    delete m_playTarget;
+    deleteAudioIO();
 
     // Then delete the Application objects.
     delete m_resamplerWrapper;
@@ -2373,6 +2367,28 @@ MainWindowBase::createAudioIO()
                  QMessageBox::Ok);
         }
     }
+}
+
+void
+MainWindowBase::deleteAudioIO()
+{
+    // First prevent this trying to call target.
+    if (m_playSource) m_playSource->setSystemPlaybackTarget(0);
+
+    // Then delete the breakfastquay::System object.
+    // Only one of these two exists!
+    delete m_audioIO;
+    delete m_playTarget;
+
+    m_audioIO = 0;
+    m_playTarget = 0;
+}
+
+void
+MainWindowBase::recreateAudioIO()
+{
+    deleteAudioIO();
+    createAudioIO();
 }
 
 WaveFileModel *

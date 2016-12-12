@@ -198,6 +198,7 @@ signals:
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);
     virtual void resizeConstrained(QSize);
+    virtual void recreateAudioIO();
 
 protected slots:
     virtual void zoomIn();
@@ -464,6 +465,8 @@ protected:
     virtual void setDefaultSessionTemplate(QString);
 
     virtual void createAudioIO();
+    virtual void deleteAudioIO();
+    
     virtual void openHelpUrl(QString url);
     virtual void openLocalFolder(QString path);
 
