@@ -2869,6 +2869,8 @@ MainWindowBase::record()
         }
     }
 
+    if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
+    
     m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();
