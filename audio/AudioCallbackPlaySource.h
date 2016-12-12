@@ -287,8 +287,6 @@ public:
     std::string getClientName() const { return m_clientName; }
 
 signals:
-    void modelReplaced();
-
     void playStatusChanged(bool isPlaying);
 
     void sampleRateMismatch(sv_samplerate_t requested,

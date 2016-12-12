@@ -266,12 +266,8 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cout << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s) -- emitting modelReplaced" << endl;
+    cout << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s)" << endl;
 #endif
-
-    if (buffersChanged || srChanged) {
-	emit modelReplaced();
-    }
 
     connect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
             this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
