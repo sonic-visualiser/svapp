@@ -73,7 +73,7 @@ AudioRecordTarget::setSystemRecordChannelCount(int c)
 }
 
 void
-AudioRecordTarget::putSamples(const float *const *samples, int nchannels, int nframes)
+AudioRecordTarget::putSamples(const float *const *samples, int, int nframes)
 {
     bool secChanged = false;
     sv_frame_t frameToEmit = 0;
