@@ -141,7 +141,7 @@ public:
      * size; the source should behave itself even if this value turns
      * out to be inaccurate.
      */
-    int getTargetBlockSize() const;
+    virtual int getTargetBlockSize() const override;
 
     /**
      * Set the playback latency of the target audio device, in frames
@@ -170,7 +170,7 @@ public:
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    sv_samplerate_t getDeviceSampleRate() const;
+    virtual sv_samplerate_t getDeviceSampleRate() const override;
 
     /**
      * Indicate how many channels the target audio device was opened
@@ -185,13 +185,13 @@ public:
      * Set the current output levels for metering (for call from the
      * target)
      */
-    void setOutputLevels(float left, float right);
+    virtual void setOutputLevels(float left, float right) override;
 
     /**
      * Return the current (or thereabouts) output levels in the range
      * 0.0 -> 1.0, for metering purposes.
      */
-    virtual bool getOutputLevels(float &left, float &right);
+    virtual bool getOutputLevels(float &left, float &right) override;
 
     /**
      * Get the number of channels of audio that in the source models.
@@ -280,7 +280,7 @@ public:
      * Pass a null pointer to remove the current auditioning plugin,
      * if any.
      */
-    void setAuditioningEffect(Auditionable *plugin);
+    virtual void setAuditioningEffect(Auditionable *plugin) override;
 
     /**
      * Specify that only the given set of models should be played.
@@ -293,7 +293,9 @@ public:
      */
     void clearSoloModelSet();
 
-    std::string getClientName() const { return m_clientName; }
+    virtual std::string getClientName() const override {
+        return m_clientName;
+    }
 
 signals:
     void playStatusChanged(bool isPlaying);
@@ -310,7 +312,7 @@ signals:
     void activity(QString);
 
 public slots:
-    void audioProcessingOverload();
+    void audioProcessingOverload() override;
 
 protected slots:
     void selectionChanged();
