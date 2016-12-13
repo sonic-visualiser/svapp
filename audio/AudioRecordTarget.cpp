@@ -38,6 +38,18 @@ AudioRecordTarget::~AudioRecordTarget()
     QMutexLocker locker(&m_mutex);
 }
 
+int
+AudioRecordTarget::getApplicationSampleRate() const
+{
+    return 0; // don't care
+}
+
+int
+AudioRecordTarget::getApplicationChannelCount() const
+{
+    return m_recordChannelCount;
+}
+
 void
 AudioRecordTarget::setSystemRecordBlockSize(int)
 {
@@ -61,7 +73,7 @@ AudioRecordTarget::setSystemRecordChannelCount(int c)
 }
 
 void
-AudioRecordTarget::putSamples(int nframes, float **samples)
+AudioRecordTarget::putSamples(const float *const *samples, int nchannels, int nframes)
 {
     bool secChanged = false;
     sv_frame_t frameToEmit = 0;

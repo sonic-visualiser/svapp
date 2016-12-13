@@ -36,21 +36,21 @@ public:
     AudioRecordTarget(ViewManagerBase *, QString clientName);
     virtual ~AudioRecordTarget();
 
-    virtual std::string getClientName() const { return m_clientName; }
+    virtual std::string getClientName() const override { return m_clientName; }
     
-    virtual int getApplicationSampleRate() const { return 0; } // don't care
-    virtual int getApplicationChannelCount() const { return 2; }
+    virtual int getApplicationSampleRate() const override;
+    virtual int getApplicationChannelCount() const override;
 
-    virtual void setSystemRecordBlockSize(int);
-    virtual void setSystemRecordSampleRate(int);
-    virtual void setSystemRecordLatency(int);
-    virtual void setSystemRecordChannelCount(int);
+    virtual void setSystemRecordBlockSize(int) override;
+    virtual void setSystemRecordSampleRate(int) override;
+    virtual void setSystemRecordLatency(int) override;
+    virtual void setSystemRecordChannelCount(int) override;
 
-    virtual void putSamples(int nframes, float **samples);
+    virtual void putSamples(const float *const *samples, int nchannels, int nframes) override;
     
-    virtual void setInputLevels(float peakLeft, float peakRight);
+    virtual void setInputLevels(float peakLeft, float peakRight) override;
 
-    virtual void audioProcessingOverload() { }
+    virtual void audioProcessingOverload() override { }
 
     QString getRecordContainerFolder();
     QString getRecordFolder();

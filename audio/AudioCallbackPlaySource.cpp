@@ -30,8 +30,12 @@
 #include "bqaudioio/SystemPlaybackTarget.h"
 #include "bqaudioio/ResamplerWrapper.h"
 
+#include "bqvec/VectorOps.h"
+
 #include <rubberband/RubberBandStretcher.h>
 using namespace RubberBand;
+
+using breakfastquay::v_zero_channels;
 
 #include <iostream>
 #include <cassert>
@@ -55,6 +59,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_blockSize(1024),
     m_sourceSampleRate(0),
     m_deviceSampleRate(0),
+    m_deviceChannelCount(0),
     m_playLatency(0),
     m_target(0),
     m_lastRetrievalTimestamp(0.0),
@@ -158,7 +163,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 	m_lastModelEndFrame = model->getEndFrame();
     }
 
-    bool buffersChanged = false, srChanged = false;
+    bool buffersIncreased = false, srChanged = false;
 
     int modelChannels = 1;
     ReadOnlyWaveFileModel *rowfm = qobject_cast<ReadOnlyWaveFileModel *>(model);
@@ -225,7 +230,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     if (!m_writeBuffers || (int)m_writeBuffers->size() < getTargetChannelCount()) {
 	clearRingBuffers(true, getTargetChannelCount());
-	buffersChanged = true;
+	buffersIncreased = true;
     } else {
 	if (willPlay) clearRingBuffers(true);
     }
@@ -256,17 +261,20 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     m_mutex.unlock();
 
-    //!!!
-    
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
 
+    if (buffersIncreased) {
+        SVDEBUG << "AudioCallbackPlaySource::addModel: Number of buffers increased, signalling channelCountIncreased" << endl;
+        emit channelCountIncreased();
+    }
+    
     if (!m_fillThread) {
 	m_fillThread = new FillThread(*this);
 	m_fillThread->start();
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cout << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s)" << endl;
+    SVDEBUG << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s)" << endl;
 #endif
 
     connect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
@@ -275,7 +283,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::addModel: awakening thread" << endl;
 #endif
-
+    
     m_condition.wakeAll();
 }
 
@@ -580,6 +588,11 @@ AudioCallbackPlaySource::audioProcessingOverload()
 void
 AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
+    if (target == 0) {
+        // reset target-related facts and figures
+        m_deviceSampleRate = 0;
+        m_deviceChannelCount = 0;
+    }
     m_target = target;
 }
 
@@ -948,8 +961,9 @@ AudioCallbackPlaySource::setSystemPlaybackSampleRate(int sr)
 }
 
 void
-AudioCallbackPlaySource::setSystemPlaybackChannelCount(int)
+AudioCallbackPlaySource::setSystemPlaybackChannelCount(int count)
 {
+    m_deviceChannelCount = count;
 }
 
 void
@@ -999,6 +1013,12 @@ AudioCallbackPlaySource::getTargetChannelCount() const
     return m_sourceChannelCount;
 }
 
+int
+AudioCallbackPlaySource::getDeviceChannelCount() const
+{
+    return m_deviceChannelCount;
+}
+
 sv_samplerate_t
 AudioCallbackPlaySource::getSourceSampleRate() const
 {
@@ -1041,18 +1061,69 @@ AudioCallbackPlaySource::setTimeStretch(double factor)
 }
 
 int
-AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
+AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
+                                          int requestedChannels,
+                                          int count)
 {
+    // In principle, the target will handle channel mapping in cases
+    // where our channel count differs from the device's. But that
+    // only holds if our channel count doesn't change -- i.e. if
+    // getApplicationChannelCount() always returns the same value as
+    // it did when the target was created, and if this function always
+    // returns that number of channels.
+    //
+    // Unfortunately that can't hold for us -- we always have at least
+    // 2 channels but if the user opens a new main model with more
+    // channels than that (and more than the last main model) then our
+    // target channel count necessarily gets increased.
+    //
+    // We have:
+    // 
+    // getSourceChannelCount() -> number of channels available to
+    // provide from real model data
+    //
+    // getTargetChannelCount() -> number we will actually provide;
+    // same as getSourceChannelCount() except that it is always at
+    // least 2
+    //
+    // getDeviceChannelCount() -> number the device will emit, usually
+    // equal to the value of getTargetChannelCount() at the time the
+    // device was initialised, unless the device could not provide
+    // that number
+    //
+    // requestedChannels -> number the device is expecting from us,
+    // always equal to the value of getTargetChannelCount() at the
+    // time the device was initialised
+    //
+    // If the requested channel count is at least the target channel
+    // count, then we go ahead and provide the target channels as
+    // expected. We just zero any spare channels.
+    //
+    // If the requested channel count is smaller than the target
+    // channel count, then we don't know what to do and we provide
+    // nothing. This shouldn't happen as long as management is on the
+    // ball -- we emit channelCountIncreased() when the target channel
+    // count increases, and whatever code "owns" the driver should
+    // have reopened the audio device when it got that signal. But
+    // there's a race condition there, which we accommodate with this
+    // check.
+
+    int channels = getTargetChannelCount();
+
     if (!m_playing) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
         SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
 #endif
-	for (int ch = 0; ch < getTargetChannelCount(); ++ch) {
-	    for (int i = 0; i < count; ++i) {
-		buffer[ch][i] = 0.0;
-	    }
-	}
+        v_zero_channels(buffer, requestedChannels, count);
 	return 0;
+    }
+    if (requestedChannels < channels) {
+        SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not enough device channels (" << requestedChannels << ", need " << channels << "); hoping device is about to be reopened" << endl;
+        v_zero_channels(buffer, requestedChannels, count);
+        return 0;
+    }
+    if (requestedChannels > channels) {
+        v_zero_channels(buffer + channels, requestedChannels - channels, count);
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1062,7 +1133,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
     // Ensure that all buffers have at least the amount of data we
     // need -- else reduce the size of our requests correspondingly
 
-    for (int ch = 0; ch < getTargetChannelCount(); ++ch) {
+    for (int ch = 0; ch < channels; ++ch) {
 
         RingBuffer<float> *rb = getReadRingBuffer(ch);
         
@@ -1125,9 +1196,9 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 
 	int got = 0;
 
-        cerr << "getTargetChannelCount() == " << getTargetChannelCount() << endl;
+        cerr << "channels == " << channels << endl;
         
-	for (int ch = 0; ch < getTargetChannelCount(); ++ch) {
+	for (int ch = 0; ch < channels; ++ch) {
 
 	    RingBuffer<float> *rb = getReadRingBuffer(ch);
 
@@ -1145,7 +1216,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 #endif
 	    }
 
-	    for (int ch = 0; ch < getTargetChannelCount(); ++ch) {
+	    for (int ch = 0; ch < channels; ++ch) {
 		for (int i = got; i < count; ++i) {
 		    buffer[ch][i] = 0.0;
 		}
@@ -1163,7 +1234,6 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 	return got;
     }
 
-    int channels = getTargetChannelCount();
     sv_frame_t available;
     sv_frame_t fedToStretcher = 0;
     int warned = 0;
@@ -1238,11 +1308,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 
     ts->retrieve(buffer, size_t(count));
 
-    for (int c = stretchChannels; c < getTargetChannelCount(); ++c) {
-        for (int i = 0; i < count; ++i) {
-            buffer[c][i] = buffer[0][i];
-        }
-    }
+    v_zero_channels(buffer + stretchChannels, channels - stretchChannels, count);
 
     applyAuditioningEffect(count, buffer);
 
@@ -1256,7 +1322,7 @@ AudioCallbackPlaySource::getSourceSamples(int count, float **buffer)
 }
 
 void
-AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float **buffers)
+AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float *const *buffers)
 {
     if (m_auditioningPluginBypassed) return;
     RealTimePluginInstance *plugin = m_auditioningPlugin;

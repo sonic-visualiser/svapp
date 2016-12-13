@@ -242,6 +242,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
 	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
+    connect(m_playSource, SIGNAL(channelCountIncreased()),
+            this,           SLOT(recreateAudioIO()));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
@@ -299,7 +301,6 @@ MainWindowBase::~MainWindowBase()
     deleteAudioIO();
 
     // Then delete the Application objects.
-    delete m_resamplerWrapper;
     delete m_playSource;
     delete m_recordTarget;
     
@@ -2373,15 +2374,24 @@ void
 MainWindowBase::deleteAudioIO()
 {
     // First prevent this trying to call target.
-    if (m_playSource) m_playSource->setSystemPlaybackTarget(0);
+    if (m_playSource) {
+        m_playSource->setSystemPlaybackTarget(0);
+        m_playSource->setResamplerWrapper(0);
+    }
 
     // Then delete the breakfastquay::System object.
     // Only one of these two exists!
     delete m_audioIO;
     delete m_playTarget;
 
+    // And the breakfastquay resampler wrapper. We need to
+    // delete/recreate this if the channel count changes, which is one
+    // of the use cases for recreateAudioIO() calling this
+    delete m_resamplerWrapper;
+
     m_audioIO = 0;
     m_playTarget = 0;
+    m_resamplerWrapper = 0;
 }
 
 void

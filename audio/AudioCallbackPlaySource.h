@@ -90,23 +90,23 @@ public:
      * from the given frame.  If playback is already under way, reseek
      * to the given frame and continue.
      */
-    virtual void play(sv_frame_t startFrame);
+    virtual void play(sv_frame_t startFrame) override;
 
     /**
      * Stop playback and ensure that no more data is returned.
      */
-    virtual void stop();
+    virtual void stop() override;
 
     /**
      * Return whether playback is currently supposed to be happening.
      */
-    virtual bool isPlaying() const { return m_playing; }
+    virtual bool isPlaying() const override { return m_playing; }
 
     /**
      * Return the frame number that is currently expected to be coming
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
-    virtual sv_frame_t getCurrentPlayingFrame();
+    virtual sv_frame_t getCurrentPlayingFrame() override;
     
     /** 
      * Return the last frame that would come out of the speakers if we
@@ -133,7 +133,7 @@ public:
      * Set the block size of the target audio device.  This should be
      * called by the target class.
      */
-    virtual void setSystemPlaybackBlockSize(int blockSize);
+    virtual void setSystemPlaybackBlockSize(int blockSize) override;
 
     /**
      * Get the block size of the target audio device.  This may be an
@@ -150,7 +150,7 @@ public:
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
      */
-    void setSystemPlaybackLatency(int);
+    virtual void setSystemPlaybackLatency(int) override;
 
     /**
      * Get the playback latency of the target audio device.
@@ -164,7 +164,7 @@ public:
      * source sample rate, this class will resample automatically to
      * fit.
      */
-    void setSystemPlaybackSampleRate(int);
+    virtual void setSystemPlaybackSampleRate(int) override;
 
     /**
      * Return the sample rate set by the target audio device (or the
@@ -175,9 +175,11 @@ public:
     /**
      * Indicate how many channels the target audio device was opened
      * with. Note that the target device does channel mixing in the
-     * case where our requested channel count does not match its.
+     * case where our requested channel count does not match its, so
+     * long as we provide the number of channels we specified when the
+     * target was started in getApplicationChannelCount().
      */
-    void setSystemPlaybackChannelCount(int);
+    virtual void setSystemPlaybackChannelCount(int) override;
     
     /**
      * Set the current output levels for metering (for call from the
@@ -211,6 +213,13 @@ public:
      */
     virtual int getTargetChannelCount() const override;
 
+    /**
+     * Get the number of channels of audio the device is
+     * expecting. Equal to whatever getTargetChannelCount() was
+     * returning at the time the device was initialised.
+     */
+    int getDeviceChannelCount() const;
+    
     /**
      * ApplicationPlaybackSource equivalent of the above.
      *
@@ -249,7 +258,7 @@ public:
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    virtual int getSourceSamples(int count, float **buffer);
+    virtual int getSourceSamples(float *const *buffer, int nchannels, int count) override;
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
@@ -293,6 +302,8 @@ signals:
                             sv_samplerate_t available,
                             bool willResample);
 
+    void channelCountIncreased();
+
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
 
@@ -334,6 +345,7 @@ protected:
     sv_frame_t                        m_blockSize;
     sv_samplerate_t                   m_sourceSampleRate;
     sv_samplerate_t                   m_deviceSampleRate;
+    int                               m_deviceChannelCount;
     sv_frame_t                        m_playLatency;
     breakfastquay::SystemPlaybackTarget *m_target;
     double                            m_lastRetrievalTimestamp;
@@ -393,7 +405,7 @@ protected:
     sv_frame_t mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers);
 
     // Called from getSourceSamples.
-    void applyAuditioningEffect(sv_frame_t count, float **buffers);
+    void applyAuditioningEffect(sv_frame_t count, float *const *buffers);
 
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
