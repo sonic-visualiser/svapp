@@ -1584,6 +1584,13 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
 	    // thread can tell where it's got to in the playback -- so
 	    // return the full amount here
 	    frame = frame + count;
+            if (frame < nextChunkStart) {
+                frame = nextChunkStart;
+            }
+#ifdef DEBUG_AUDIO_PLAY_SOURCE
+	    cout << "mixModels: ending at " << nextChunkStart << ", returning frame as "
+                 << frame << endl;
+#endif
 	    return count;
 	}
 
