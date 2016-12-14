@@ -66,8 +66,9 @@ class QShortcut;
 class AlignmentModel;
 
 namespace breakfastquay {
-class SystemPlaybackTarget;
-class SystemAudioIO;
+    class SystemPlaybackTarget;
+    class SystemAudioIO;
+    class ResamplerWrapper;
 }
 
 /**
@@ -198,6 +199,7 @@ signals:
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);
     virtual void resizeConstrained(QSize);
+    virtual void recreateAudioIO();
 
 protected slots:
     virtual void zoomIn();
@@ -344,6 +346,7 @@ protected:
 
     AudioCallbackPlaySource *m_playSource;
     AudioRecordTarget       *m_recordTarget;
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
     breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
 
@@ -463,6 +466,8 @@ protected:
     virtual void setDefaultSessionTemplate(QString);
 
     virtual void createAudioIO();
+    virtual void deleteAudioIO();
+    
     virtual void openHelpUrl(QString url);
     virtual void openLocalFolder(QString path);
 

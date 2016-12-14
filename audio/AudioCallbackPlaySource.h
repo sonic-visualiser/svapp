@@ -39,6 +39,10 @@ namespace RubberBand {
     class RubberBandStretcher;
 }
 
+namespace breakfastquay {
+    class ResamplerWrapper;
+}
+
 class Model;
 class ViewManagerBase;
 class AudioGenerator;
@@ -86,23 +90,23 @@ public:
      * from the given frame.  If playback is already under way, reseek
      * to the given frame and continue.
      */
-    virtual void play(sv_frame_t startFrame);
+    virtual void play(sv_frame_t startFrame) override;
 
     /**
      * Stop playback and ensure that no more data is returned.
      */
-    virtual void stop();
+    virtual void stop() override;
 
     /**
      * Return whether playback is currently supposed to be happening.
      */
-    virtual bool isPlaying() const { return m_playing; }
+    virtual bool isPlaying() const override { return m_playing; }
 
     /**
      * Return the frame number that is currently expected to be coming
      * out of the speakers.  (i.e. compensating for playback latency.)
      */
-    virtual sv_frame_t getCurrentPlayingFrame();
+    virtual sv_frame_t getCurrentPlayingFrame() override;
     
     /** 
      * Return the last frame that would come out of the speakers if we
@@ -121,10 +125,15 @@ public:
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
 
     /**
+     * Set the resampler wrapper, if one is in use.
+     */
+    virtual void setResamplerWrapper(breakfastquay::ResamplerWrapper *);
+    
+    /**
      * Set the block size of the target audio device.  This should be
      * called by the target class.
      */
-    virtual void setSystemPlaybackBlockSize(int blockSize);
+    virtual void setSystemPlaybackBlockSize(int blockSize) override;
 
     /**
      * Get the block size of the target audio device.  This may be an
@@ -132,16 +141,16 @@ public:
      * size; the source should behave itself even if this value turns
      * out to be inaccurate.
      */
-    int getTargetBlockSize() const;
+    virtual int getTargetBlockSize() const override;
 
     /**
      * Set the playback latency of the target audio device, in frames
-     * at the target sample rate.  This is the difference between the
+     * at the device sample rate.  This is the difference between the
      * frame currently "leaving the speakers" and the last frame (or
      * highest last frame across all channels) requested via
      * getSamples().  The default is zero.
      */
-    void setSystemPlaybackLatency(int);
+    virtual void setSystemPlaybackLatency(int) override;
 
     /**
      * Get the playback latency of the target audio device.
@@ -155,25 +164,34 @@ public:
      * source sample rate, this class will resample automatically to
      * fit.
      */
-    void setSystemPlaybackSampleRate(int);
+    virtual void setSystemPlaybackSampleRate(int) override;
 
     /**
      * Return the sample rate set by the target audio device (or the
      * source sample rate if the target hasn't set one).
      */
-    virtual sv_samplerate_t getTargetSampleRate() const;
+    virtual sv_samplerate_t getDeviceSampleRate() const override;
 
+    /**
+     * Indicate how many channels the target audio device was opened
+     * with. Note that the target device does channel mixing in the
+     * case where our requested channel count does not match its, so
+     * long as we provide the number of channels we specified when the
+     * target was started in getApplicationChannelCount().
+     */
+    virtual void setSystemPlaybackChannelCount(int) override;
+    
     /**
      * Set the current output levels for metering (for call from the
      * target)
      */
-    void setOutputLevels(float left, float right);
+    virtual void setOutputLevels(float left, float right) override;
 
     /**
      * Return the current (or thereabouts) output levels in the range
      * 0.0 -> 1.0, for metering purposes.
      */
-    virtual bool getOutputLevels(float &left, float &right);
+    virtual bool getOutputLevels(float &left, float &right) override;
 
     /**
      * Get the number of channels of audio that in the source models.
@@ -187,30 +205,52 @@ public:
      * to the play target.  This may be more than the source channel
      * count: for example, a mono source will provide 2 channels
      * after pan.
+     *
      * This may safely be called from a realtime thread.  Returns 0 if
      * there is no source yet available.
+     *
+     * override from AudioPlaySource
      */
-    int getTargetChannelCount() const;
+    virtual int getTargetChannelCount() const override;
 
     /**
-     * ApplicationPlaybackSource equivalent of the above.
+     * Get the number of channels of audio the device is
+     * expecting. Equal to whatever getTargetChannelCount() was
+     * returning at the time the device was initialised.
      */
-    virtual int getApplicationChannelCount() const {
+    int getDeviceChannelCount() const;
+    
+    /**
+     * ApplicationPlaybackSource equivalent of the above.
+     *
+     * override from breakfastquay::ApplicationPlaybackSource
+     */
+    virtual int getApplicationChannelCount() const override {
         return getTargetChannelCount();
     }
     
     /**
-     * Get the actual sample rate of the source material.  This may
-     * safely be called from a realtime thread.  Returns 0 if there is
-     * no source yet available.
+     * Get the actual sample rate of the source material (the main
+     * model).  This may safely be called from a realtime thread.
+     * Returns 0 if there is no source yet available.
+     *
+     * When this changes, the AudioCallbackPlaySource notifies its
+     * ResamplerWrapper of the new sample rate so that it can resample
+     * correctly on the way to the device (which is opened at a fixed
+     * rate, see getApplicationSampleRate).
      */
-    virtual sv_samplerate_t getSourceSampleRate() const;
+    virtual sv_samplerate_t getSourceSampleRate() const override;
 
     /**
-     * ApplicationPlaybackSource equivalent of the above.
+     * ApplicationPlaybackSource interface method: get the sample rate
+     * at which the application wants the device to be opened. We
+     * always allow the device to open at its default rate, and then
+     * we resample if the audio is at a different rate. This avoids
+     * having to close and re-open the device to obtain consistent
+     * behaviour for consecutive sessions with different source rates.
      */
-    virtual int getApplicationSampleRate() const {
-        return int(round(getSourceSampleRate()));
+    virtual int getApplicationSampleRate() const override {
+        return 0;
     }
 
     /**
@@ -218,18 +258,12 @@ public:
      * audio data, in all channels.  This may safely be called from a
      * realtime thread.
      */
-    virtual int getSourceSamples(int count, float **buffer);
+    virtual int getSourceSamples(float *const *buffer, int nchannels, int count) override;
 
     /**
      * Set the time stretcher factor (i.e. playback speed).
      */
     void setTimeStretch(double factor);
-
-    /**
-     * Set the resampler quality, 0 - 2 where 0 is fastest and 2 is
-     * highest quality.
-     */
-    void setResampleQuality(int q);
 
     /**
      * Set a single real-time plugin as a processing effect for
@@ -246,7 +280,7 @@ public:
      * Pass a null pointer to remove the current auditioning plugin,
      * if any.
      */
-    void setAuditioningEffect(Auditionable *plugin);
+    virtual void setAuditioningEffect(Auditionable *plugin) override;
 
     /**
      * Specify that only the given set of models should be played.
@@ -259,16 +293,18 @@ public:
      */
     void clearSoloModelSet();
 
-    std::string getClientName() const { return m_clientName; }
+    virtual std::string getClientName() const override {
+        return m_clientName;
+    }
 
 signals:
-    void modelReplaced();
-
     void playStatusChanged(bool isPlaying);
 
     void sampleRateMismatch(sv_samplerate_t requested,
                             sv_samplerate_t available,
                             bool willResample);
+
+    void channelCountIncreased();
 
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
@@ -276,7 +312,7 @@ signals:
     void activity(QString);
 
 public slots:
-    void audioProcessingOverload();
+    void audioProcessingOverload() override;
 
 protected slots:
     void selectionChanged();
@@ -310,7 +346,8 @@ protected:
     int                               m_sourceChannelCount;
     sv_frame_t                        m_blockSize;
     sv_samplerate_t                   m_sourceSampleRate;
-    sv_samplerate_t                   m_targetSampleRate;
+    sv_samplerate_t                   m_deviceSampleRate;
+    int                               m_deviceChannelCount;
     sv_frame_t                        m_playLatency;
     breakfastquay::SystemPlaybackTarget *m_target;
     double                            m_lastRetrievalTimestamp;
@@ -370,7 +407,7 @@ protected:
     sv_frame_t mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers);
 
     // Called from getSourceSamples.
-    void applyAuditioningEffect(sv_frame_t count, float **buffers);
+    void applyAuditioningEffect(sv_frame_t count, float *const *buffers);
 
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
@@ -395,9 +432,7 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    SRC_STATE *m_converter;
-    int m_resampleQuality;
-    void initialiseConverter();
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper; // I don't own this
 };
 
 #endif
