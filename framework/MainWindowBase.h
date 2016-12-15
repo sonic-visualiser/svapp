@@ -51,6 +51,7 @@ class CommandHistory;
 class QMenu;
 class AudioDial;
 class LevelPanWidget;
+class LevelPanToolButton;
 class QLabel;
 class QCheckBox;
 class PreferencesDialog;
