@@ -178,6 +178,9 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     if (m_sourceSampleRate == 0) {
 
+        SVDEBUG << "AudioCallbackPlaySource::addModel: Source rate changing from 0 to "
+            << model->getSampleRate() << endl;
+
 	m_sourceSampleRate = model->getSampleRate();
 	srChanged = true;
 
@@ -222,6 +225,9 @@ AudioCallbackPlaySource::addModel(Model *model)
                                         m_sourceSampleRate,
                                         false);
             } else {
+                SVDEBUG << "AudioCallbackPlaySource::addModel: Source rate changing from "
+                        << m_sourceSampleRate << " to " << model->getSampleRate() << endl;
+                
                 m_sourceSampleRate = model->getSampleRate();
                 srChanged = true;
             }
@@ -317,9 +323,15 @@ AudioCallbackPlaySource::removeModel(Model *model)
 
     m_models.erase(model);
 
-    if (m_models.empty()) {
-	m_sourceSampleRate = 0;
-    }
+    // I don't think we have to do this any more: if a new model is
+    // loaded at a different rate, we'll hit the non-conflicting path
+    // in addModel and the rate will be updated without problems; but
+    // if a new model is loaded at the rate that we were using for the
+    // last one, then we save work by not having reset this here
+    //
+//    if (m_models.empty()) {
+//	m_sourceSampleRate = 0;
+//    }
 
     sv_frame_t lastEnd = 0;
     for (std::set<Model *>::const_iterator i = m_models.begin();
