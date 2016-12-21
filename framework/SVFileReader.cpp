@@ -393,14 +393,12 @@ SVFileReader::fatalError(const QXmlParseException &exception)
     }
 
 bool
-SVFileReader::readWindow(const QXmlAttributes &attributes)
+SVFileReader::readWindow(const QXmlAttributes &)
 {
-    bool ok = false;
-
-    READ_MANDATORY(int, width, toInt);
-    READ_MANDATORY(int, height, toInt);
-
-    m_paneCallback.setWindowSize(width, height);
+    // The window element contains window dimensions, which we used to
+    // read and size the window accordingly. This was a Bad Idea [tm]
+    // and we now do nothing instead. See #1769 Loading window
+    // dimensions from session file is a really bad idea
     return true;
 }
 
