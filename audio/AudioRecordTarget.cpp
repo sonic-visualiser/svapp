@@ -102,8 +102,10 @@ AudioRecordTarget::putSamples(const float *const *samples, int, int nframes)
 }
 
 void
-AudioRecordTarget::setInputLevels(float, float)
+AudioRecordTarget::setInputLevels(float left, float right)
 {
+    cerr << "AudioRecordTarget::setInputLevels(" << left << "," << right << ")"
+         << endl;
 }
 
 void
@@ -123,7 +125,7 @@ AudioRecordTarget::getRecordContainerFolder()
     QString subdirname("recorded");
 
     if (!parent.mkpath(subdirname)) {
-        cerr << "ERROR: AudioRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        SVCERR << "ERROR: AudioRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
         return "";
     } else {
         return parent.filePath(subdirname);
@@ -138,7 +140,7 @@ AudioRecordTarget::getRecordFolder()
     QString subdirname = QString("%1").arg(now.toString("yyyyMMdd"));
 
     if (!parent.mkpath(subdirname)) {
-        cerr << "ERROR: AudioRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        SVCERR << "ERROR: AudioRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
         return "";
     } else {
         return parent.filePath(subdirname);
@@ -149,43 +151,46 @@ WritableWaveFileModel *
 AudioRecordTarget::startRecording()
 {
     {
-    QMutexLocker locker(&m_mutex);
+        QMutexLocker locker(&m_mutex);
     
-    if (m_recording) {
-        cerr << "WARNING: AudioRecordTarget::startRecording: We are already recording" << endl;
-        return 0;
-    }
+        if (m_recording) {
+            SVCERR << "WARNING: AudioRecordTarget::startRecording: We are already recording" << endl;
+            return 0;
+        }
 
-    m_model = 0;
-    m_frameCount = 0;
-
-    QString folder = getRecordFolder();
-    if (folder == "") return 0;
-    QDir recordedDir(folder);
-
-    QDateTime now = QDateTime::currentDateTime();
-
-    // Don't use QDateTime::toString(Qt::ISODate) as the ":" character
-    // isn't permitted in filenames on Windows
-    QString filename = QString("recorded-%1.wav")
-        .arg(now.toString("yyyyMMdd-HHmmss-zzz"));
-
-    m_audioFileName = recordedDir.filePath(filename);
-
-    m_model = new WritableWaveFileModel(m_recordSampleRate,
-                                        m_recordChannelCount,
-                                        m_audioFileName);
-
-    if (!m_model->isOK()) {
-        cerr << "ERROR: AudioRecordTarget::startRecording: Recording failed"
-             << endl;
-        //!!! and throw?
-        delete m_model;
         m_model = 0;
-        return 0;
-    }
+        m_frameCount = 0;
 
-    m_recording = true;
+        QString folder = getRecordFolder();
+        if (folder == "") return 0;
+        QDir recordedDir(folder);
+
+        QDateTime now = QDateTime::currentDateTime();
+
+        // Don't use QDateTime::toString(Qt::ISODate) as the ":" character
+        // isn't permitted in filenames on Windows
+        QString nowString = now.toString("yyyyMMdd-HHmmss-zzz");
+    
+        QString filename = tr("recorded-%1.wav").arg(nowString);
+        QString label = tr("Recorded %1").arg(nowString);
+
+        m_audioFileName = recordedDir.filePath(filename);
+
+        m_model = new WritableWaveFileModel(m_recordSampleRate,
+                                            m_recordChannelCount,
+                                            m_audioFileName);
+
+        if (!m_model->isOK()) {
+            SVCERR << "ERROR: AudioRecordTarget::startRecording: Recording failed"
+                   << endl;
+            //!!! and throw?
+            delete m_model;
+            m_model = 0;
+            return 0;
+        }
+
+        m_model->setObjectName(label);
+        m_recording = true;
     }
 
     emit recordStatusChanged(true);
@@ -196,15 +201,15 @@ void
 AudioRecordTarget::stopRecording()
 {
     {
-    QMutexLocker locker(&m_mutex);
-    if (!m_recording) {
-        cerr << "WARNING: AudioRecordTarget::startRecording: Not recording" << endl;
-        return;
-    }
+        QMutexLocker locker(&m_mutex);
+        if (!m_recording) {
+            SVCERR << "WARNING: AudioRecordTarget::startRecording: Not recording" << endl;
+            return;
+        }
 
-    m_model->writeComplete();
-    m_model = 0;
-    m_recording = false;
+        m_model->writeComplete();
+        m_model = 0;
+        m_recording = false;
     }
 
     emit recordStatusChanged(false);

@@ -235,6 +235,8 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
 
     if (!m_writeBuffers || (int)m_writeBuffers->size() < getTargetChannelCount()) {
+        cerr << "m_writeBuffers size = " << (m_writeBuffers ? m_writeBuffers->size() : 0) << endl;
+        cerr << "target channel count = " << (getTargetChannelCount()) << endl;
 	clearRingBuffers(true, getTargetChannelCount());
 	buffersIncreased = true;
     } else {
@@ -270,8 +272,13 @@ AudioCallbackPlaySource::addModel(Model *model)
     m_audioGenerator->setTargetChannelCount(getTargetChannelCount());
 
     if (buffersIncreased) {
-        SVDEBUG << "AudioCallbackPlaySource::addModel: Number of buffers increased, signalling channelCountIncreased" << endl;
-        emit channelCountIncreased();
+        SVDEBUG << "AudioCallbackPlaySource::addModel: Number of buffers increased to " << getTargetChannelCount() << endl;
+        if (getTargetChannelCount() > getDeviceChannelCount()) {
+            SVDEBUG << "AudioCallbackPlaySource::addModel: This is more than the device channel count, signalling channelCountIncreased" << endl;
+            emit channelCountIncreased(getTargetChannelCount());
+        } else {
+            SVDEBUG << "AudioCallbackPlaySource::addModel: This is no more than the device channel count (" << getDeviceChannelCount() << "), so taking no action" << endl;
+        }
     }
     
     if (!m_fillThread) {

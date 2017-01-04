@@ -242,8 +242,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
 	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
-    connect(m_playSource, SIGNAL(channelCountIncreased()),
-            this,           SLOT(recreateAudioIO()));
+    connect(m_playSource, SIGNAL(channelCountIncreased(int)),
+            this,           SLOT(audioChannelCountIncreased(int)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
@@ -2386,6 +2386,8 @@ MainWindowBase::createAudioIO()
                 secondBit = tr("<p>Audio playback will not be available during this session.</p>");
             }
         }
+        SVDEBUG << "createAudioIO: ERROR: Failed to open audio device \""
+                << implementation << "\": error is: " << error << endl;
         QMessageBox::warning(this, tr("Couldn't open audio device"),
                              firstBit + secondBit, QMessageBox::Ok);
     }
@@ -2420,6 +2422,12 @@ MainWindowBase::recreateAudioIO()
 {
     deleteAudioIO();
     createAudioIO();
+}
+
+void
+MainWindowBase::audioChannelCountIncreased(int)
+{
+    recreateAudioIO();
 }
 
 WaveFileModel *
@@ -2878,11 +2886,12 @@ MainWindowBase::record()
     }
 
     if (!m_audioIO) {
+        cerr << "MainWindowBase::record: about to create audio IO" << endl;
         createAudioIO();
     }
 
     if (!m_audioIO) {
-        //!!! report
+        // don't need to report this, createAudioIO already should have
         return;
     }
     
@@ -2902,6 +2911,7 @@ MainWindowBase::record()
 
     if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
     
+    cerr << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();

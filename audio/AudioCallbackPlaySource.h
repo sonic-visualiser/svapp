@@ -304,7 +304,7 @@ signals:
                             sv_samplerate_t available,
                             bool willResample);
 
-    void channelCountIncreased();
+    void channelCountIncreased(int count); // target channel count (see getTargetChannelCount())
 
     void audioOverloadPluginDisabled();
     void audioTimeStretchMultiChannelDisabled();
