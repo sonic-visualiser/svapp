@@ -20,11 +20,13 @@
 #include <bqaudioio/ApplicationRecordTarget.h>
 
 #include <string>
+#include <atomic>
 
 #include <QObject>
 #include <QMutex>
 
 #include "base/BaseTypes.h"
+#include "base/RingBuffer.h"
 
 class ViewManagerBase;
 class WritableWaveFileModel;
@@ -73,19 +75,24 @@ signals:
 
 protected slots:
     void modelAboutToBeDeleted();
+    void updateModel();
     
 private:
     ViewManagerBase *m_viewManager;
     std::string m_clientName;
-    bool m_recording;
+    std::atomic_bool m_recording;
     sv_samplerate_t m_recordSampleRate;
     int m_recordChannelCount;
     sv_frame_t m_frameCount;
     QString m_audioFileName;
     WritableWaveFileModel *m_model;
+    RingBuffer<float> **m_buffers;
+    QMutex m_bufPtrMutex;
+    int m_bufferCount;
     float m_inputLeft;
     float m_inputRight;
-    QMutex m_mutex;
+
+    void recreateBuffers();
 };
 
 #endif
