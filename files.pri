@@ -1,7 +1,7 @@
 
 SVAPP_HEADERS += \
            audio/AudioCallbackPlaySource.h \
-           audio/AudioRecordTarget.h \
+           audio/AudioCallbackRecordTarget.h \
            audio/AudioGenerator.h \
            audio/ClipMixer.h \
            audio/ContinuousSynth.h \
@@ -15,7 +15,7 @@ SVAPP_HEADERS += \
 
 SVAPP_SOURCES += \
            audio/AudioCallbackPlaySource.cpp \
-           audio/AudioRecordTarget.cpp \
+           audio/AudioCallbackRecordTarget.cpp \
            audio/AudioGenerator.cpp \
            audio/ClipMixer.cpp \
            audio/ContinuousSynth.cpp \

@@ -12,29 +12,34 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef AUDIO_RECORD_TARGET_H
-#define AUDIO_RECORD_TARGET_H
+#ifndef SV_AUDIO_CALLBACK_RECORD_TARGET_H
+#define SV_AUDIO_CALLBACK_RECORD_TARGET_H
+
+#include "base/AudioRecordTarget.h"
 
 #include <bqaudioio/ApplicationRecordTarget.h>
 
 #include <string>
+#include <atomic>
 
 #include <QObject>
 #include <QMutex>
 
 #include "base/BaseTypes.h"
+#include "base/RingBuffer.h"
 
 class ViewManagerBase;
 class WritableWaveFileModel;
 
-class AudioRecordTarget : public QObject,
-			  public breakfastquay::ApplicationRecordTarget
+class AudioCallbackRecordTarget : public QObject,
+                                  public AudioRecordTarget,
+                                  public breakfastquay::ApplicationRecordTarget
 {
     Q_OBJECT
 
 public:
-    AudioRecordTarget(ViewManagerBase *, QString clientName);
-    virtual ~AudioRecordTarget();
+    AudioCallbackRecordTarget(ViewManagerBase *, QString clientName);
+    virtual ~AudioCallbackRecordTarget();
 
     virtual std::string getClientName() const override { return m_clientName; }
     
@@ -55,8 +60,12 @@ public:
     QString getRecordContainerFolder();
     QString getRecordFolder();
     
-    bool isRecording() const { return m_recording; }
-    WritableWaveFileModel *startRecording(); // caller takes ownership
+    virtual bool isRecording() const override { return m_recording; }
+    virtual sv_frame_t getRecordDuration() const override { return m_frameCount; }
+
+    virtual bool getInputLevels(float &left, float &right) override;
+
+    WritableWaveFileModel *startRecording(); // caller takes ownership of model
     void stopRecording();
 
 signals:
@@ -66,17 +75,24 @@ signals:
 
 protected slots:
     void modelAboutToBeDeleted();
+    void updateModel();
     
 private:
     ViewManagerBase *m_viewManager;
     std::string m_clientName;
-    bool m_recording;
+    std::atomic_bool m_recording;
     sv_samplerate_t m_recordSampleRate;
     int m_recordChannelCount;
     sv_frame_t m_frameCount;
     QString m_audioFileName;
     WritableWaveFileModel *m_model;
-    QMutex m_mutex;
+    RingBuffer<float> **m_buffers;
+    QMutex m_bufPtrMutex;
+    int m_bufferCount;
+    float m_inputLeft;
+    float m_inputRight;
+
+    void recreateBuffers();
 };
 
 #endif

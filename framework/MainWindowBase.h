@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _MAIN_WINDOW_BASE_H_
-#define _MAIN_WINDOW_BASE_H_
+#ifndef SV_MAIN_WINDOW_BASE_H
+#define SV_MAIN_WINDOW_BASE_H
 
 #include <QFrame>
 #include <QString>
@@ -46,7 +46,7 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
-class AudioRecordTarget;
+class AudioCallbackRecordTarget;
 class CommandHistory;
 class QMenu;
 class AudioDial;
@@ -248,6 +248,8 @@ protected slots:
     virtual void playSelectionToggled();
     virtual void playSoloToggled();
 
+    virtual void audioChannelCountIncreased(int count);
+
     virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
     virtual void audioTimeStretchMultiChannelDisabled() = 0;
@@ -256,7 +258,7 @@ protected slots:
     virtual void globalCentreFrameChanged(sv_frame_t);
     virtual void viewCentreFrameChanged(View *, sv_frame_t);
     virtual void viewZoomLevelChanged(View *, int, bool);
-    virtual void outputLevelsChanged(float, float) = 0;
+    virtual void monitoringLevelsChanged(float, float) = 0;
     virtual void recordDurationChanged(sv_frame_t, sv_samplerate_t);
 
     virtual void currentPaneChanged(Pane *);
@@ -346,7 +348,7 @@ protected:
     SoundOptions             m_soundOptions;
 
     AudioCallbackPlaySource *m_playSource;
-    AudioRecordTarget       *m_recordTarget;
+    AudioCallbackRecordTarget *m_recordTarget;
     breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
     breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
@@ -386,7 +388,7 @@ protected:
     RealTime                 m_defaultFfwdRwdStep;
 
     AudioRecordMode          m_audioRecordMode;
-
+    
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 

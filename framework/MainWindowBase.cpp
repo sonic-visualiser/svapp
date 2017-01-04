@@ -48,7 +48,7 @@
 #include "widgets/InteractiveFileFinder.h"
 
 #include "audio/AudioCallbackPlaySource.h"
-#include "audio/AudioRecordTarget.h"
+#include "audio/AudioCallbackRecordTarget.h"
 #include "audio/PlaySpeedRangeMapper.h"
 
 #include "data/fileio/DataFileReaderFactory.h"
@@ -230,27 +230,30 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
             this, SLOT(paneDropAccepted(Pane *, QString)));
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
+    
+    m_playSource = new AudioCallbackPlaySource
+        (m_viewManager, QApplication::applicationName());
 
-    m_playSource = new AudioCallbackPlaySource(m_viewManager,
-                                               QApplication::applicationName());
     if (m_soundOptions & WithAudioInput) {
-        m_recordTarget = new AudioRecordTarget(m_viewManager,
-                                               QApplication::applicationName());
-        connect(m_recordTarget, SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
-                this, SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
+        m_recordTarget = new AudioCallbackRecordTarget
+            (m_viewManager, QApplication::applicationName());
+        connect(m_recordTarget,
+                SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
+                this,
+                SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
     }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
 	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
-    connect(m_playSource, SIGNAL(channelCountIncreased()),
-            this,           SLOT(recreateAudioIO()));
+    connect(m_playSource, SIGNAL(channelCountIncreased(int)),
+            this,           SLOT(audioChannelCountIncreased(int)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
             this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
-    connect(m_viewManager, SIGNAL(outputLevelsChanged(float, float)),
-	    this, SLOT(outputLevelsChanged(float, float)));
+    connect(m_viewManager, SIGNAL(monitoringLevelsChanged(float, float)),
+	    this, SLOT(monitoringLevelsChanged(float, float)));
 
     connect(m_viewManager, SIGNAL(playbackFrameChanged(sv_frame_t)),
             this, SLOT(playbackFrameChanged(sv_frame_t)));
@@ -480,7 +483,7 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        cerr << "Finished setting up OSC interface" << endl;
+        SVCERR << "Finished setting up OSC interface" << endl;
     }
 }
 
@@ -2343,17 +2346,21 @@ MainWindowBase::createAudioIO()
         m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
         m_playSource->setResamplerWrapper(m_resamplerWrapper);
     }
+
+    std::string errorString;
     
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
-            createCallbackIO(m_recordTarget, m_resamplerWrapper, preference);
+            createCallbackIO(m_recordTarget, m_resamplerWrapper,
+                             preference, errorString);
         if (m_audioIO) {
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         }
     } else {
         m_playTarget = breakfastquay::AudioFactory::
-            createCallbackPlayTarget(m_resamplerWrapper, preference);
+            createCallbackPlayTarget(m_resamplerWrapper,
+                                     preference, errorString);
         if (m_playTarget) {
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);
@@ -2362,20 +2369,39 @@ MainWindowBase::createAudioIO()
 
     if (!m_playTarget && !m_audioIO) {
         emit hideSplash();
+        QString message;
+        QString error = errorString.c_str();
+        QString firstBit, secondBit;
         if (implementation == "") {
-            QMessageBox::warning
-	    (this, tr("Couldn't open audio device"),
-	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
-	     QMessageBox::Ok);
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Could not open an audio device.</p>");
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Could not open audio device: %1</p>").arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>");
+            }
         } else {
-            QMessageBox::warning
-                (this, tr("Couldn't open audio device"),
-                 tr("<b>No audio available</b><p>Failed to open your preferred audio device (\"%1\").<p>Audio playback will not be available during this session.</p>")
-                 .arg(breakfastquay::AudioFactory::
-                      getImplementationDescription(implementation.toStdString())
-                      .c_str()),
-                 QMessageBox::Ok);
+            QString driverName = breakfastquay::AudioFactory::
+                getImplementationDescription(implementation.toStdString())
+                .c_str();
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\").</p>").arg(driverName);
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\"): %2.</p>").arg(driverName).arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Audio playback will not be available during this session.</p>");
+            }
         }
+        SVDEBUG << "createAudioIO: ERROR: Failed to open audio device \""
+                << implementation << "\": error is: " << error << endl;
+        QMessageBox::warning(this, tr("Couldn't open audio device"),
+                             firstBit + secondBit, QMessageBox::Ok);
     }
 }
 
@@ -2408,6 +2434,12 @@ MainWindowBase::recreateAudioIO()
 {
     deleteAudioIO();
     createAudioIO();
+}
+
+void
+MainWindowBase::audioChannelCountIncreased(int)
+{
+    recreateAudioIO();
 }
 
 WaveFileModel *
@@ -2886,11 +2918,12 @@ MainWindowBase::record()
     }
 
     if (!m_audioIO) {
+        cerr << "MainWindowBase::record: about to create audio IO" << endl;
         createAudioIO();
     }
 
     if (!m_audioIO) {
-        //!!! report
+        // don't need to report this, createAudioIO already should have
         return;
     }
     
@@ -2910,6 +2943,7 @@ MainWindowBase::record()
 
     if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
     
+    cerr << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();
