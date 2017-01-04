@@ -158,6 +158,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
     m_audioRecordMode(RecordCreateAdditionalModel),
+    m_audioRecordUpdateTimer(this),
     m_statusLabel(0),
     m_iconsVisibleInMenus(true),
     m_menuShortcutMapper(0)
@@ -231,6 +232,9 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
 
+    connect(&m_audioRecordUpdateTimer, SIGNAL(timeout()),
+            m_paneStack, SLOT(update()));
+    
     m_playSource = new AudioCallbackPlaySource(m_viewManager,
                                                QApplication::applicationName());
     if (m_soundOptions & WithAudioInput) {
@@ -480,7 +484,7 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        cerr << "Finished setting up OSC interface" << endl;
+        SVCERR << "Finished setting up OSC interface" << endl;
     }
 }
 
@@ -3014,6 +3018,8 @@ MainWindowBase::record()
     currentPaneChanged(m_paneStack->getCurrentPane());
 
     emit audioFileLoaded();
+
+    m_audioRecordUpdateTimer.start(1000);
 }
 
 void
@@ -3262,6 +3268,8 @@ MainWindowBase::stop()
         m_myStatusMessage = "";
         getStatusLabel()->setText("");
     }
+
+    m_audioRecordUpdateTimer.stop();
 }
 
 MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw) :

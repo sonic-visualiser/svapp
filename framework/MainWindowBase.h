@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _MAIN_WINDOW_BASE_H_
-#define _MAIN_WINDOW_BASE_H_
+#ifndef SV_MAIN_WINDOW_BASE_H
+#define SV_MAIN_WINDOW_BASE_H
 
 #include <QFrame>
 #include <QString>
@@ -22,6 +22,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QThread>
+#include <QTimer>
 
 #include "base/Command.h"
 #include "view/ViewManager.h"
@@ -388,7 +389,8 @@ protected:
     RealTime                 m_defaultFfwdRwdStep;
 
     AudioRecordMode          m_audioRecordMode;
-
+    QTimer                   m_audioRecordUpdateTimer;
+    
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 
