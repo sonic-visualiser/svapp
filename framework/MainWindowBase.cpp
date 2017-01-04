@@ -48,7 +48,7 @@
 #include "widgets/InteractiveFileFinder.h"
 
 #include "audio/AudioCallbackPlaySource.h"
-#include "audio/AudioRecordTarget.h"
+#include "audio/AudioCallbackRecordTarget.h"
 #include "audio/PlaySpeedRangeMapper.h"
 
 #include "data/fileio/DataFileReaderFactory.h"
@@ -231,11 +231,12 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
     
-    m_playSource = new AudioCallbackPlaySource(m_viewManager,
-                                               QApplication::applicationName());
+    m_playSource = new AudioCallbackPlaySource
+        (m_viewManager, QApplication::applicationName());
+
     if (m_soundOptions & WithAudioInput) {
-        m_recordTarget = new AudioRecordTarget(m_viewManager,
-                                               QApplication::applicationName());
+        m_recordTarget = new AudioCallbackRecordTarget
+            (m_viewManager, QApplication::applicationName());
         connect(m_recordTarget,
                 SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
                 this,
@@ -251,8 +252,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
             this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
-    connect(m_viewManager, SIGNAL(outputLevelsChanged(float, float)),
-	    this, SLOT(outputLevelsChanged(float, float)));
+    connect(m_viewManager, SIGNAL(monitoringLevelsChanged(float, float)),
+	    this, SLOT(monitoringLevelsChanged(float, float)));
 
     connect(m_viewManager, SIGNAL(playbackFrameChanged(sv_frame_t)),
             this, SLOT(playbackFrameChanged(sv_frame_t)));

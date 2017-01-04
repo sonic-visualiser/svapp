@@ -46,7 +46,7 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
-class AudioRecordTarget;
+class AudioCallbackRecordTarget;
 class CommandHistory;
 class QMenu;
 class AudioDial;
@@ -258,7 +258,7 @@ protected slots:
     virtual void globalCentreFrameChanged(sv_frame_t);
     virtual void viewCentreFrameChanged(View *, sv_frame_t);
     virtual void viewZoomLevelChanged(View *, int, bool);
-    virtual void outputLevelsChanged(float, float) = 0;
+    virtual void monitoringLevelsChanged(float, float) = 0;
     virtual void recordDurationChanged(sv_frame_t, sv_samplerate_t);
 
     virtual void currentPaneChanged(Pane *);
@@ -348,7 +348,7 @@ protected:
     SoundOptions             m_soundOptions;
 
     AudioCallbackPlaySource *m_playSource;
-    AudioRecordTarget       *m_recordTarget;
+    AudioCallbackRecordTarget *m_recordTarget;
     breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
     breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists

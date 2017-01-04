@@ -965,8 +965,8 @@ AudioCallbackPlaySource::rebuildRangeLists()
 void
 AudioCallbackPlaySource::setOutputLevels(float left, float right)
 {
-    m_outputLeft = left;
-    m_outputRight = right;
+    if (left > m_outputLeft) m_outputLeft = left;
+    if (right > m_outputRight) m_outputRight = right;
 }
 
 bool
@@ -974,6 +974,8 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 {
     left = m_outputLeft;
     right = m_outputRight;
+    m_outputLeft = 0.f;
+    m_outputRight = 0.f;
     return true;
 }
 

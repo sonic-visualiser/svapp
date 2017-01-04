@@ -12,7 +12,7 @@
     COPYING included with this distribution for more information.
 */
 
-#include "AudioRecordTarget.h"
+#include "AudioCallbackRecordTarget.h"
 
 #include "base/ViewManagerBase.h"
 #include "base/TempDirectory.h"
@@ -21,59 +21,66 @@
 
 #include <QDir>
 
-AudioRecordTarget::AudioRecordTarget(ViewManagerBase *manager,
-				     QString clientName) :
+AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
+                                                     QString clientName) :
     m_viewManager(manager),
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
     m_recordChannelCount(2),
     m_frameCount(0),
-    m_model(0)
+    m_model(0),
+    m_inputLeft(0.f),
+    m_inputRight(0.f)
 {
+    m_viewManager->setAudioRecordTarget(this);
+
+    connect(this, SIGNAL(recordStatusChanged(bool)),
+            m_viewManager, SLOT(recordStatusChanged(bool)));
 }
 
-AudioRecordTarget::~AudioRecordTarget()
+AudioCallbackRecordTarget::~AudioCallbackRecordTarget()
 {
     QMutexLocker locker(&m_mutex);
+    m_viewManager->setAudioRecordTarget(0);
 }
 
 int
-AudioRecordTarget::getApplicationSampleRate() const
+AudioCallbackRecordTarget::getApplicationSampleRate() const
 {
     return 0; // don't care
 }
 
 int
-AudioRecordTarget::getApplicationChannelCount() const
+AudioCallbackRecordTarget::getApplicationChannelCount() const
 {
     return m_recordChannelCount;
 }
 
 void
-AudioRecordTarget::setSystemRecordBlockSize(int)
+AudioCallbackRecordTarget::setSystemRecordBlockSize(int)
 {
 }
 
 void
-AudioRecordTarget::setSystemRecordSampleRate(int n)
+AudioCallbackRecordTarget::setSystemRecordSampleRate(int n)
 {
     m_recordSampleRate = n;
 }
 
 void
-AudioRecordTarget::setSystemRecordLatency(int)
+AudioCallbackRecordTarget::setSystemRecordLatency(int)
 {
 }
 
 void
-AudioRecordTarget::setSystemRecordChannelCount(int c)
+AudioCallbackRecordTarget::setSystemRecordChannelCount(int c)
 {
     m_recordChannelCount = c;
 }
 
 void
-AudioRecordTarget::putSamples(const float *const *samples, int, int nframes)
+AudioCallbackRecordTarget::putSamples(const float *const *samples, int, int nframes)
 {
     bool secChanged = false;
     sv_frame_t frameToEmit = 0;
@@ -105,14 +112,24 @@ AudioRecordTarget::putSamples(const float *const *samples, int, int nframes)
 }
 
 void
-AudioRecordTarget::setInputLevels(float left, float right)
+AudioCallbackRecordTarget::setInputLevels(float left, float right)
 {
-    cerr << "AudioRecordTarget::setInputLevels(" << left << "," << right << ")"
-         << endl;
+    if (left > m_inputLeft) m_inputLeft = left;
+    if (right > m_inputRight) m_inputRight = right;
+}
+
+bool
+AudioCallbackRecordTarget::getInputLevels(float &left, float &right)
+{
+    left = m_inputLeft;
+    right = m_inputRight;
+    m_inputLeft = 0.f;
+    m_inputRight = 0.f;
+    return true;
 }
 
 void
-AudioRecordTarget::modelAboutToBeDeleted()
+AudioCallbackRecordTarget::modelAboutToBeDeleted()
 {
     QMutexLocker locker(&m_mutex);
     if (sender() == m_model) {
@@ -122,13 +139,13 @@ AudioRecordTarget::modelAboutToBeDeleted()
 }
 
 QString
-AudioRecordTarget::getRecordContainerFolder()
+AudioCallbackRecordTarget::getRecordContainerFolder()
 {
     QDir parent(TempDirectory::getInstance()->getContainingPath());
     QString subdirname("recorded");
 
     if (!parent.mkpath(subdirname)) {
-        SVCERR << "ERROR: AudioRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        SVCERR << "ERROR: AudioCallbackRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
         return "";
     } else {
         return parent.filePath(subdirname);
@@ -136,14 +153,14 @@ AudioRecordTarget::getRecordContainerFolder()
 }
 
 QString
-AudioRecordTarget::getRecordFolder()
+AudioCallbackRecordTarget::getRecordFolder()
 {
     QDir parent(getRecordContainerFolder());
     QDateTime now = QDateTime::currentDateTime();
     QString subdirname = QString("%1").arg(now.toString("yyyyMMdd"));
 
     if (!parent.mkpath(subdirname)) {
-        SVCERR << "ERROR: AudioRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
+        SVCERR << "ERROR: AudioCallbackRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
         return "";
     } else {
         return parent.filePath(subdirname);
@@ -151,13 +168,13 @@ AudioRecordTarget::getRecordFolder()
 }
 
 WritableWaveFileModel *
-AudioRecordTarget::startRecording()
+AudioCallbackRecordTarget::startRecording()
 {
     {
         QMutexLocker locker(&m_mutex);
     
         if (m_recording) {
-            SVCERR << "WARNING: AudioRecordTarget::startRecording: We are already recording" << endl;
+            SVCERR << "WARNING: AudioCallbackRecordTarget::startRecording: We are already recording" << endl;
             return 0;
         }
 
@@ -184,7 +201,7 @@ AudioRecordTarget::startRecording()
                                             m_audioFileName);
 
         if (!m_model->isOK()) {
-            SVCERR << "ERROR: AudioRecordTarget::startRecording: Recording failed"
+            SVCERR << "ERROR: AudioCallbackRecordTarget::startRecording: Recording failed"
                    << endl;
             //!!! and throw?
             delete m_model;
@@ -201,12 +218,12 @@ AudioRecordTarget::startRecording()
 }
 
 void
-AudioRecordTarget::stopRecording()
+AudioCallbackRecordTarget::stopRecording()
 {
     {
         QMutexLocker locker(&m_mutex);
         if (!m_recording) {
-            SVCERR << "WARNING: AudioRecordTarget::startRecording: Not recording" << endl;
+            SVCERR << "WARNING: AudioCallbackRecordTarget::startRecording: Not recording" << endl;
             return;
         }
 
