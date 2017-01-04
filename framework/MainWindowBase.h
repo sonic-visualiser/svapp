@@ -22,7 +22,6 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QThread>
-#include <QTimer>
 
 #include "base/Command.h"
 #include "view/ViewManager.h"
@@ -389,7 +388,6 @@ protected:
     RealTime                 m_defaultFfwdRwdStep;
 
     AudioRecordMode          m_audioRecordMode;
-    QTimer                   m_audioRecordUpdateTimer;
     
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;

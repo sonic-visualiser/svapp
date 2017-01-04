@@ -158,7 +158,6 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
     m_audioRecordMode(RecordCreateAdditionalModel),
-    m_audioRecordUpdateTimer(this),
     m_statusLabel(0),
     m_iconsVisibleInMenus(true),
     m_menuShortcutMapper(0)
@@ -231,17 +230,16 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
             this, SLOT(paneDropAccepted(Pane *, QString)));
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
-
-    connect(&m_audioRecordUpdateTimer, SIGNAL(timeout()),
-            m_paneStack, SLOT(update()));
     
     m_playSource = new AudioCallbackPlaySource(m_viewManager,
                                                QApplication::applicationName());
     if (m_soundOptions & WithAudioInput) {
         m_recordTarget = new AudioRecordTarget(m_viewManager,
                                                QApplication::applicationName());
-        connect(m_recordTarget, SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
-                this, SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
+        connect(m_recordTarget,
+                SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
+                this,
+                SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
     }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
@@ -3018,8 +3016,6 @@ MainWindowBase::record()
     currentPaneChanged(m_paneStack->getCurrentPane());
 
     emit audioFileLoaded();
-
-    m_audioRecordUpdateTimer.start(1000);
 }
 
 void
@@ -3268,8 +3264,6 @@ MainWindowBase::stop()
         m_myStatusMessage = "";
         getStatusLabel()->setText("");
     }
-
-    m_audioRecordUpdateTimer.stop();
 }
 
 MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw) :
