@@ -93,7 +93,10 @@ AudioRecordTarget::putSamples(const float *const *samples, int, int nframes)
             (m_frameCount, m_recordSampleRate);
 
         secChanged = (postRT.sec > priorRT.sec);
-        if (secChanged) frameToEmit = m_frameCount;
+        if (secChanged) {
+            m_model->updateModel(); //!!! v bad here
+            frameToEmit = m_frameCount;
+        }
     }
 
     if (secChanged) {
