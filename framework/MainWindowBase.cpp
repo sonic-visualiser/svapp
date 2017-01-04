@@ -1376,6 +1376,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
+        SVDEBUG << "(Default template is: \"" << templateName << "\")" << endl;
     }
 
 //    cerr << "template is: \"" << templateName << "\"" << endl;
@@ -1496,11 +1497,11 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
-                cerr << "Template load cancelled" << endl;
+                SVDEBUG << "Template load cancelled" << endl;
                 return FileOpenCancelled;
             }
             if (tplStatus != FileOpenFailed) {
-                cerr << "Template load succeeded" << endl;
+                SVDEBUG << "Template load succeeded" << endl;
                 loadedTemplate = true;
             }
         }
@@ -1555,6 +1556,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     } else if (mode == CreateAdditionalModel) {
 
+        SVCERR << "Mode is CreateAdditionalModel" << endl;
+        
 	CommandHistory::getInstance()->startCompoundOperation
 	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
@@ -1566,7 +1569,10 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 	Pane *pane = command->getPane();
 
         if (m_timeRulerLayer) {
+            SVCERR << "Have time ruler, adding it" << endl;
             m_document->addLayerToView(pane, m_timeRulerLayer);
+        } else {
+            SVCERR << "Do not have time ruler" << endl;
         }
 
 	Layer *newLayer = m_document->createImportedLayer(newModel);
@@ -2010,6 +2016,7 @@ MainWindowBase::openSession(FileSource source)
 	if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
 
 	setupMenus();
+        findTimeRulerLayer();
 
 	CommandHistory::getInstance()->clear();
 	CommandHistory::getInstance()->documentSaved();
@@ -2102,6 +2109,7 @@ MainWindowBase::openSessionTemplate(FileSource source)
         emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
 
 	setupMenus();
+        findTimeRulerLayer();
 
 	CommandHistory::getInstance()->clear();
 	CommandHistory::getInstance()->documentSaved();
@@ -2132,6 +2140,7 @@ MainWindowBase::openSessionFromRDF(FileSource source)
     FileOpenStatus status = openLayersFromRDF(source);
 
     setupMenus();
+    findTimeRulerLayer();
     
     setWindowTitle(tr("%1: %2")
                    .arg(QApplication::applicationName())
@@ -2694,6 +2703,26 @@ MainWindowBase::showAllOverlays()
 }
 
 void
+MainWindowBase::findTimeRulerLayer()
+{
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        Pane *pane = m_paneStack->getPane(i);
+        if (!pane) continue;
+        for (int j = 0; j < pane->getLayerCount(); ++j) {
+            Layer *layer = pane->getLayer(j);
+            if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+            m_timeRulerLayer = layer;
+            return;
+        }
+    }
+    if (m_timeRulerLayer) {
+        SVCERR << "WARNING: Time ruler layer was not reset to 0 before session template loaded?" << endl;
+        delete m_timeRulerLayer;
+        m_timeRulerLayer = 0;
+    }
+}
+
+void
 MainWindowBase::toggleTimeRulers()
 {
     bool haveRulers = false;
@@ -2933,6 +2962,7 @@ MainWindowBase::record()
         
         m_document->setMainModel(model);
         setupMenus();
+        findTimeRulerLayer();
 
 	if (loadedTemplate || (m_sessionFile == "")) {
             //!!! shouldn't be dealing directly with title from here -- call a method

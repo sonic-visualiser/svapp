@@ -466,6 +466,8 @@ protected:
     virtual QString getDefaultSessionTemplate() const;
     virtual void setDefaultSessionTemplate(QString);
 
+    virtual void findTimeRulerLayer();
+    
     virtual void createAudioIO();
     virtual void deleteAudioIO();
     
