@@ -2334,17 +2334,21 @@ MainWindowBase::createAudioIO()
         m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
         m_playSource->setResamplerWrapper(m_resamplerWrapper);
     }
+
+    std::string errorString;
     
     if (m_soundOptions & WithAudioInput) {
         m_audioIO = breakfastquay::AudioFactory::
-            createCallbackIO(m_recordTarget, m_resamplerWrapper, preference);
+            createCallbackIO(m_recordTarget, m_resamplerWrapper,
+                             preference, errorString);
         if (m_audioIO) {
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         }
     } else {
         m_playTarget = breakfastquay::AudioFactory::
-            createCallbackPlayTarget(m_resamplerWrapper, preference);
+            createCallbackPlayTarget(m_resamplerWrapper,
+                                     preference, errorString);
         if (m_playTarget) {
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);
@@ -2353,20 +2357,37 @@ MainWindowBase::createAudioIO()
 
     if (!m_playTarget && !m_audioIO) {
         emit hideSplash();
+        QString message;
+        QString error = errorString.c_str();
+        QString firstBit, secondBit;
         if (implementation == "") {
-            QMessageBox::warning
-	    (this, tr("Couldn't open audio device"),
-	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
-	     QMessageBox::Ok);
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Could not open an audio device.</p>");
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Could not open audio device: %1</p>").arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>");
+            }
         } else {
-            QMessageBox::warning
-                (this, tr("Couldn't open audio device"),
-                 tr("<b>No audio available</b><p>Failed to open your preferred audio device (\"%1\").<p>Audio playback will not be available during this session.</p>")
-                 .arg(breakfastquay::AudioFactory::
-                      getImplementationDescription(implementation.toStdString())
-                      .c_str()),
-                 QMessageBox::Ok);
+            QString driverName = breakfastquay::AudioFactory::
+                getImplementationDescription(implementation.toStdString())
+                .c_str();
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\").</p>").arg(driverName);
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\"): %2.</p>").arg(driverName).arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Audio playback will not be available during this session.</p>");
+            }
         }
+        QMessageBox::warning(this, tr("Couldn't open audio device"),
+                             firstBit + secondBit, QMessageBox::Ok);
     }
 }
 
