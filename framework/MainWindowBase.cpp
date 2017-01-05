@@ -1331,43 +1331,52 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         }
     }
 
-    if (rdf) {
-        if (rdfSession) {
-            bool cancel = false;
-            if (!canImportLayer || shouldCreateNewSessionForRDFAudio(&cancel)) {
-                return openSession(source);
-            } else if (cancel) {
-                return FileOpenCancelled;
+    try {
+        if (rdf) {
+            if (rdfSession) {
+                bool cancel = false;
+                if (!canImportLayer || shouldCreateNewSessionForRDFAudio(&cancel)) {
+                    return openSession(source);
+                } else if (cancel) {
+                    return FileOpenCancelled;
+                } else {
+                    return openLayer(source);
+                }
             } else {
-                return openLayer(source);
-            }
-        } else {
-            if ((status = openSession(source)) != FileOpenFailed) {
-                return status;
-            } else if (!canImportLayer) {
-                return FileOpenWrongMode;
-            } else if ((status = openLayer(source)) != FileOpenFailed) {
-                return status;
-            } else {
-                return FileOpenFailed;
+                if ((status = openSession(source)) != FileOpenFailed) {
+                    return status;
+                } else if (!canImportLayer) {
+                    return FileOpenWrongMode;
+                } else if ((status = openLayer(source)) != FileOpenFailed) {
+                    return status;
+                } else {
+                    return FileOpenFailed;
+                }
             }
         }
-    }
 
-    if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
-        return status;
-    } else if ((status = openSession(source)) != FileOpenFailed) {
-	return status;
-    } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
-        return status;
-    } else if (!canImportLayer) {
-        return FileOpenWrongMode;
-    } else if ((status = openImage(source)) != FileOpenFailed) {
-        return status;
-    } else if ((status = openLayer(source)) != FileOpenFailed) {
-        return status;
-    } else {
-	return FileOpenFailed;
+        if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openSession(source)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
+            return status;
+        } else if (!canImportLayer) {
+            return FileOpenWrongMode;
+        } else if ((status = openImage(source)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openLayer(source)) != FileOpenFailed) {
+            return status;
+        } else {
+            return FileOpenFailed;
+        }
+    } catch (const InsufficientDiscSpace &e) {
+        emit hideSplash();
+        m_openingAudioFile = false;
+        QMessageBox::critical
+            (this, tr("Not enough disc space"),
+             tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
+        return FileOpenFailed;
     }
 }
 
