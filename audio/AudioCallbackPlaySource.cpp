@@ -72,6 +72,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_ringBufferSize(DEFAULT_RING_BUFFER_SIZE),
     m_outputLeft(0.0),
     m_outputRight(0.0),
+    m_levelsSet(false),
     m_auditioningPlugin(0),
     m_auditioningPluginBypassed(false),
     m_playStartFrame(0),
@@ -967,6 +968,7 @@ AudioCallbackPlaySource::setOutputLevels(float left, float right)
 {
     if (left > m_outputLeft) m_outputLeft = left;
     if (right > m_outputRight) m_outputRight = right;
+    m_levelsSet = true;
 }
 
 bool
@@ -974,9 +976,11 @@ AudioCallbackPlaySource::getOutputLevels(float &left, float &right)
 {
     left = m_outputLeft;
     right = m_outputRight;
+    bool valid = m_levelsSet;
     m_outputLeft = 0.f;
     m_outputRight = 0.f;
-    return true;
+    m_levelsSet = false;
+    return valid;
 }
 
 void

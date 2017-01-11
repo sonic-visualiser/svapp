@@ -188,8 +188,15 @@ public:
     virtual void setOutputLevels(float left, float right) override;
 
     /**
-     * Return the current (or thereabouts) output levels in the range
-     * 0.0 -> 1.0, for metering purposes.
+     * Return the current output levels in the range 0.0 -> 1.0, for
+     * metering purposes. The values returned are the peak values
+     * since the last time this function was called (after which they
+     * are reset to zero until setOutputLevels is called again by the
+     * driver).
+     *
+     * Return true if the values have been set since this function was
+     * last called (i.e. if they are meaningful). Return false if they
+     * have not been set (in which case both will be zero).
      */
     virtual bool getOutputLevels(float &left, float &right) override;
 
@@ -360,6 +367,7 @@ protected:
     int                               m_ringBufferSize;
     float                             m_outputLeft;
     float                             m_outputRight;
+    bool                              m_levelsSet;
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;

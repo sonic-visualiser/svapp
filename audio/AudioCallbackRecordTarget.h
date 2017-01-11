@@ -63,7 +63,18 @@ public:
     virtual bool isRecording() const override { return m_recording; }
     virtual sv_frame_t getRecordDuration() const override { return m_frameCount; }
 
-    virtual bool getInputLevels(float &left, float &right) override;
+    /**
+     * Return the current input levels in the range 0.0 -> 1.0, for
+     * metering purposes. The values returned are the peak values
+     * since the last time this function was called (after which they
+     * are reset to zero until setInputLevels is called again by the
+     * driver).
+     *
+     * Return true if the values have been set since this function was
+     * last called (i.e. if they are meaningful). Return false if they
+     * have not been set (in which case both will be zero).
+     */
+     virtual bool getInputLevels(float &left, float &right) override;
 
     WritableWaveFileModel *startRecording(); // caller takes ownership of model
     void stopRecording();
@@ -91,6 +102,7 @@ private:
     int m_bufferCount;
     float m_inputLeft;
     float m_inputRight;
+    bool m_levelsSet;
 
     void recreateBuffers();
 };

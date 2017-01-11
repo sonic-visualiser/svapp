@@ -34,7 +34,8 @@ AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
     m_buffers(0),
     m_bufferCount(0),
     m_inputLeft(0.f),
-    m_inputRight(0.f)
+    m_inputRight(0.f),
+    m_levelsSet(false)
 {
     m_viewManager->setAudioRecordTarget(this);
 
@@ -193,6 +194,7 @@ AudioCallbackRecordTarget::setInputLevels(float left, float right)
 {
     if (left > m_inputLeft) m_inputLeft = left;
     if (right > m_inputRight) m_inputRight = right;
+    m_levelsSet = true;
 }
 
 bool
@@ -202,7 +204,7 @@ AudioCallbackRecordTarget::getInputLevels(float &left, float &right)
     right = m_inputRight;
     m_inputLeft = 0.f;
     m_inputRight = 0.f;
-    return true;
+    return m_levelsSet;
 }
 
 void
