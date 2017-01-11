@@ -202,9 +202,11 @@ AudioCallbackRecordTarget::getInputLevels(float &left, float &right)
 {
     left = m_inputLeft;
     right = m_inputRight;
+    bool valid = m_levelsSet;
     m_inputLeft = 0.f;
     m_inputRight = 0.f;
-    return m_levelsSet;
+    m_levelsSet = false;
+    return valid;
 }
 
 void
