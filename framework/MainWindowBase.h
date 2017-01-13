@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _MAIN_WINDOW_BASE_H_
-#define _MAIN_WINDOW_BASE_H_
+#ifndef SV_MAIN_WINDOW_BASE_H
+#define SV_MAIN_WINDOW_BASE_H
 
 #include <QFrame>
 #include <QString>
@@ -46,10 +46,12 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
-class AudioCallbackPlayTarget;
+class AudioCallbackRecordTarget;
 class CommandHistory;
 class QMenu;
 class AudioDial;
+class LevelPanWidget;
+class LevelPanToolButton;
 class QLabel;
 class QCheckBox;
 class PreferencesDialog;
@@ -62,6 +64,13 @@ class Labeller;
 class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
+class AlignmentModel;
+
+namespace breakfastquay {
+    class SystemPlaybackTarget;
+    class SystemAudioIO;
+    class ResamplerWrapper;
+}
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -77,7 +86,16 @@ class MainWindowBase : public QMainWindow, public FrameTimer
     Q_OBJECT
 
 public:
-    MainWindowBase(bool withAudioOutput, bool withMIDIInput);
+    enum SoundOption {
+        WithAudioOutput = 0x01,
+        WithAudioInput  = 0x02,
+        WithMIDIInput   = 0x04,
+        WithEverything  = 0xff,
+        WithNothing     = 0x00
+    };
+    typedef int SoundOptions;
+    
+    MainWindowBase(SoundOptions options = WithEverything);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
@@ -95,6 +113,11 @@ public:
         FileOpenWrongMode // attempted to open layer when no main model present
     };
 
+    enum AudioRecordMode {
+        RecordReplaceSession,
+        RecordCreateAdditionalModel
+    };
+    
     virtual FileOpenStatus open(FileSource source, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openPath(QString fileOrUrl, AudioFileOpenMode = AskUser);
     virtual FileOpenStatus openAudio(FileSource source, AudioFileOpenMode = AskUser, QString templateName = "");
@@ -102,6 +125,8 @@ public:
     virtual FileOpenStatus openLayer(FileSource source);
     virtual FileOpenStatus openImage(FileSource source);
 
+    virtual FileOpenStatus openDirOfAudio(QString dirPath);
+    
     virtual FileOpenStatus openSession(FileSource source);
     virtual FileOpenStatus openSessionPath(QString fileOrUrl);
     virtual FileOpenStatus openSessionTemplate(QString templateName);
@@ -117,6 +142,10 @@ public:
         m_defaultFfwdRwdStep = step;
     }
 
+    void setAudioRecordMode(AudioRecordMode mode) {
+        m_audioRecordMode = mode;
+    }
+    
 signals:
     // Used to toggle the availability of menu actions
     void canAddPane(bool);
@@ -142,10 +171,13 @@ signals:
     void canInsertInstantsAtBoundaries(bool);
     void canInsertItemAtSelection(bool);
     void canRenumberInstants(bool);
+    void canSubdivideInstants(bool);
+    void canWinnowInstants(bool);
     void canDeleteCurrentLayer(bool);
     void canZoom(bool);
     void canScroll(bool);
     void canPlay(bool);
+    void canRecord(bool);
     void canFfwd(bool);
     void canRewind(bool);
     void canPlaySelection(bool);
@@ -168,6 +200,7 @@ signals:
 public slots:
     virtual void preferenceChanged(PropertyContainer::PropertyName);
     virtual void resizeConstrained(QSize);
+    virtual void recreateAudioIO();
 
 protected slots:
     virtual void zoomIn();
@@ -196,6 +229,7 @@ protected slots:
     virtual void ffwdEnd();
     virtual void rewind();
     virtual void rewindStart();
+    virtual void record();
     virtual void stop();
 
     virtual void ffwdSimilar();
@@ -214,6 +248,8 @@ protected slots:
     virtual void playSelectionToggled();
     virtual void playSoloToggled();
 
+    virtual void audioChannelCountIncreased(int count);
+
     virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
     virtual void audioTimeStretchMultiChannelDisabled() = 0;
@@ -222,7 +258,8 @@ protected slots:
     virtual void globalCentreFrameChanged(sv_frame_t);
     virtual void viewCentreFrameChanged(View *, sv_frame_t);
     virtual void viewZoomLevelChanged(View *, int, bool);
-    virtual void outputLevelsChanged(float, float) = 0;
+    virtual void monitoringLevelsChanged(float, float) = 0;
+    virtual void recordDurationChanged(sv_frame_t, sv_samplerate_t);
 
     virtual void currentPaneChanged(Pane *);
     virtual void currentLayerChanged(Pane *, Layer *);
@@ -246,6 +283,8 @@ protected slots:
     virtual void insertItemAtSelection();
     virtual void insertItemAt(sv_frame_t, sv_frame_t);
     virtual void renumberInstants();
+    virtual void subdivideInstantsBy(int);
+    virtual void winnowInstantsBy(int);
 
     virtual void documentModified();
     virtual void documentRestored();
@@ -266,7 +305,9 @@ protected slots:
     virtual void modelGenerationWarning(QString, QString) = 0;
     virtual void modelRegenerationFailed(QString, QString, QString) = 0;
     virtual void modelRegenerationWarning(QString, QString, QString) = 0;
-    virtual void alignmentFailed(QString, QString) = 0;
+
+    virtual void alignmentComplete(AlignmentModel *);
+    virtual void alignmentFailed(QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
 
@@ -304,9 +345,13 @@ protected:
     ViewManager             *m_viewManager;
     Layer                   *m_timeRulerLayer;
 
-    bool                     m_audioOutput;
+    SoundOptions             m_soundOptions;
+
     AudioCallbackPlaySource *m_playSource;
-    AudioCallbackPlayTarget *m_playTarget;
+    AudioCallbackRecordTarget *m_recordTarget;
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
+    breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
+    breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
 
     class OSCQueueStarter : public QThread
     {
@@ -342,6 +387,8 @@ protected:
 
     RealTime                 m_defaultFfwdRwdStep;
 
+    AudioRecordMode          m_audioRecordMode;
+    
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 
@@ -421,18 +468,27 @@ protected:
     virtual QString getDefaultSessionTemplate() const;
     virtual void setDefaultSessionTemplate(QString);
 
-    virtual void createPlayTarget();
+    virtual void findTimeRulerLayer();
+    
+    virtual void createAudioIO();
+    virtual void deleteAudioIO();
+    
     virtual void openHelpUrl(QString url);
+    virtual void openLocalFolder(QString path);
 
     virtual void setupMenus() = 0;
     virtual void updateVisibleRangeDisplay(Pane *p) const = 0;
     virtual void updatePositionStatusDisplays() const = 0;
 
     // Call this after setting up the menu bar, to fix up single-key
-    // shortcuts on OS/X
+    // shortcuts on OS/X and do any other platform-specific tidying
     virtual void finaliseMenus();
     virtual void finaliseMenu(QMenu *);
 
+    // Call before finaliseMenus if you wish to have a say in this question
+    void setIconsVisibleInMenus(bool visible) { m_iconsVisibleInMenus = visible; }
+    bool m_iconsVisibleInMenus;
+    
     // Only used on OS/X to work around a Qt/Cocoa bug, see finaliseMenus
     QSignalMapper *m_menuShortcutMapper;
     QList<QShortcut *> m_appShortcuts;

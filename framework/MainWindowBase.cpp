@@ -16,10 +16,10 @@
 #include "MainWindowBase.h"
 #include "Document.h"
 
-
 #include "view/Pane.h"
 #include "view/PaneStack.h"
-#include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
+#include "data/model/WritableWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
 #include "data/model/FlexiNoteModel.h"
@@ -47,10 +47,10 @@
 #include "widgets/ModelDataTableDialog.h"
 #include "widgets/InteractiveFileFinder.h"
 
-#include "audioio/AudioCallbackPlaySource.h"
-#include "audioio/AudioCallbackPlayTarget.h"
-#include "audioio/AudioTargetFactory.h"
-#include "audioio/PlaySpeedRangeMapper.h"
+#include "audio/AudioCallbackPlaySource.h"
+#include "audio/AudioCallbackRecordTarget.h"
+#include "audio/PlaySpeedRangeMapper.h"
+
 #include "data/fileio/DataFileReaderFactory.h"
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
@@ -59,8 +59,6 @@
 #include "data/fileio/FileSource.h"
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
-
-#include "data/fft/FFTDataServer.h"
 
 #include "base/RecentFiles.h"
 
@@ -74,6 +72,11 @@
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
+
+#include <bqaudioio/SystemPlaybackTarget.h>
+#include <bqaudioio/SystemAudioIO.h>
+#include <bqaudioio/AudioFactory.h>
+#include <bqaudioio/ResamplerWrapper.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -131,15 +134,17 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #undef Window
 #endif
 
-MainWindowBase::MainWindowBase(bool withAudioOutput,
-                               bool withMIDIInput) :
+MainWindowBase::MainWindowBase(SoundOptions options) :
     m_document(0),
     m_paneStack(0),
     m_viewManager(0),
     m_timeRulerLayer(0),
-    m_audioOutput(withAudioOutput),
+    m_soundOptions(options),
     m_playSource(0),
+    m_recordTarget(0),
+    m_resamplerWrapper(0),
     m_playTarget(0),
+    m_audioIO(0),
     m_oscQueue(0),
     m_oscQueueStarter(0),
     m_midiInput(0),
@@ -152,11 +157,19 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
+    m_audioRecordMode(RecordCreateAdditionalModel),
     m_statusLabel(0),
+    m_iconsVisibleInMenus(true),
     m_menuShortcutMapper(0)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
+    if (options & WithAudioInput) {
+        if (!(options & WithAudioOutput)) {
+            cerr << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
+        }
+    }
+    
     qRegisterMetaType<sv_frame_t>("sv_frame_t");
     qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
 
@@ -186,6 +199,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     settings.setValue("view-font-size", viewFontSize);
     settings.endGroup();
 
+#ifdef NOT_DEFINED // This no longer works correctly on any platform AFAICS
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
@@ -193,6 +207,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
         m_viewManager->setGlobalDarkBackground
             (mode == Preferences::DarkBackground);
     }
+#endif
 
     m_paneStack = new PaneStack(0, m_viewManager);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
@@ -215,19 +230,30 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
             this, SLOT(paneDropAccepted(Pane *, QString)));
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
+    
+    m_playSource = new AudioCallbackPlaySource
+        (m_viewManager, QApplication::applicationName());
 
-    m_playSource = new AudioCallbackPlaySource(m_viewManager,
-                                               QApplication::applicationName());
+    if (m_soundOptions & WithAudioInput) {
+        m_recordTarget = new AudioCallbackRecordTarget
+            (m_viewManager, QApplication::applicationName());
+        connect(m_recordTarget,
+                SIGNAL(recordDurationChanged(sv_frame_t, sv_samplerate_t)),
+                this,
+                SLOT(recordDurationChanged(sv_frame_t, sv_samplerate_t)));
+    }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
 	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
+    connect(m_playSource, SIGNAL(channelCountIncreased(int)),
+            this,           SLOT(audioChannelCountIncreased(int)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
     connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
             this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
-    connect(m_viewManager, SIGNAL(outputLevelsChanged(float, float)),
-	    this, SLOT(outputLevelsChanged(float, float)));
+    connect(m_viewManager, SIGNAL(monitoringLevelsChanged(float, float)),
+	    this, SLOT(monitoringLevelsChanged(float, float)));
 
     connect(m_viewManager, SIGNAL(playbackFrameChanged(sv_frame_t)),
             this, SLOT(playbackFrameChanged(sv_frame_t)));
@@ -258,7 +284,7 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
 
-    if (withMIDIInput) {
+    if (m_soundOptions & WithMIDIInput) {
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
 
@@ -268,9 +294,19 @@ MainWindowBase::MainWindowBase(bool withAudioOutput,
 MainWindowBase::~MainWindowBase()
 {
     SVDEBUG << "MainWindowBase::~MainWindowBase" << endl;
-    if (m_playTarget) m_playTarget->shutdown();
-//    delete m_playTarget;
+
+    // We have to delete the breakfastquay::SystemPlaybackTarget or
+    // breakfastquay::SystemAudioIO object (whichever we have -- it
+    // depends on whether we handle recording or not) before we delete
+    // the ApplicationPlaybackSource and ApplicationRecordTarget that
+    // they refer to.
+
+    deleteAudioIO();
+
+    // Then delete the Application objects.
     delete m_playSource;
+    delete m_recordTarget;
+    
     delete m_viewManager;
     delete m_oscQueue;
     delete m_oscQueueStarter;
@@ -315,12 +351,12 @@ MainWindowBase::finaliseMenus()
 }
 
 void
-MainWindowBase::finaliseMenu(QMenu *
-#ifdef Q_OS_MAC
-                             menu
-#endif
-    )
+MainWindowBase::finaliseMenu(QMenu *menu)
 {
+    foreach (QAction *a, menu->actions()) {
+        a->setIconVisibleInMenu(m_iconsVisibleInMenus);
+    }
+
 #ifdef Q_OS_MAC
     // See https://bugreports.qt-project.org/browse/QTBUG-38256 and
     // our issue #890 http://code.soundsoftware.ac.uk/issues/890 --
@@ -447,7 +483,7 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        cerr << "Finished setting up OSC interface" << endl;
+        SVCERR << "Finished setting up OSC interface" << endl;
     }
 }
 
@@ -552,7 +588,7 @@ MainWindowBase::updateMenuStates()
     bool haveMainModel =
 	(getMainModel() != 0);
     bool havePlayTarget =
-	(m_playTarget != 0);
+	(m_playTarget != 0 || m_audioIO != 0);
     bool haveSelection = 
 	(m_viewManager &&
 	 !m_viewManager->getSelections().empty());
@@ -597,6 +633,7 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
+    emit canRecord(m_recordTarget != 0);
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -604,6 +641,8 @@ MainWindowBase::updateMenuStates()
     emit canInsertInstantsAtBoundaries(haveCurrentPane && haveSelection);
     emit canInsertItemAtSelection(haveCurrentPane && haveSelection && haveCurrentDurationLayer);
     emit canRenumberInstants(haveCurrentTimeInstantsLayer && haveSelection);
+    emit canSubdivideInstants(haveCurrentTimeInstantsLayer && haveSelection);
+    emit canWinnowInstants(haveCurrentTimeInstantsLayer && haveSelection);
     emit canPlaySelection(haveMainModel && havePlayTarget && haveSelection);
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
@@ -1196,9 +1235,60 @@ MainWindowBase::renumberInstants()
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
-    // This uses a command
+    Command *c = labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
+}
 
-    labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
+void
+MainWindowBase::subdivideInstantsBy(int n)
+{
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (!pane) return;
+
+    Layer *layer = dynamic_cast<TimeInstantLayer *>(pane->getSelectedLayer());
+    if (!layer) return;
+
+    MultiSelection ms(m_viewManager->getSelection());
+    
+    Model *model = layer->getModel();
+    SparseOneDimensionalModel *sodm =
+        dynamic_cast<SparseOneDimensionalModel *>(model);
+    if (!sodm) return;
+
+    if (!m_labeller) return;
+
+    Labeller labeller(*m_labeller);
+    labeller.setSampleRate(sodm->getSampleRate());
+
+    Command *c = labeller.subdivide<SparseOneDimensionalModel::Point>
+        (*sodm, &ms, n);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
+}
+
+void
+MainWindowBase::winnowInstantsBy(int n)
+{
+    Pane *pane = m_paneStack->getCurrentPane();
+    if (!pane) return;
+
+    Layer *layer = dynamic_cast<TimeInstantLayer *>(pane->getSelectedLayer());
+    if (!layer) return;
+
+    MultiSelection ms(m_viewManager->getSelection());
+    
+    Model *model = layer->getModel();
+    SparseOneDimensionalModel *sodm =
+        dynamic_cast<SparseOneDimensionalModel *>(model);
+    if (!sodm) return;
+
+    if (!m_labeller) return;
+
+    Labeller labeller(*m_labeller);
+    labeller.setSampleRate(sodm->getSampleRate());
+
+    Command *c = labeller.winnow<SparseOneDimensionalModel::Point>
+        (*sodm, &ms, n);
+    if (c) CommandHistory::getInstance()->addCommand(c, false);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1241,43 +1331,52 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         }
     }
 
-    if (rdf) {
-        if (rdfSession) {
-            bool cancel = false;
-            if (!canImportLayer || shouldCreateNewSessionForRDFAudio(&cancel)) {
-                return openSession(source);
-            } else if (cancel) {
-                return FileOpenCancelled;
+    try {
+        if (rdf) {
+            if (rdfSession) {
+                bool cancel = false;
+                if (!canImportLayer || shouldCreateNewSessionForRDFAudio(&cancel)) {
+                    return openSession(source);
+                } else if (cancel) {
+                    return FileOpenCancelled;
+                } else {
+                    return openLayer(source);
+                }
             } else {
-                return openLayer(source);
-            }
-        } else {
-            if ((status = openSession(source)) != FileOpenFailed) {
-                return status;
-            } else if (!canImportLayer) {
-                return FileOpenWrongMode;
-            } else if ((status = openLayer(source)) != FileOpenFailed) {
-                return status;
-            } else {
-                return FileOpenFailed;
+                if ((status = openSession(source)) != FileOpenFailed) {
+                    return status;
+                } else if (!canImportLayer) {
+                    return FileOpenWrongMode;
+                } else if ((status = openLayer(source)) != FileOpenFailed) {
+                    return status;
+                } else {
+                    return FileOpenFailed;
+                }
             }
         }
-    }
 
-    if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
-        return status;
-    } else if ((status = openSession(source)) != FileOpenFailed) {
-	return status;
-    } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
-        return status;
-    } else if (!canImportLayer) {
-        return FileOpenWrongMode;
-    } else if ((status = openImage(source)) != FileOpenFailed) {
-        return status;
-    } else if ((status = openLayer(source)) != FileOpenFailed) {
-        return status;
-    } else {
-	return FileOpenFailed;
+        if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openSession(source)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
+            return status;
+        } else if (!canImportLayer) {
+            return FileOpenWrongMode;
+        } else if ((status = openImage(source)) != FileOpenFailed) {
+            return status;
+        } else if ((status = openLayer(source)) != FileOpenFailed) {
+            return status;
+        } else {
+            return FileOpenFailed;
+        }
+    } catch (const InsufficientDiscSpace &e) {
+        emit hideSplash();
+        m_openingAudioFile = false;
+        QMessageBox::critical
+            (this, tr("Not enough disc space"),
+             tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
+        return FileOpenFailed;
     }
 }
 
@@ -1289,6 +1388,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     if (templateName == "") {
         templateName = getDefaultSessionTemplate();
+        SVDEBUG << "(Default template is: \"" << templateName << "\")" << endl;
     }
 
 //    cerr << "template is: \"" << templateName << "\"" << endl;
@@ -1310,10 +1410,12 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     if (Preferences::getInstance()->getFixedSampleRate() != 0) {
         rate = Preferences::getInstance()->getFixedSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
-    WaveFileModel *newModel = new WaveFileModel(source, rate);
+    ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
 
     if (!newModel->isOK()) {
 	delete newModel;
@@ -1407,11 +1509,11 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
-                cerr << "Template load cancelled" << endl;
+                SVDEBUG << "Template load cancelled" << endl;
                 return FileOpenCancelled;
             }
             if (tplStatus != FileOpenFailed) {
-                cerr << "Template load succeeded" << endl;
+                SVDEBUG << "Template load succeeded" << endl;
                 loadedTemplate = true;
             }
         }
@@ -1466,6 +1568,8 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     } else if (mode == CreateAdditionalModel) {
 
+        SVCERR << "Mode is CreateAdditionalModel" << endl;
+        
 	CommandHistory::getInstance()->startCompoundOperation
 	    (tr("Import \"%1\"").arg(source.getBasename()), true);
 
@@ -1477,7 +1581,10 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 	Pane *pane = command->getPane();
 
         if (m_timeRulerLayer) {
+            SVCERR << "Have time ruler, adding it" << endl;
             m_document->addLayerToView(pane, m_timeRulerLayer);
+        } else {
+            SVCERR << "Do not have time ruler" << endl;
         }
 
 	Layer *newLayer = m_document->createImportedLayer(newModel);
@@ -1767,6 +1874,51 @@ MainWindowBase::openImage(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
+MainWindowBase::openDirOfAudio(QString dirPath)
+{
+    QDir dir(dirPath);
+    QStringList files = dir.entryList(QDir::Files | QDir::Readable);
+    files.sort();
+
+    FileOpenStatus status = FileOpenFailed;
+    bool first = true;
+    bool cancelled = false;
+
+    foreach (QString file, files) {
+
+        FileSource source(dir.filePath(file));
+        if (!source.isAvailable()) {
+            continue;
+        }
+
+        if (AudioFileReaderFactory::getKnownExtensions().contains
+            (source.getExtension().toLower())) {
+            
+            AudioFileOpenMode mode = CreateAdditionalModel;
+            if (first) mode = ReplaceSession;
+            
+            switch (openAudio(source, mode)) {
+            case FileOpenSucceeded:
+                status = FileOpenSucceeded;
+                first = false;
+                break;
+            case FileOpenFailed:
+                break;
+            case FileOpenCancelled:
+                cancelled = true;
+                break;
+            case FileOpenWrongMode:
+                break;
+            }
+        }
+
+        if (cancelled) break;
+    }
+
+    return status;
+}
+
+MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionPath(QString fileOrUrl)
 {
     ProgressDialog dialog(tr("Opening session..."), true, 2000, this);
@@ -1876,6 +2028,7 @@ MainWindowBase::openSession(FileSource source)
 	if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
 
 	setupMenus();
+        findTimeRulerLayer();
 
 	CommandHistory::getInstance()->clear();
 	CommandHistory::getInstance()->documentSaved();
@@ -1968,6 +2121,7 @@ MainWindowBase::openSessionTemplate(FileSource source)
         emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
 
 	setupMenus();
+        findTimeRulerLayer();
 
 	CommandHistory::getInstance()->clear();
 	CommandHistory::getInstance()->documentSaved();
@@ -1998,6 +2152,7 @@ MainWindowBase::openSessionFromRDF(FileSource source)
     FileOpenStatus status = openLayersFromRDF(source);
 
     setupMenus();
+    findTimeRulerLayer();
     
     setWindowTitle(tr("%1: %2")
                    .arg(QApplication::applicationName())
@@ -2024,7 +2179,9 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     if (getMainModel()) {
         rate = getMainModel()->getSampleRate();
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
-        rate = m_playSource->getSourceSampleRate();
+        if (getMainModel()) {
+            rate = getMainModel()->getSampleRate();
+        }
     }
 
     RDFImporter importer
@@ -2160,36 +2317,138 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 }
 
 void
-MainWindowBase::createPlayTarget()
+MainWindowBase::createAudioIO()
 {
-    if (m_playTarget) return;
+    if (m_playTarget || m_audioIO) return;
+
+    if (!(m_soundOptions & WithAudioOutput)) return;
 
     QSettings settings;
     settings.beginGroup("Preferences");
-    QString targetName = settings.value("audio-target", "").toString();
+    QString implementation = settings.value
+        ("audio-target", "").toString();
+    QString suffix;
+    if (implementation != "") suffix = "-" + implementation;
+    QString recordDevice = settings.value
+        ("audio-record-device" + suffix, "").toString();
+    QString playbackDevice = settings.value
+        ("audio-playback-device" + suffix, "").toString();
     settings.endGroup();
 
-    AudioTargetFactory *factory = AudioTargetFactory::getInstance();
+    if (implementation == "auto") {
+        implementation = "";
+    }
+    
+    breakfastquay::AudioFactory::Preference preference;
+    preference.implementation = implementation.toStdString();
+    preference.recordDevice = recordDevice.toStdString();
+    preference.playbackDevice = playbackDevice.toStdString();
 
-    factory->setDefaultCallbackTarget(targetName);
-    m_playTarget = factory->createCallbackTarget(m_playSource);
+    SVCERR << "createAudioIO: Preferred implementation = \""
+            << preference.implementation << "\"" << endl;
+    SVCERR << "createAudioIO: Preferred playback device = \""
+            << preference.playbackDevice << "\"" << endl;
+    SVCERR << "createAudioIO: Preferred record device = \""
+            << preference.recordDevice << "\"" << endl;
 
-    if (!m_playTarget) {
-        emit hideSplash();
+    if (!m_resamplerWrapper) {
+        m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
+        m_playSource->setResamplerWrapper(m_resamplerWrapper);
+    }
 
-        if (factory->isAutoCallbackTarget(targetName)) {
-            QMessageBox::warning
-	    (this, tr("Couldn't open audio device"),
-	     tr("<b>No audio available</b><p>Could not open an audio device for playback.<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>"),
-	     QMessageBox::Ok);
-        } else {
-            QMessageBox::warning
-                (this, tr("Couldn't open audio device"),
-                 tr("<b>No audio available</b><p>Failed to open your preferred audio device (\"%1\").<p>Audio playback will not be available during this session.</p>")
-                 .arg(factory->getCallbackTargetDescription(targetName)),
-                 QMessageBox::Ok);
+    std::string errorString;
+    
+    if (m_soundOptions & WithAudioInput) {
+        m_audioIO = breakfastquay::AudioFactory::
+            createCallbackIO(m_recordTarget, m_resamplerWrapper,
+                             preference, errorString);
+        if (m_audioIO) {
+            m_audioIO->suspend(); // start in suspended state
+            m_playSource->setSystemPlaybackTarget(m_audioIO);
+        }
+    } else {
+        m_playTarget = breakfastquay::AudioFactory::
+            createCallbackPlayTarget(m_resamplerWrapper,
+                                     preference, errorString);
+        if (m_playTarget) {
+            m_playTarget->suspend(); // start in suspended state
+            m_playSource->setSystemPlaybackTarget(m_playTarget);
         }
     }
+
+    if (!m_playTarget && !m_audioIO) {
+        emit hideSplash();
+        QString message;
+        QString error = errorString.c_str();
+        QString firstBit, secondBit;
+        if (implementation == "") {
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Could not open an audio device.</p>");
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Could not open audio device: %1</p>").arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>");
+            }
+        } else {
+            QString driverName = breakfastquay::AudioFactory::
+                getImplementationDescription(implementation.toStdString())
+                .c_str();
+            if (error == "") {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\").</p>").arg(driverName);
+            } else {
+                firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\"): %2.</p>").arg(driverName).arg(error);
+            }
+            if (m_soundOptions & WithAudioInput) {
+                secondBit = tr("<p>Audio playback and recording will not be available during this session.</p>");
+            } else {
+                secondBit = tr("<p>Audio playback will not be available during this session.</p>");
+            }
+        }
+        SVDEBUG << "createAudioIO: ERROR: Failed to open audio device \""
+                << implementation << "\": error is: " << error << endl;
+        QMessageBox::warning(this, tr("Couldn't open audio device"),
+                             firstBit + secondBit, QMessageBox::Ok);
+    }
+}
+
+void
+MainWindowBase::deleteAudioIO()
+{
+    // First prevent this trying to call target.
+    if (m_playSource) {
+        m_playSource->setSystemPlaybackTarget(0);
+        m_playSource->setResamplerWrapper(0);
+    }
+
+    // Then delete the breakfastquay::System object.
+    // Only one of these two exists!
+    delete m_audioIO;
+    delete m_playTarget;
+
+    // And the breakfastquay resampler wrapper. We need to
+    // delete/recreate this if the channel count changes, which is one
+    // of the use cases for recreateAudioIO() calling this
+    delete m_resamplerWrapper;
+
+    m_audioIO = 0;
+    m_playTarget = 0;
+    m_resamplerWrapper = 0;
+}
+
+void
+MainWindowBase::recreateAudioIO()
+{
+    deleteAudioIO();
+    createAudioIO();
+}
+
+void
+MainWindowBase::audioChannelCountIncreased(int)
+{
+    recreateAudioIO();
 }
 
 WaveFileModel *
@@ -2235,8 +2494,10 @@ MainWindowBase::createDocument()
             this, SLOT(modelGenerationFailed(QString, QString)));
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
-    connect(m_document, SIGNAL(alignmentFailed(QString, QString)),
-            this, SLOT(alignmentFailed(QString, QString)));
+    connect(m_document, SIGNAL(alignmentComplete(AlignmentModel *)),
+            this, SLOT(alignmentComplete(AlignmentModel *)));
+    connect(m_document, SIGNAL(alignmentFailed(QString)),
+            this, SLOT(alignmentFailed(QString)));
 
     emit replacedDocument();
 }
@@ -2483,6 +2744,26 @@ MainWindowBase::showAllOverlays()
 }
 
 void
+MainWindowBase::findTimeRulerLayer()
+{
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        Pane *pane = m_paneStack->getPane(i);
+        if (!pane) continue;
+        for (int j = 0; j < pane->getLayerCount(); ++j) {
+            Layer *layer = pane->getLayer(j);
+            if (!dynamic_cast<TimeRulerLayer *>(layer)) continue;
+            m_timeRulerLayer = layer;
+            return;
+        }
+    }
+    if (m_timeRulerLayer) {
+        SVCERR << "WARNING: Time ruler layer was not reset to 0 before session template loaded?" << endl;
+        delete m_timeRulerLayer;
+        m_timeRulerLayer = 0;
+    }
+}
+
+void
 MainWindowBase::toggleTimeRulers()
 {
     bool haveRulers = false;
@@ -2620,12 +2901,161 @@ MainWindowBase::preferenceChanged(PropertyContainer::PropertyName name)
 void
 MainWindowBase::play()
 {
-    if (m_playSource->isPlaying()) {
+    if ((m_recordTarget && m_recordTarget->isRecording()) ||
+        (m_playSource && m_playSource->isPlaying())) {
         stop();
+        QAction *action = qobject_cast<QAction *>(sender());
+        if (action) action->setChecked(false);
     } else {
+        if (m_audioIO) m_audioIO->resume();
+        else if (m_playTarget) m_playTarget->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
 	m_playSource->play(m_viewManager->getPlaybackFrame());
     }
+}
+
+void
+MainWindowBase::record()
+{
+    if (!(m_soundOptions & WithAudioInput)) {
+        return;
+    }
+
+    if (!m_recordTarget) {
+        //!!! report
+        return;
+    }
+
+    if (!m_audioIO) {
+        cerr << "MainWindowBase::record: about to create audio IO" << endl;
+        createAudioIO();
+    }
+
+    if (!m_audioIO) {
+        // don't need to report this, createAudioIO already should have
+        return;
+    }
+    
+    if (m_recordTarget->isRecording()) {
+        stop();
+        return;
+    }
+
+    QAction *action = qobject_cast<QAction *>(sender());
+    
+    if (m_audioRecordMode == RecordReplaceSession) {
+        if (!checkSaveModified()) {
+            if (action) action->setChecked(false);
+            return;
+        }
+    }
+
+    if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
+    
+    cerr << "MainWindowBase::record: about to resume" << endl;
+    m_audioIO->resume();
+
+    WritableWaveFileModel *model = m_recordTarget->startRecording();
+    if (!model) {
+        cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
+        //!!! report
+        if (action) action->setChecked(false);
+        return;
+    }
+
+    if (!model->isOK()) {
+        m_recordTarget->stopRecording();
+        m_audioIO->suspend();
+        delete model;
+        return;
+    }
+    
+    PlayParameterRepository::getInstance()->addPlayable(model);
+
+    if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
+
+        //!!! duplication with openAudio here
+        
+        QString templateName = getDefaultSessionTemplate();
+        bool loadedTemplate = false;
+        
+        if (templateName != "") {
+            FileOpenStatus tplStatus = openSessionTemplate(templateName);
+            if (tplStatus == FileOpenCancelled) {
+                m_recordTarget->stopRecording();
+                m_audioIO->suspend();
+                PlayParameterRepository::getInstance()->removePlayable(model);
+                return;
+            }
+            if (tplStatus != FileOpenFailed) {
+                loadedTemplate = true;
+            }
+        }
+
+        if (!loadedTemplate) {
+            closeSession();
+            createDocument();
+        }
+        
+        Model *prevMain = getMainModel();
+        if (prevMain) {
+            m_playSource->removeModel(prevMain);
+            PlayParameterRepository::getInstance()->removePlayable(prevMain);
+        }
+        
+        m_document->setMainModel(model);
+        setupMenus();
+        findTimeRulerLayer();
+
+	if (loadedTemplate || (m_sessionFile == "")) {
+            //!!! shouldn't be dealing directly with title from here -- call a method
+	    setWindowTitle(tr("%1: %2")
+                           .arg(QApplication::applicationName())
+                           .arg(model->getLocation()));
+	    CommandHistory::getInstance()->clear();
+	    CommandHistory::getInstance()->documentSaved();
+	    m_documentModified = false;
+	} else {
+	    setWindowTitle(tr("%1: %2 [%3]")
+                           .arg(QApplication::applicationName())
+			   .arg(QFileInfo(m_sessionFile).fileName())
+			   .arg(model->getLocation()));
+	    if (m_documentModified) {
+		m_documentModified = false;
+		documentModified(); // so as to restore "(modified)" window title
+	    }
+	}
+
+    } else {
+
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Import Recorded Audio"), true);
+
+        m_document->addImportedModel(model);
+
+        AddPaneCommand *command = new AddPaneCommand(this);
+        CommandHistory::getInstance()->addCommand(command);
+
+        Pane *pane = command->getPane();
+
+        if (m_timeRulerLayer) {
+            m_document->addLayerToView(pane, m_timeRulerLayer);
+        }
+
+        Layer *newLayer = m_document->createImportedLayer(model);
+
+        if (newLayer) {
+            m_document->addLayerToView(pane, newLayer);
+        }
+	
+        CommandHistory::getInstance()->endCompoundOperation();
+    }
+
+    updateMenuStates();
+    m_recentFiles.addFile(model->getLocation());
+    currentPaneChanged(m_paneStack->getCurrentPane());
+
+    emit audioFileLoaded();
 }
 
 void
@@ -2856,8 +3286,18 @@ MainWindowBase::getSnapLayer() const
 void
 MainWindowBase::stop()
 {
+    if (m_recordTarget &&
+        m_recordTarget->isRecording()) {
+        m_recordTarget->stopRecording();
+    }
+
+    if (!m_playSource) return;
+    
     m_playSource->stop();
 
+    if (m_audioIO) m_audioIO->suspend();
+    else if (m_playTarget) m_playTarget->suspend();
+    
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
     } else {
@@ -3196,6 +3636,17 @@ MainWindowBase::playbackFrameChanged(sv_frame_t frame)
 }
 
 void
+MainWindowBase::recordDurationChanged(sv_frame_t frame, sv_samplerate_t rate)
+{
+    RealTime duration = RealTime::frame2RealTime(frame, rate);
+    QString durStr = duration.toSecText().c_str();
+    
+    m_myStatusMessage = tr("Recording: %1").arg(durStr);
+
+    getStatusLabel()->setText(m_myStatusMessage);
+}
+
+void
 MainWindowBase::globalCentreFrameChanged(sv_frame_t )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
@@ -3326,8 +3777,9 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 //    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
-    if (model && !m_playTarget && m_audioOutput) {
-        createPlayTarget();
+    if (model && !(m_playTarget || m_audioIO) &&
+        (m_soundOptions & WithAudioOutput)) {
+        createAudioIO();
     }
 }
 
@@ -3339,7 +3791,6 @@ MainWindowBase::modelAboutToBeDeleted(Model *model)
         m_viewManager->setPlaybackModel(0);
     }
     m_playSource->removeModel(model);
-    FFTDataServer::modelAboutToBeDeleted(model);
 }
 
 void
@@ -3376,6 +3827,12 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
     CommandHistory::getInstance()->endCompoundOperation();
 
     updateMenuStates();
+}
+
+void
+MainWindowBase::alignmentComplete(AlignmentModel *model)
+{
+    cerr << "MainWindowBase::alignmentComplete(" << model << ")" << endl;
 }
 
 void
@@ -3457,4 +3914,30 @@ MainWindowBase::openHelpUrl(QString url)
 #endif
 }
 
-    
+void
+MainWindowBase::openLocalFolder(QString path)
+{
+    QDir d(path);
+    if (d.exists()) {
+        QStringList args;
+        QString path = d.canonicalPath();
+#if defined Q_OS_WIN32
+        // Although the Win32 API is quite happy to have
+        // forward slashes as directory separators, Windows
+        // Explorer is not
+        path = path.replace('/', '\\');
+        args << path;
+        QProcess::execute("c:/windows/explorer.exe", args);
+#else
+        args << path;
+        QProcess::execute(
+#if defined Q_OS_MAC
+            "/usr/bin/open",
+#else
+            "/usr/bin/xdg-open",
+#endif
+            args);
+#endif
+    }
+}
+

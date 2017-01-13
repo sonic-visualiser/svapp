@@ -26,7 +26,7 @@
 
 #include "data/fileio/FileFinder.h"
 
-#include "data/model/WaveFileModel.h"
+#include "data/model/ReadOnlyWaveFileModel.h"
 #include "data/model/EditableDenseThreeDimensionalModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
@@ -393,14 +393,12 @@ SVFileReader::fatalError(const QXmlParseException &exception)
     }
 
 bool
-SVFileReader::readWindow(const QXmlAttributes &attributes)
+SVFileReader::readWindow(const QXmlAttributes &)
 {
-    bool ok = false;
-
-    READ_MANDATORY(int, width, toInt);
-    READ_MANDATORY(int, height, toInt);
-
-    m_paneCallback.setWindowSize(width, height);
+    // The window element contains window dimensions, which we used to
+    // read and size the window accordingly. This was a Bad Idea [tm]
+    // and we now do nothing instead. See #1769 Loading window
+    // dimensions from session file is a really bad idea
     return true;
 }
 
@@ -489,7 +487,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 if (mm) rate = mm->getSampleRate();
             }
 
-            model = new WaveFileModel(file, rate);
+            model = new ReadOnlyWaveFileModel(file, rate);
             if (!model->isOK()) {
                 delete model;
                 model = 0;
@@ -1166,7 +1164,7 @@ SVFileReader::readRowData(const QString &text)
 
 	for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
 
-	    if (values.size() == (int)dtdm->getHeight()) {
+	    if (int(values.size()) == dtdm->getHeight()) {
 		if (!warned) {
 		    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
 			      << m_rowNumber << endl;
