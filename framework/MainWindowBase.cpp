@@ -2316,11 +2316,22 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     return FileOpenSucceeded;
 }
 
+class AudioLogCallback : public breakfastquay::AudioFactory::LogCallback
+{
+public:
+    void log(std::string message) const override {
+        SVDEBUG << message << endl;
+    }
+};
+
 void
 MainWindowBase::createAudioIO()
 {
     if (m_playTarget || m_audioIO) return;
 
+    static AudioLogCallback audioLogCallback;
+    breakfastquay::AudioFactory::setLogCallback(&audioLogCallback);
+    
     if (!(m_soundOptions & WithAudioOutput)) return;
 
     QSettings settings;
