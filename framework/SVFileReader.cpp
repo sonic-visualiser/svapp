@@ -1220,6 +1220,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     if (sourceOk && haveModel(sourceId)) {
         m_currentTransformSource = m_models[sourceId];
     } else {
+        SVDEBUG << "NOTE: SV-XML: Can't find a model with id " << sourceId
+                << " for derivation source, falling back to main model" << endl;
         m_currentTransformSource = m_document->getMainModel();
     }
 
