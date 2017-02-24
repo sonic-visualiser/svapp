@@ -633,7 +633,6 @@ MainWindowBase::updateMenuStates()
     emit canMeasureLayer(haveCurrentLayer);
     emit canSelect(haveMainModel && haveCurrentPane);
     emit canPlay(haveMainModel && havePlayTarget);
-    emit canRecord(m_recordTarget != 0);
     emit canFfwd(haveMainModel);
     emit canRewind(haveMainModel);
     emit canPaste(haveClipboardContents);
@@ -652,6 +651,18 @@ MainWindowBase::updateMenuStates()
     emit canSelectNextPane(haveNextPane);
     emit canSelectPreviousLayer(havePrevLayer);
     emit canSelectNextLayer(haveNextLayer);
+
+    // This is quite subtle -- whereas we can play back only if a
+    // system play target or I/O exists, we can record even if no
+    // record source (i.e. audioIO) exists because we can record into
+    // an empty session before the audio device has been
+    // opened. However, if there is no record *target* then recording
+    // was actively disabled (flag not set in m_soundOptions). And if
+    // we have a play target instead of an audioIO, then we must have
+    // tried to open the device but failed to find any capture source.
+    bool recordDisabled = (m_recordTarget == nullptr);
+    bool recordDeviceFailed = (m_playTarget != nullptr && m_audioIO == nullptr);
+    emit canRecord(!recordDisabled && !recordDeviceFailed);
 }
 
 void
@@ -2376,8 +2387,15 @@ MainWindowBase::createAudioIO()
         if (m_audioIO) {
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
+        } else {
+            // Failed to create audio I/O; this may just mean there is
+            // no record device, so fall through to see what happens
+            // next. We only report complete failure if we end up with
+            // neither m_audioIO nor m_playTarget.
         }
-    } else {
+    }
+
+    if (!m_audioIO) {
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(m_resamplerWrapper,
                                      preference, errorString);
@@ -2924,12 +2942,15 @@ MainWindowBase::play()
 void
 MainWindowBase::record()
 {
+    QAction *action = qobject_cast<QAction *>(sender());
+    
     if (!(m_soundOptions & WithAudioInput)) {
+        if (action) action->setChecked(false);
         return;
     }
 
     if (!m_recordTarget) {
-        //!!! report
+        if (action) action->setChecked(false);
         return;
     }
 
@@ -2939,16 +2960,30 @@ MainWindowBase::record()
     }
 
     if (!m_audioIO) {
-        // don't need to report this, createAudioIO already should have
-        return;
+        if (!m_playTarget) {
+            // Don't need to report this, createAudioIO should have
+            if (action) action->setChecked(false);
+            return;
+        } else {
+            // Need to report this: if the play target exists instead
+            // of the audio IO, then that means we failed to open a
+            // capture device. The record control should be disabled
+            // in that situation, so if it happens here, that must
+            // mean this is the first time we ever tried to open the
+            // audio device, hence the need to report the problem here
+            QMessageBox::critical
+                (this, tr("No record device available"),
+                 tr("<b>No record device available</b><p>Failed to find or open an audio device for recording. Only playback will be available.</p>"));
+            if (action) action->setChecked(false);
+            updateMenuStates();
+            return;
+        }
     }
     
     if (m_recordTarget->isRecording()) {
         stop();
         return;
     }
-
-    QAction *action = qobject_cast<QAction *>(sender());
     
     if (m_audioRecordMode == RecordReplaceSession) {
         if (!checkSaveModified()) {
@@ -2959,13 +2994,15 @@ MainWindowBase::record()
 
     if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
     
-    cerr << "MainWindowBase::record: about to resume" << endl;
+    SVDEBUG << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();
     if (!model) {
-        cerr << "ERROR: MainWindowBase::record: Recording failed" << endl;
-        //!!! report
+        SVCERR << "ERROR: MainWindowBase::record: Recording failed" << endl;
+        QMessageBox::critical
+            (this, tr("Recording failed"),
+             tr("<b>Recording failed</b><p>Failed to switch to record mode (some internal problem?)</p>"));
         if (action) action->setChecked(false);
         return;
     }
@@ -2973,6 +3010,7 @@ MainWindowBase::record()
     if (!model->isOK()) {
         m_recordTarget->stopRecording();
         m_audioIO->suspend();
+        if (action) action->setChecked(false);
         delete model;
         return;
     }
