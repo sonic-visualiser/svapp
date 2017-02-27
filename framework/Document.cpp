@@ -1290,9 +1290,36 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     for (LayerViewMap::const_iterator i = m_layerViewMap.begin();
          i != m_layerViewMap.end(); ++i) {
 
-        if (i->first && !i->second.empty() && i->first->getModel()) {
-            used.insert(i->first->getModel());
+        if (i->first && !i->second.empty()) { // Layer exists, is in views
+            Model *m = i->first->getModel();
+            if (m) {
+                used.insert(m);
+                if (m->getSourceModel()) {
+                    used.insert(m->getSourceModel());
+                }
+            }
         }
+    }
+
+    // Write aggregate models first, so that when re-reading
+    // derivations we already know about their existence. But only
+    // those that are actually used
+
+    for (std::set<Model *>::iterator i = m_aggregateModels.begin();
+         i != m_aggregateModels.end(); ++i) {
+
+        SVDEBUG << "checking aggregate model " << *i << endl;
+        
+        AggregateWaveModel *aggregate = qobject_cast<AggregateWaveModel *>(*i);
+        if (!aggregate) continue; 
+        if (used.find(aggregate) == used.end()) {
+            SVDEBUG << "(unused, skipping)" << endl;
+            continue;
+        }
+
+        SVDEBUG << "(used, writing)" << endl;
+
+        aggregate->toXml(out, indent + "  ");
     }
 
     std::set<Model *> written;
@@ -1353,7 +1380,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
                  .arg(XmlExportable::getObjectExportId(model)));
         }
     }
-	    
+    
     //!!!
 
     // We should write out the alignment models here.  AlignmentModel
