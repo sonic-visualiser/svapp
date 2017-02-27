@@ -123,7 +123,8 @@ public:
       <!-- The display element contains visual structure for the
            layers.  It's simpler than the data section. -->
 
-      <!-- Overall preferred window size for this session. -->
+      <!-- Overall preferred window size for this session. (Now
+           deprecated, it wasn't a good idea to try to persist this) -->
 
       <window width="..." height="..."/>
 
