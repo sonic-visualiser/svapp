@@ -22,6 +22,7 @@
 #include "data/model/DenseThreeDimensionalModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/FlexiNoteModel.h"
+#include "data/model/AggregateWaveModel.h"
 
 #include "layer/Layer.h"
 #include "widgets/CommandHistory.h"
@@ -544,6 +545,7 @@ Document::setMainModel(WaveFileModel *model)
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
         if (i->second.additional) {
             Model *m = i->first;
+            m->aboutToDelete();
             emit modelAboutToBeDeleted(m);
             delete m;
         }
@@ -697,6 +699,22 @@ Document::addAdditionalModel(Model *model)
     emit modelAdded(model);
 }
 
+void
+Document::addAggregateModel(AggregateWaveModel *model)
+{
+    connect(model, SIGNAL(modelInvalidated()),
+            this, SLOT(aggregateModelInvalidated()));
+    m_aggregateModels.insert(model);
+}
+
+void
+Document::aggregateModelInvalidated()
+{
+    QObject *s = sender();
+    AggregateWaveModel *aggregate = qobject_cast<AggregateWaveModel *>(s);
+    if (aggregate) releaseModel(aggregate);
+}
+
 Model *
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
@@ -775,18 +793,20 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
     bool toDelete = false;
 
     if (m_models.find(model) != m_models.end()) {
-	
 	if (m_models[model].refcount == 0) {
-	    cerr << "WARNING: Document::releaseModel: model " << model
-		      << " reference count is zero already!" << endl;
+	    SVCERR << "WARNING: Document::releaseModel: model " << model
+                   << " reference count is zero already!" << endl;
 	} else {
 	    if (--m_models[model].refcount == 0) {
 		toDelete = true;
 	    }
 	}
+    } else if (m_aggregateModels.find(model) != m_aggregateModels.end()) {
+        SVDEBUG << "Document::releaseModel: is an aggregate model" << endl;
+        toDelete = true;
     } else { 
-	cerr << "WARNING: Document::releaseModel: Unfound model "
-		  << model << endl;
+	SVCERR << "WARNING: Document::releaseModel: Unfound model "
+               << model << endl;
 	toDelete = true;
     }
 
@@ -803,9 +823,9 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 
 	if (sourceCount > 0) {
 	    SVDEBUG << "Document::releaseModel: Deleting model "
-		      << model << " even though it is source for "
-		      << sourceCount << " other derived model(s) -- resetting "
-		      << "their source fields appropriately" << endl;
+                    << model << " even though it is source for "
+                    << sourceCount << " other derived model(s) -- resetting "
+                    << "their source fields appropriately" << endl;
 	}
 
         model->aboutToDelete();

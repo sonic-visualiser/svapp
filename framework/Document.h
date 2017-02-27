@@ -29,6 +29,7 @@ class Model;
 class Layer;
 class View;
 class WaveFileModel;
+class AggregateWaveModel;
 
 class AdditionalModelConverter;
 
@@ -234,6 +235,17 @@ public:
      * with a layer.
      */
     void addImportedModel(Model *);
+    
+    /**
+     * Add an aggregate model (one which represents a set of component
+     * wave models as one model per channel in a single wave
+     * model). Aggregate models are unusual in that they are created
+     * for a single transform each and have no refcount. (This
+     * probably isn't ideal!) They are recorded separately from other
+     * models, and will be deleted if any of their component models
+     * are removed.
+     */
+    void addAggregateModel(AggregateWaveModel *);
 
     /**
      * Associate the given model with the given layer.  The model must
@@ -309,6 +321,9 @@ signals:
 
     void activity(QString);
 
+protected slots:
+    void aggregateModelInvalidated();
+    
 protected:
     void releaseModel(Model *model);
 
@@ -364,6 +379,8 @@ protected:
      */
     void addAdditionalModel(Model *);
 
+    std::set<Model *> m_aggregateModels;
+    
     class AddLayerCommand : public Command
     {
     public:
