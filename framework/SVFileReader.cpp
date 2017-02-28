@@ -725,8 +725,8 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         
     } else {
 
-	cerr << "WARNING: SV-XML: Unexpected model type \""
-		  << type << "\" for model id " << id << endl;
+        SVCERR << "WARNING: SV-XML: Unexpected model type \""
+               << type << "\" for model id " << id << endl;
     }
 
     return false;
