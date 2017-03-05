@@ -164,9 +164,11 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
+    SVDEBUG << "MainWindowBase::MainWindowBase" << endl;
+
     if (options & WithAudioInput) {
         if (!(options & WithAudioOutput)) {
-            cerr << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
+            SVCERR << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
         }
     }
     
@@ -184,11 +186,15 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(CommandHistory::getInstance(), SIGNAL(documentRestored()),
 	    this, SLOT(documentRestored()));
     
+    SVDEBUG << "MainWindowBase: Creating view manager" << endl;
+
     m_viewManager = new ViewManager();
     connect(m_viewManager, SIGNAL(selectionChanged()),
 	    this, SLOT(updateMenuStates()));
     connect(m_viewManager, SIGNAL(inProgressSelectionChanged()),
 	    this, SLOT(inProgressSelectionChanged()));
+
+    SVDEBUG << "MainWindowBase: Calculating view font size" << endl;
 
     // set a sensible default font size for views -- cannot do this
     // in Preferences, which is in base and not supposed to use QtGui
@@ -198,6 +204,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     viewFontSize = settings.value("view-font-size", viewFontSize).toInt();
     settings.setValue("view-font-size", viewFontSize);
     settings.endGroup();
+
+    SVDEBUG << "MainWindowBase: View font size is " << viewFontSize << endl;
 
 #ifdef NOT_DEFINED // This no longer works correctly on any platform AFAICS
     Preferences::BackgroundMode mode =
@@ -230,11 +238,14 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
             this, SLOT(paneDropAccepted(Pane *, QString)));
     connect(m_paneStack, SIGNAL(paneDeleteButtonClicked(Pane *)),
             this, SLOT(paneDeleteButtonClicked(Pane *)));
+
+    SVDEBUG << "MainWindowBase: Creating play source" << endl;
     
     m_playSource = new AudioCallbackPlaySource
         (m_viewManager, QApplication::applicationName());
 
     if (m_soundOptions & WithAudioInput) {
+        SVDEBUG << "MainWindowBase: Creating record target" << endl;
         m_recordTarget = new AudioCallbackRecordTarget
             (m_viewManager, QApplication::applicationName());
         connect(m_recordTarget,
@@ -244,7 +255,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     }
 
     connect(m_playSource, SIGNAL(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)),
-	    this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
+            this,           SLOT(sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool)));
     connect(m_playSource, SIGNAL(channelCountIncreased(int)),
             this,           SLOT(audioChannelCountIncreased(int)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
@@ -272,6 +283,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
             this,
             SLOT(preferenceChanged(PropertyContainer::PropertyName)));
 
+    SVDEBUG << "MainWindowBase: Creating labeller" << endl;
+
     Labeller::ValueType labellerType = Labeller::ValueFromTwoLevelCounter;
     settings.beginGroup("MainWindow");
 
@@ -285,10 +298,13 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_labeller->setCounterCycleSize(cycle);
 
     if (m_soundOptions & WithMIDIInput) {
+        SVDEBUG << "MainWindowBase: Creating MIDI input" << endl;
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
 
     QTimer::singleShot(1500, this, SIGNAL(hideSplash()));
+
+    SVDEBUG << "MainWindowBase: Constructor done" << endl;
 }
 
 MainWindowBase::~MainWindowBase()
@@ -317,12 +333,15 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::emitHideSplash()
 {
+    SVDEBUG << "MainWindowBase: Hiding splash screen" << endl;
     emit hideSplash(this);
 }
 
 void
 MainWindowBase::finaliseMenus()
 {
+    SVDEBUG << "MainWindowBase::finaliseMenus called" << endl;
+
     delete m_menuShortcutMapper;
     m_menuShortcutMapper = 0;
 
@@ -348,6 +367,8 @@ MainWindowBase::finaliseMenus()
     foreach (QMenu *menu, menus) {
         if (menu) finaliseMenu(menu);
     }
+
+    SVDEBUG << "MainWindowBase::finaliseMenus done" << endl;
 }
 
 void
