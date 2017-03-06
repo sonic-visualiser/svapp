@@ -67,6 +67,11 @@ AudioGenerator::~AudioGenerator()
 #ifdef DEBUG_AUDIO_GENERATOR
     SVDEBUG << "AudioGenerator::~AudioGenerator" << endl;
 #endif
+
+    for (int i = 0; i < m_channelBufCount; ++i) {
+        delete[] m_channelBuffer[i];
+    }
+    delete[] m_channelBuffer;
 }
 
 void
