@@ -1409,6 +1409,13 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
             (this, tr("Not enough disc space"),
              tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
         return FileOpenFailed;
+    } catch (const std::bad_alloc &e) { // reader may have rethrown this after cleaning up
+        emit hideSplash();
+        m_openingAudioFile = false;
+        QMessageBox::critical
+            (this, tr("Not enough memory"),
+             tr("<b>Not enough memory</b><p>There doesn't appear to be enough memory to accommodate any necessary temporary data.</p>"));
+        return FileOpenFailed;
     }
 }
 
