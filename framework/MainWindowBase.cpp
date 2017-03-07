@@ -1405,6 +1405,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
     } catch (const InsufficientDiscSpace &e) {
         emit hideSplash();
         m_openingAudioFile = false;
+        SVCERR << "MainWindowBase: Caught InsufficientDiscSpace in file open" << endl;
         QMessageBox::critical
             (this, tr("Not enough disc space"),
              tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
@@ -1412,6 +1413,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
     } catch (const std::bad_alloc &e) { // reader may have rethrown this after cleaning up
         emit hideSplash();
         m_openingAudioFile = false;
+        SVCERR << "MainWindowBase: Caught bad_alloc in file open" << endl;
         QMessageBox::critical
             (this, tr("Not enough memory"),
              tr("<b>Not enough memory</b><p>There doesn't appear to be enough memory to accommodate any necessary temporary data.</p>"));
