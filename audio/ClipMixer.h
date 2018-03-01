@@ -48,21 +48,21 @@ public:
     void reset(); // discarding any playing notes
 
     struct NoteStart {
-	sv_frame_t frameOffset; // within current processing block
-	float frequency; // Hz
-	float level; // volume in range (0,1]
-	float pan; // range [-1,1]
+        sv_frame_t frameOffset; // within current processing block
+        float frequency; // Hz
+        float level; // volume in range (0,1]
+        float pan; // range [-1,1]
     };
 
     struct NoteEnd {
-	sv_frame_t frameOffset; // in current processing block
+        sv_frame_t frameOffset; // in current processing block
         float frequency; // matching note start
     };
 
     void mix(float **toBuffers, 
              float gain,
-	     std::vector<NoteStart> newNotes, 
-	     std::vector<NoteEnd> endingNotes);
+             std::vector<NoteStart> newNotes, 
+             std::vector<NoteEnd> endingNotes);
 
 private:
     int m_channels;

@@ -139,7 +139,7 @@ Align::alignModelViaTransform(Model *ref, Model *other)
         cerr << "Align::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
         delete transformOutput;
         delete aggregateModel;
-	m_error = message;
+        m_error = message;
         return false;
     }
 
@@ -197,8 +197,8 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
     QString otherPath = rorm->getLocalFilename();
 
     if (refPath == "" || otherPath == "") {
-	m_error = "Failed to find local filepath for wave-file model";
-	return false;
+        m_error = "Failed to find local filepath for wave-file model";
+        return false;
     }
 
     m_error = "";
@@ -247,47 +247,47 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
     
     if (exitCode == 0 && status == 0) {
 
-	CSVFormat format;
-	format.setModelType(CSVFormat::TwoDimensionalModel);
-	format.setTimingType(CSVFormat::ExplicitTiming);
-	format.setTimeUnits(CSVFormat::TimeSeconds);
-	format.setColumnCount(2);
+        CSVFormat format;
+        format.setModelType(CSVFormat::TwoDimensionalModel);
+        format.setTimingType(CSVFormat::ExplicitTiming);
+        format.setTimeUnits(CSVFormat::TimeSeconds);
+        format.setColumnCount(2);
         // The output format has time in the reference file first, and
         // time in the "other" file in the second column. This is a
         // more natural approach for a command-line alignment tool,
         // but it's the opposite of what we expect for native
         // alignment paths, which map from "other" file to
         // reference. These column purpose settings reflect that.
-	format.setColumnPurpose(1, CSVFormat::ColumnStartTime);
-	format.setColumnPurpose(0, CSVFormat::ColumnValue);
-	format.setAllowQuoting(false);
-	format.setSeparator(',');
+        format.setColumnPurpose(1, CSVFormat::ColumnStartTime);
+        format.setColumnPurpose(0, CSVFormat::ColumnValue);
+        format.setAllowQuoting(false);
+        format.setSeparator(',');
 
-	CSVFileReader reader(process, format, alignmentModel->getSampleRate());
-	if (!reader.isOK()) {
+        CSVFileReader reader(process, format, alignmentModel->getSampleRate());
+        if (!reader.isOK()) {
             cerr << "ERROR: Align::alignmentProgramFinished: Failed to parse output"
                  << endl;
-	    m_error = QString("Failed to parse output of program: %1")
-		.arg(reader.getError());
+            m_error = QString("Failed to parse output of program: %1")
+                .arg(reader.getError());
             goto done;
-	}
+        }
 
-	Model *csvOutput = reader.load();
+        Model *csvOutput = reader.load();
 
-	SparseTimeValueModel *path = qobject_cast<SparseTimeValueModel *>(csvOutput);
-	if (!path) {
+        SparseTimeValueModel *path = qobject_cast<SparseTimeValueModel *>(csvOutput);
+        if (!path) {
             cerr << "ERROR: Align::alignmentProgramFinished: Output did not convert to sparse time-value model"
                  << endl;
-	    m_error = QString("Output of program did not produce sparse time-value model");
+            m_error = QString("Output of program did not produce sparse time-value model");
             goto done;
-	}
+        }
 
-	if (path->getPoints().empty()) {
+        if (path->getPoints().empty()) {
             cerr << "ERROR: Align::alignmentProgramFinished: Output contained no mappings"
                  << endl;
-	    m_error = QString("Output of alignment program contained no mappings");
+            m_error = QString("Output of alignment program contained no mappings");
             goto done;
-	}
+        }
 
         cerr << "Align::alignmentProgramFinished: Setting alignment path ("
              << path->getPoints().size() << " point(s))" << endl;
@@ -300,7 +300,7 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
         cerr << "ERROR: Align::alignmentProgramFinished: Aligner program "
              << "failed: exit code " << exitCode << ", status " << status
              << endl;
-	m_error = "Aligner process returned non-zero exit status";
+        m_error = "Aligner process returned non-zero exit status";
     }
 
 done:

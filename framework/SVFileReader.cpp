@@ -52,7 +52,7 @@
 #include <iostream>
 
 SVFileReader::SVFileReader(Document *document,
-			   SVFileReaderPaneCallback &callback,
+                           SVFileReaderPaneCallback &callback,
                            QString location) :
     m_document(document),
     m_paneCallback(callback),
@@ -99,39 +99,39 @@ SVFileReader::isOK()
 {
     return m_ok;
 }
-	
+        
 SVFileReader::~SVFileReader()
 {
     if (!m_awaitingDatasets.empty()) {
-	cerr << "WARNING: SV-XML: File ended with "
-		  << m_awaitingDatasets.size() << " unfilled model dataset(s)"
-		  << endl;
+        cerr << "WARNING: SV-XML: File ended with "
+                  << m_awaitingDatasets.size() << " unfilled model dataset(s)"
+                  << endl;
     }
 
     std::set<Model *> unaddedModels;
 
     for (std::map<int, Model *>::iterator i = m_models.begin();
-	 i != m_models.end(); ++i) {
-	if (m_addedModels.find(i->second) == m_addedModels.end()) {
-	    unaddedModels.insert(i->second);
-	}
+         i != m_models.end(); ++i) {
+        if (m_addedModels.find(i->second) == m_addedModels.end()) {
+            unaddedModels.insert(i->second);
+        }
     }
 
     if (!unaddedModels.empty()) {
-	cerr << "WARNING: SV-XML: File contained "
-		  << unaddedModels.size() << " unused models"
-		  << endl;
-	while (!unaddedModels.empty()) {
-	    delete *unaddedModels.begin();
-	    unaddedModels.erase(unaddedModels.begin());
-	}
-    }	
+        cerr << "WARNING: SV-XML: File contained "
+                  << unaddedModels.size() << " unused models"
+                  << endl;
+        while (!unaddedModels.empty()) {
+            delete *unaddedModels.begin();
+            unaddedModels.erase(unaddedModels.begin());
+        }
+    }        
 }
 
 bool
 SVFileReader::startElement(const QString &, const QString &,
-			   const QString &qName,
-			   const QXmlAttributes &attributes)
+                           const QString &qName,
+                           const QXmlAttributes &attributes)
 {
     QString name = qName.toLower();
 
@@ -159,57 +159,57 @@ SVFileReader::startElement(const QString &, const QString &,
 
     if (name == "sv") {
 
-	// nothing needed
-	ok = true;
+        // nothing needed
+        ok = true;
 
     } else if (name == "data") {
 
-	// nothing needed
-	m_inData = true;
-	ok = true;
+        // nothing needed
+        m_inData = true;
+        ok = true;
 
     } else if (name == "display") {
 
-	// nothing needed
-	ok = true;
+        // nothing needed
+        ok = true;
 
     } else if (name == "window") {
 
-	ok = readWindow(attributes);
+        ok = readWindow(attributes);
 
     } else if (name == "model") {
 
-	ok = readModel(attributes);
+        ok = readModel(attributes);
     
     } else if (name == "dataset") {
-	
-	ok = readDatasetStart(attributes);
+        
+        ok = readDatasetStart(attributes);
 
     } else if (name == "bin") {
-	
-	ok = addBinToDataset(attributes);
+        
+        ok = addBinToDataset(attributes);
     
     } else if (name == "point") {
-	
-	ok = addPointToDataset(attributes);
+        
+        ok = addPointToDataset(attributes);
 
     } else if (name == "row") {
 
-	ok = addRowToDataset(attributes);
+        ok = addRowToDataset(attributes);
 
     } else if (name == "layer") {
 
         addUnaddedModels(); // all models must be specified before first layer
-	ok = readLayer(attributes);
+        ok = readLayer(attributes);
 
     } else if (name == "view") {
 
-	m_inView = true;
-	ok = readView(attributes);
+        m_inView = true;
+        ok = readView(attributes);
 
     } else if (name == "derivation") {
 
-	ok = readDerivation(attributes);
+        ok = readDerivation(attributes);
 
     } else if (name == "playparameters") {
         
@@ -217,16 +217,16 @@ SVFileReader::startElement(const QString &, const QString &,
 
     } else if (name == "plugin") {
 
-	ok = readPlugin(attributes);
+        ok = readPlugin(attributes);
 
     } else if (name == "selections") {
 
-	m_inSelections = true;
-	ok = true;
+        m_inSelections = true;
+        ok = true;
 
     } else if (name == "selection") {
 
-	ok = readSelection(attributes);
+        ok = readSelection(attributes);
 
     } else if (name == "measurement") {
 
@@ -246,8 +246,8 @@ SVFileReader::startElement(const QString &, const QString &,
     }
 
     if (!ok) {
-	cerr << "WARNING: SV-XML: Failed to completely process element \""
-		  << name << "\"" << endl;
+        cerr << "WARNING: SV-XML: Failed to completely process element \""
+                  << name << "\"" << endl;
     }
 
     return true;
@@ -259,10 +259,10 @@ SVFileReader::characters(const QString &text)
     bool ok = false;
 
     if (m_inRow) {
-	ok = readRowData(text);
-	if (!ok) {
-	    cerr << "WARNING: SV-XML: Failed to read row data content for row " << m_rowNumber << endl;
-	}
+        ok = readRowData(text);
+        if (!ok) {
+            cerr << "WARNING: SV-XML: Failed to read row data content for row " << m_rowNumber << endl;
+        }
     }
 
     return true;
@@ -270,37 +270,37 @@ SVFileReader::characters(const QString &text)
 
 bool
 SVFileReader::endElement(const QString &, const QString &,
-			 const QString &qName)
+                         const QString &qName)
 {
     QString name = qName.toLower();
 
     if (name == "dataset") {
 
-	if (m_currentDataset) {
-	    
-	    bool foundInAwaiting = false;
+        if (m_currentDataset) {
+            
+            bool foundInAwaiting = false;
 
-	    for (std::map<int, int>::iterator i = m_awaitingDatasets.begin();
-		 i != m_awaitingDatasets.end(); ++i) {
-		if (haveModel(i->second) &&
+            for (std::map<int, int>::iterator i = m_awaitingDatasets.begin();
+                 i != m_awaitingDatasets.end(); ++i) {
+                if (haveModel(i->second) &&
                     m_models[i->second] == m_currentDataset) {
-		    m_awaitingDatasets.erase(i);
-		    foundInAwaiting = true;
-		    break;
-		}
-	    }
+                    m_awaitingDatasets.erase(i);
+                    foundInAwaiting = true;
+                    break;
+                }
+            }
 
-	    if (!foundInAwaiting) {
-		cerr << "WARNING: SV-XML: Dataset precedes model, or no model uses dataset" << endl;
-	    }
-	}
+            if (!foundInAwaiting) {
+                cerr << "WARNING: SV-XML: Dataset precedes model, or no model uses dataset" << endl;
+            }
+        }
 
-	m_currentDataset = 0;
+        m_currentDataset = 0;
 
     } else if (name == "data") {
 
         addUnaddedModels();
-	m_inData = false;
+        m_inData = false;
 
     } else if (name == "derivation") {
 
@@ -346,13 +346,13 @@ SVFileReader::endElement(const QString &, const QString &,
         m_currentTransformChannel = -1;
 
     } else if (name == "row") {
-	m_inRow = false;
+        m_inRow = false;
     } else if (name == "layer") {
         m_inLayer = false;
     } else if (name == "view") {
-	m_inView = false;
+        m_inView = false;
     } else if (name == "selections") {
-	m_inSelections = false;
+        m_inSelections = false;
     } else if (name == "playparameters") {
         m_currentPlayParameters = 0;
     }
@@ -364,10 +364,10 @@ bool
 SVFileReader::error(const QXmlParseException &exception)
 {
     m_errorString =
-	QString("ERROR: SV-XML: %1 at line %2, column %3")
-	.arg(exception.message())
-	.arg(exception.lineNumber())
-	.arg(exception.columnNumber());
+        QString("ERROR: SV-XML: %1 at line %2, column %3")
+        .arg(exception.message())
+        .arg(exception.lineNumber())
+        .arg(exception.columnNumber());
     cerr << m_errorString << endl;
     return QXmlDefaultHandler::error(exception);
 }
@@ -376,20 +376,20 @@ bool
 SVFileReader::fatalError(const QXmlParseException &exception)
 {
     m_errorString =
-	QString("FATAL ERROR: SV-XML: %1 at line %2, column %3")
-	.arg(exception.message())
-	.arg(exception.lineNumber())
-	.arg(exception.columnNumber());
+        QString("FATAL ERROR: SV-XML: %1 at line %2, column %3")
+        .arg(exception.message())
+        .arg(exception.lineNumber())
+        .arg(exception.columnNumber());
     cerr << m_errorString << endl;
     return QXmlDefaultHandler::fatalError(exception);
 }
 
 
-#define READ_MANDATORY(TYPE, NAME, CONVERSION)		      \
+#define READ_MANDATORY(TYPE, NAME, CONVERSION)                      \
     TYPE NAME = attributes.value(#NAME).trimmed().CONVERSION(&ok); \
     if (!ok) { \
-	cerr << "WARNING: SV-XML: Missing or invalid mandatory " #TYPE " attribute \"" #NAME "\"" << endl; \
-	return false; \
+        cerr << "WARNING: SV-XML: Missing or invalid mandatory " #TYPE " attribute \"" #NAME "\"" << endl; \
+        return false; \
     }
 
 bool
@@ -439,9 +439,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     READ_MANDATORY(int, id, toInt);
 
     if (haveModel(id)) {
-	cerr << "WARNING: SV-XML: Ignoring duplicate model id " << id
-		  << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Ignoring duplicate model id " << id
+                  << endl;
+        return false;
     }
 
     QString name = attributes.value("name");
@@ -454,7 +454,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
 
     if (type == "wavefile") {
-	
+        
         WaveFileModel *model = 0;
         FileFinder *ff = FileFinder::getInstance();
         QString originalPath = attributes.value("file");
@@ -497,63 +497,63 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         if (!model) return false;
 
         model->setObjectName(name);
-	m_models[id] = model;
-	if (isMainModel) {
-	    m_document->setMainModel(model);
-	    m_addedModels.insert(model);
-	}
-	// Derived models will be added when their derivation
-	// is found.
+        m_models[id] = model;
+        if (isMainModel) {
+            m_document->setMainModel(model);
+            m_addedModels.insert(model);
+        }
+        // Derived models will be added when their derivation
+        // is found.
 
-	return true;
+        return true;
 
     } else if (type == "dense") {
-	
-	READ_MANDATORY(int, dimensions, toInt);
-		    
-	// Currently the only dense model we support here is the dense
-	// 3d model.  Dense time-value models are always file-backed
-	// waveform data, at this point, and they come in as wavefile
-	// models.
-	
-	if (dimensions == 3) {
-	    
-	    READ_MANDATORY(int, windowSize, toInt);
-	    READ_MANDATORY(int, yBinCount, toInt);
-	    
+        
+        READ_MANDATORY(int, dimensions, toInt);
+                    
+        // Currently the only dense model we support here is the dense
+        // 3d model.  Dense time-value models are always file-backed
+        // waveform data, at this point, and they come in as wavefile
+        // models.
+        
+        if (dimensions == 3) {
+            
+            READ_MANDATORY(int, windowSize, toInt);
+            READ_MANDATORY(int, yBinCount, toInt);
+            
             EditableDenseThreeDimensionalModel *model =
-		new EditableDenseThreeDimensionalModel
+                new EditableDenseThreeDimensionalModel
                 (sampleRate, windowSize, yBinCount,
                  EditableDenseThreeDimensionalModel::NoCompression);
-	    
-	    float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
-	    if (ok) model->setMinimumLevel(minimum);
-	    
-	    float maximum = attributes.value("maximum").trimmed().toFloat(&ok);
-	    if (ok) model->setMaximumLevel(maximum);
+            
+            float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
+            if (ok) model->setMinimumLevel(minimum);
+            
+            float maximum = attributes.value("maximum").trimmed().toFloat(&ok);
+            if (ok) model->setMaximumLevel(maximum);
 
-	    int dataset = attributes.value("dataset").trimmed().toInt(&ok);
-	    if (ok) m_awaitingDatasets[dataset] = id;
+            int dataset = attributes.value("dataset").trimmed().toInt(&ok);
+            if (ok) m_awaitingDatasets[dataset] = id;
 
             int startFrame = attributes.value("startFrame").trimmed().toInt(&ok);
             if (ok) model->setStartFrame(startFrame);
 
             model->setObjectName(name);
-	    m_models[id] = model;
-	    return true;
+            m_models[id] = model;
+            return true;
 
-	} else {
+        } else {
 
-	    cerr << "WARNING: SV-XML: Unexpected dense model dimension ("
-		      << dimensions << ")" << endl;
-	}
+            cerr << "WARNING: SV-XML: Unexpected dense model dimension ("
+                      << dimensions << ")" << endl;
+        }
     } else if (type == "sparse") {
 
-	READ_MANDATORY(int, dimensions, toInt);
-		  
-	if (dimensions == 1) {
-	    
-	    READ_MANDATORY(int, resolution, toInt);
+        READ_MANDATORY(int, dimensions, toInt);
+                  
+        if (dimensions == 1) {
+            
+            READ_MANDATORY(int, resolution, toInt);
 
             if (attributes.value("subtype") == "image") {
 
@@ -571,41 +571,41 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 m_models[id] = model;
             }
 
-	    int dataset = attributes.value("dataset").trimmed().toInt(&ok);
-	    if (ok) m_awaitingDatasets[dataset] = id;
+            int dataset = attributes.value("dataset").trimmed().toInt(&ok);
+            if (ok) m_awaitingDatasets[dataset] = id;
 
-	    return true;
+            return true;
 
-	} else if (dimensions == 2 || dimensions == 3) {
-	    
-	    READ_MANDATORY(int, resolution, toInt);
+        } else if (dimensions == 2 || dimensions == 3) {
+            
+            READ_MANDATORY(int, resolution, toInt);
 
             bool haveMinMax = true;
-	    float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
+            float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
             if (!ok) haveMinMax = false;
-	    float maximum = attributes.value("maximum").trimmed().toFloat(&ok);
+            float maximum = attributes.value("maximum").trimmed().toFloat(&ok);
             if (!ok) haveMinMax = false;
 
-	    float valueQuantization =
-		attributes.value("valueQuantization").trimmed().toFloat(&ok);
+            float valueQuantization =
+                attributes.value("valueQuantization").trimmed().toFloat(&ok);
 
-	    bool notifyOnAdd = (attributes.value("notifyOnAdd") == "true");
+            bool notifyOnAdd = (attributes.value("notifyOnAdd") == "true");
 
             QString units = attributes.value("units");
 
-	    if (dimensions == 2) {
-		if (attributes.value("subtype") == "text") {
-		    TextModel *model = new TextModel
-			(sampleRate, resolution, notifyOnAdd);
+            if (dimensions == 2) {
+                if (attributes.value("subtype") == "text") {
+                    TextModel *model = new TextModel
+                        (sampleRate, resolution, notifyOnAdd);
                     model->setObjectName(name);
-		    m_models[id] = model;
+                    m_models[id] = model;
                 } else if (attributes.value("subtype") == "path") {
                     PathModel *model = new PathModel
                         (sampleRate, resolution, notifyOnAdd);
                     model->setObjectName(name);
                     m_models[id] = model;
-		} else {
-		    SparseTimeValueModel *model;
+                } else {
+                    SparseTimeValueModel *model;
                     if (haveMinMax) {
                         model = new SparseTimeValueModel
                             (sampleRate, resolution, minimum, maximum, notifyOnAdd);
@@ -615,9 +615,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     }
                     model->setScaleUnits(units);
                     model->setObjectName(name);
-		    m_models[id] = model;
-		}
-	    } else {
+                    m_models[id] = model;
+                }
+            } else {
                 if (attributes.value("subtype") == "region") {
                     RegionModel *model;
                     if (haveMinMax) {
@@ -662,16 +662,16 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 }
             }
 
-	    int dataset = attributes.value("dataset").trimmed().toInt(&ok);
-	    if (ok) m_awaitingDatasets[dataset] = id;
+            int dataset = attributes.value("dataset").trimmed().toInt(&ok);
+            if (ok) m_awaitingDatasets[dataset] = id;
 
-	    return true;
+            return true;
 
-	} else {
+        } else {
 
-	    cerr << "WARNING: SV-XML: Unexpected sparse model dimension ("
-		      << dimensions << ")" << endl;
-	}
+            cerr << "WARNING: SV-XML: Unexpected sparse model dimension ("
+                      << dimensions << ")" << endl;
+        }
 
     } else if (type == "alignment") {
 
@@ -739,9 +739,9 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     m_currentPane = 0;
     
     if (type != "pane") {
-	cerr << "WARNING: SV-XML: Unexpected view type \""
-		  << type << "\"" << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Unexpected view type \""
+                  << type << "\"" << endl;
+        return false;
     }
 
     m_currentPane = m_paneCallback.addPane();
@@ -749,9 +749,9 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     cerr << "SVFileReader::addPane: pane is " << m_currentPane << endl;
 
     if (!m_currentPane) {
-	cerr << "WARNING: SV-XML: Internal error: Failed to add pane!"
-		  << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Internal error: Failed to add pane!"
+                  << endl;
+        return false;
     }
 
     bool ok = false;
@@ -770,9 +770,9 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     view->setFollowGlobalPan(followPan);
     view->setFollowGlobalZoom(followZoom);
     view->setPlaybackFollow(tracking == "scroll" ? PlaybackScrollContinuous :
-			    tracking == "page" ? PlaybackScrollPageWithCentre :
-			    tracking == "daw" ? PlaybackScrollPage
-			    : PlaybackIgnore);
+                            tracking == "page" ? PlaybackScrollPageWithCentre :
+                            tracking == "daw" ? PlaybackScrollPage
+                            : PlaybackIgnore);
 
     // Then set these values
     view->setCentreFrame(centre);
@@ -784,7 +784,7 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 
     int height = attributes.value("height").toInt(&ok);
     if (ok) {
-	m_currentPane->resize(m_currentPane->width(), height);
+        m_currentPane->resize(m_currentPane->width(), height);
     }
 
     return true;
@@ -800,10 +800,10 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     id = attributes.value("id").trimmed().toInt(&ok);
 
     if (!ok) {
-	cerr << "WARNING: SV-XML: No layer id for layer of type \""
-		  << type
-		  << "\"" << endl;
-	return false;
+        cerr << "WARNING: SV-XML: No layer id for layer of type \""
+                  << type
+                  << "\"" << endl;
+        return false;
     }
 
     Layer *layer = 0;
@@ -817,73 +817,73 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 
     if (m_inData) {
 
-	if (m_layers.find(id) != m_layers.end()) {
-	    cerr << "WARNING: SV-XML: Ignoring duplicate layer id " << id
-		      << " in data section" << endl;
-	    return false;
-	}
+        if (m_layers.find(id) != m_layers.end()) {
+            cerr << "WARNING: SV-XML: Ignoring duplicate layer id " << id
+                      << " in data section" << endl;
+            return false;
+        }
 
-	layer = m_layers[id] = m_document->createLayer
-	    (LayerFactory::getInstance()->getLayerTypeForName(type));
+        layer = m_layers[id] = m_document->createLayer
+            (LayerFactory::getInstance()->getLayerTypeForName(type));
 
-	if (layer) {
-	    m_layers[id] = layer;
-	    isNewLayer = true;
-	}
+        if (layer) {
+            m_layers[id] = layer;
+            isNewLayer = true;
+        }
 
     } else {
 
-	if (!m_currentPane) {
-	    cerr << "WARNING: SV-XML: No current pane for layer " << id
-		      << " in view section" << endl;
-	    return false;
-	}
+        if (!m_currentPane) {
+            cerr << "WARNING: SV-XML: No current pane for layer " << id
+                      << " in view section" << endl;
+            return false;
+        }
 
-	if (m_layers.find(id) != m_layers.end()) {
-	    
-	    layer = m_layers[id];
-	
-	} else {
-	    cerr << "WARNING: SV-XML: Layer id " << id 
-		      << " in view section has not been defined -- defining it here"
-		      << endl;
+        if (m_layers.find(id) != m_layers.end()) {
+            
+            layer = m_layers[id];
+        
+        } else {
+            cerr << "WARNING: SV-XML: Layer id " << id 
+                      << " in view section has not been defined -- defining it here"
+                      << endl;
 
-	    layer = m_document->createLayer
-		(LayerFactory::getInstance()->getLayerTypeForName(type));
+            layer = m_document->createLayer
+                (LayerFactory::getInstance()->getLayerTypeForName(type));
 
-	    if (layer) {
-		m_layers[id] = layer;
-		isNewLayer = true;
-	    }
-	}
+            if (layer) {
+                m_layers[id] = layer;
+                isNewLayer = true;
+            }
+        }
     }
-	    
+            
     if (!layer) {
-	cerr << "WARNING: SV-XML: Failed to add layer of type \""
-		  << type
-		  << "\"" << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Failed to add layer of type \""
+                  << type
+                  << "\"" << endl;
+        return false;
     }
 
     if (isNewLayer) {
 
-	QString name = attributes.value("name");
-	layer->setObjectName(name);
+        QString name = attributes.value("name");
+        layer->setObjectName(name);
 
         QString presentationName = attributes.value("presentationName");
         layer->setPresentationName(presentationName);
 
-	int modelId;
-	bool modelOk = false;
-	modelId = attributes.value("model").trimmed().toInt(&modelOk);
+        int modelId;
+        bool modelOk = false;
+        modelId = attributes.value("model").trimmed().toInt(&modelOk);
 
-	if (modelOk) {
-	    if (haveModel(modelId)) {
-		Model *model = m_models[modelId];
-		m_document->setModel(layer, model);
-	    } else {
-		cerr << "WARNING: SV-XML: Unknown model id " << modelId
-			  << " in layer definition" << endl;
+        if (modelOk) {
+            if (haveModel(modelId)) {
+                Model *model = m_models[modelId];
+                m_document->setModel(layer, model);
+            } else {
+                cerr << "WARNING: SV-XML: Unknown model id " << modelId
+                          << " in layer definition" << endl;
                 if (!layer->canExistWithoutModel()) {
                     // Don't add a layer with an unknown model id
                     // unless it explicitly supports this state
@@ -892,7 +892,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
                     return false;
                 }
             }
-	}
+        }
 
         if (layer) layer->setProperties(attributes);
     }
@@ -911,7 +911,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
         // again afterwards too.  Hm
         layer->setLayerDormant(m_currentPane, dormant);
 
-	m_document->addLayerToView(m_currentPane, layer);
+        m_document->addLayerToView(m_currentPane, layer);
 
         layer->setLayerDormant(m_currentPane, dormant);
     }
@@ -931,50 +931,50 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     READ_MANDATORY(int, dimensions, toInt);
     
     if (m_awaitingDatasets.find(id) == m_awaitingDatasets.end()) {
-	cerr << "WARNING: SV-XML: Unwanted dataset " << id << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Unwanted dataset " << id << endl;
+        return false;
     }
     
     int modelId = m_awaitingDatasets[id];
     
     Model *model = 0;
     if (haveModel(modelId)) {
-	model = m_models[modelId];
+        model = m_models[modelId];
     } else {
-	cerr << "WARNING: SV-XML: Internal error: Unknown model " << modelId
-		  << " expecting dataset " << id << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Internal error: Unknown model " << modelId
+                  << " expecting dataset " << id << endl;
+        return false;
     }
 
     bool good = false;
 
     switch (dimensions) {
     case 1:
-	if (dynamic_cast<SparseOneDimensionalModel *>(model)) good = true;
+        if (dynamic_cast<SparseOneDimensionalModel *>(model)) good = true;
         else if (dynamic_cast<ImageModel *>(model)) good = true;
-	break;
+        break;
 
     case 2:
-	if (dynamic_cast<SparseTimeValueModel *>(model)) good = true;
-	else if (dynamic_cast<TextModel *>(model)) good = true;
-	else if (dynamic_cast<PathModel *>(model)) good = true;
-	break;
+        if (dynamic_cast<SparseTimeValueModel *>(model)) good = true;
+        else if (dynamic_cast<TextModel *>(model)) good = true;
+        else if (dynamic_cast<PathModel *>(model)) good = true;
+        break;
 
     case 3:
-	if (dynamic_cast<NoteModel *>(model)) good = true;
-	else if (dynamic_cast<FlexiNoteModel *>(model)) good = true;
-	else if (dynamic_cast<RegionModel *>(model)) good = true;
-	else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
-	    m_datasetSeparator = attributes.value("separator");
-	    good = true;
-	}
-	break;
+        if (dynamic_cast<NoteModel *>(model)) good = true;
+        else if (dynamic_cast<FlexiNoteModel *>(model)) good = true;
+        else if (dynamic_cast<RegionModel *>(model)) good = true;
+        else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
+            m_datasetSeparator = attributes.value("separator");
+            good = true;
+        }
+        break;
     }
 
     if (!good) {
-	cerr << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
-	m_currentDataset = 0;
-	return false;
+        cerr << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
+        m_currentDataset = 0;
+        return false;
     }
 
     m_currentDataset = model;
@@ -991,86 +991,86 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //    SVDEBUG << "SVFileReader::addPointToDataset: frame = " << frame << endl;
 
     SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-	(m_currentDataset);
+        (m_currentDataset);
 
     if (sodm) {
 //        cerr << "Current dataset is a sparse one dimensional model" << endl;
-	QString label = attributes.value("label");
-	sodm->addPoint(SparseOneDimensionalModel::Point(frame, label));
-	return true;
+        QString label = attributes.value("label");
+        sodm->addPoint(SparseOneDimensionalModel::Point(frame, label));
+        return true;
     }
 
     SparseTimeValueModel *stvm = dynamic_cast<SparseTimeValueModel *>
-	(m_currentDataset);
+        (m_currentDataset);
 
     if (stvm) {
 //        cerr << "Current dataset is a sparse time-value model" << endl;
-	float value = 0.0;
-	value = attributes.value("value").trimmed().toFloat(&ok);
-	QString label = attributes.value("label");
-	stvm->addPoint(SparseTimeValueModel::Point(frame, value, label));
-	return ok;
+        float value = 0.0;
+        value = attributes.value("value").trimmed().toFloat(&ok);
+        QString label = attributes.value("label");
+        stvm->addPoint(SparseTimeValueModel::Point(frame, value, label));
+        return ok;
     }
-	
+        
     NoteModel *nm = dynamic_cast<NoteModel *>(m_currentDataset);
 
     if (nm) {
 //        cerr << "Current dataset is a note model" << endl;
-	float value = 0.0;
-	value = attributes.value("value").trimmed().toFloat(&ok);
-	int duration = 0;
-	duration = attributes.value("duration").trimmed().toInt(&ok);
-	QString label = attributes.value("label");
+        float value = 0.0;
+        value = attributes.value("value").trimmed().toFloat(&ok);
+        int duration = 0;
+        duration = attributes.value("duration").trimmed().toInt(&ok);
+        QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
             level = 1.f;
             ok = true;
         }
-	nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
-	return ok;
+        nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
+        return ok;
     }
 
     FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
 
     if (fnm) {
 //        cerr << "Current dataset is a flexinote model" << endl;
-	float value = 0.0;
-	value = attributes.value("value").trimmed().toFloat(&ok);
-	int duration = 0;
-	duration = attributes.value("duration").trimmed().toInt(&ok);
-	QString label = attributes.value("label");
+        float value = 0.0;
+        value = attributes.value("value").trimmed().toFloat(&ok);
+        int duration = 0;
+        duration = attributes.value("duration").trimmed().toInt(&ok);
+        QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
             level = 1.f;
             ok = true;
         }
-	fnm->addPoint(FlexiNoteModel::Point(frame, value, duration, level, label));
-	return ok;
+        fnm->addPoint(FlexiNoteModel::Point(frame, value, duration, level, label));
+        return ok;
     }
 
     RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
 
     if (rm) {
 //        cerr << "Current dataset is a region model" << endl;
-	float value = 0.0;
-	value = attributes.value("value").trimmed().toFloat(&ok);
-	int duration = 0;
-	duration = attributes.value("duration").trimmed().toInt(&ok);
-	QString label = attributes.value("label");
-	rm->addPoint(RegionModel::Point(frame, value, duration, label));
-	return ok;
+        float value = 0.0;
+        value = attributes.value("value").trimmed().toFloat(&ok);
+        int duration = 0;
+        duration = attributes.value("duration").trimmed().toInt(&ok);
+        QString label = attributes.value("label");
+        rm->addPoint(RegionModel::Point(frame, value, duration, label));
+        return ok;
     }
 
     TextModel *tm = dynamic_cast<TextModel *>(m_currentDataset);
 
     if (tm) {
 //        cerr << "Current dataset is a text model" << endl;
-	float height = 0.0;
-	height = attributes.value("height").trimmed().toFloat(&ok);
-	QString label = attributes.value("label");
+        float height = 0.0;
+        height = attributes.value("height").trimmed().toFloat(&ok);
+        QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << endl;
-	tm->addPoint(TextModel::Point(frame, height, label));
-	return ok;
+        tm->addPoint(TextModel::Point(frame, height, label));
+        return ok;
     }
 
     PathModel *pm = dynamic_cast<PathModel *>(m_currentDataset);
@@ -1079,19 +1079,19 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //        cerr << "Current dataset is a path model" << endl;
         int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
 //        SVDEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
-	pm->addPoint(PathModel::Point(frame, mapframe));
-	return ok;
+        pm->addPoint(PathModel::Point(frame, mapframe));
+        return ok;
     }
 
     ImageModel *im = dynamic_cast<ImageModel *>(m_currentDataset);
 
     if (im) {
 //        cerr << "Current dataset is an image model" << endl;
-	QString image = attributes.value("image");
-	QString label = attributes.value("label");
+        QString image = attributes.value("image");
+        QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
-	im->addPoint(ImageModel::Point(frame, image, label));
-	return ok;
+        im->addPoint(ImageModel::Point(frame, image, label));
+        return ok;
     }
 
     cerr << "WARNING: SV-XML: Point element found in non-point dataset" << endl;
@@ -1104,22 +1104,22 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
 {
     EditableDenseThreeDimensionalModel *dtdm = 
         dynamic_cast<EditableDenseThreeDimensionalModel *>
-	(m_currentDataset);
+        (m_currentDataset);
 
     if (dtdm) {
 
-	bool ok = false;
-	int n = attributes.value("number").trimmed().toInt(&ok);
-	if (!ok) {
-	    cerr << "WARNING: SV-XML: Missing or invalid bin number"
-		      << endl;
-	    return false;
-	}
+        bool ok = false;
+        int n = attributes.value("number").trimmed().toInt(&ok);
+        if (!ok) {
+            cerr << "WARNING: SV-XML: Missing or invalid bin number"
+                      << endl;
+            return false;
+        }
 
-	QString name = attributes.value("name");
+        QString name = attributes.value("name");
 
-	dtdm->setBinName(n, name);
-	return true;
+        dtdm->setBinName(n, name);
+        return true;
     }
 
     cerr << "WARNING: SV-XML: Bin definition found in incompatible dataset" << endl;
@@ -1136,9 +1136,9 @@ SVFileReader::addRowToDataset(const QXmlAttributes &attributes)
     bool ok = false;
     m_rowNumber = attributes.value("n").trimmed().toInt(&ok);
     if (!ok) {
-	cerr << "WARNING: SV-XML: Missing or invalid row number"
-		  << endl;
-	return false;
+        cerr << "WARNING: SV-XML: Missing or invalid row number"
+                  << endl;
+        return false;
     }
     
     m_inRow = true;
@@ -1153,38 +1153,38 @@ SVFileReader::readRowData(const QString &text)
 {
     EditableDenseThreeDimensionalModel *dtdm =
         dynamic_cast<EditableDenseThreeDimensionalModel *>
-	(m_currentDataset);
+        (m_currentDataset);
 
     bool warned = false;
 
     if (dtdm) {
-	QStringList data = text.split(m_datasetSeparator);
+        QStringList data = text.split(m_datasetSeparator);
 
-	DenseThreeDimensionalModel::Column values;
+        DenseThreeDimensionalModel::Column values;
 
-	for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
+        for (QStringList::iterator i = data.begin(); i != data.end(); ++i) {
 
-	    if (int(values.size()) == dtdm->getHeight()) {
-		if (!warned) {
-		    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
-			      << m_rowNumber << endl;
-		    warned = true;
-		}
-	    }
+            if (int(values.size()) == dtdm->getHeight()) {
+                if (!warned) {
+                    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
+                              << m_rowNumber << endl;
+                    warned = true;
+                }
+            }
 
-	    bool ok;
-	    float value = i->toFloat(&ok);
-	    if (!ok) {
-		cerr << "WARNING: SV-XML: Bad floating-point value "
-			  << i->toLocal8Bit().data()
-			  << " in row data" << endl;
-	    } else {
-		values.push_back(value);
-	    }
-	}
+            bool ok;
+            float value = i->toFloat(&ok);
+            if (!ok) {
+                cerr << "WARNING: SV-XML: Bad floating-point value "
+                          << i->toLocal8Bit().data()
+                          << " in row data" << endl;
+            } else {
+                values.push_back(value);
+            }
+        }
 
-	dtdm->setColumn(m_rowNumber, values);
-	return true;
+        dtdm->setColumn(m_rowNumber, values);
+        return true;
     }
 
     cerr << "WARNING: SV-XML: Row data found in non-row dataset" << endl;
@@ -1200,8 +1200,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     modelId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
-	cerr << "WARNING: SV-XML: No model id specified for derivation" << endl;
-	return false;
+        cerr << "WARNING: SV-XML: No model id specified for derivation" << endl;
+        return false;
     }
 
     if (haveModel(modelId)) {
@@ -1294,8 +1294,8 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
     modelId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
-	cerr << "WARNING: SV-XML: No model id specified for play parameters" << endl;
-	return false;
+        cerr << "WARNING: SV-XML: No model id specified for play parameters" << endl;
+        return false;
     }
 
     if (haveModel(modelId)) {
@@ -1331,8 +1331,8 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 
     } else {
 
-	cerr << "WARNING: SV-XML: Unknown model " << modelId
-		  << " for play parameters" << endl;
+        cerr << "WARNING: SV-XML: Unknown model " << modelId
+                  << " for play parameters" << endl;
         return false;
     }
 
@@ -1477,9 +1477,9 @@ public:
     SVFileReader::FileType getType() const { return m_type; }
 
     virtual bool startElement(const QString &,
-			      const QString &,
-			      const QString &qName,
-			      const QXmlAttributes& atts)
+                              const QString &,
+                              const QString &qName,
+                              const QXmlAttributes& atts)
     {
         QString name = qName.toLower();
 
@@ -1513,8 +1513,8 @@ public:
     }
 
     virtual bool endElement(const QString &,
-			    const QString &,
-			    const QString &qName)
+                            const QString &,
+                            const QString &qName)
     {
         QString name = qName.toLower();
 

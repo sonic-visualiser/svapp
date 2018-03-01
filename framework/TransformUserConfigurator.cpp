@@ -40,17 +40,17 @@ TransformUserConfigurator::setParentWidget(QWidget *w)
 
 bool
 TransformUserConfigurator::getChannelRange(TransformId identifier,
-					   Vamp::PluginBase *plugin,
-					   int &minChannels, int &maxChannels)
+                                           Vamp::PluginBase *plugin,
+                                           int &minChannels, int &maxChannels)
 {
     if (plugin && plugin->getType() == "Feature Extraction Plugin") {
-	Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
-	SVDEBUG << "TransformUserConfigurator::getChannelRange: is a Vamp plugin" << endl;
+        Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
+        SVDEBUG << "TransformUserConfigurator::getChannelRange: is a Vamp plugin" << endl;
         minChannels = int(vp->getMinChannelCount());
         maxChannels = int(vp->getMaxChannelCount());
         return true;
     } else {
-	SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a Vamp plugin" << endl;
+        SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a Vamp plugin" << endl;
         return TransformFactory::getInstance()->
             getTransformChannelRange(identifier, minChannels, maxChannels);
     }
@@ -58,15 +58,15 @@ TransformUserConfigurator::getChannelRange(TransformId identifier,
 
 bool
 TransformUserConfigurator::configure(ModelTransformer::Input &input,
-				     Transform &transform,
-				     Vamp::PluginBase *plugin,
+                                     Transform &transform,
+                                     Vamp::PluginBase *plugin,
                                      Model *&inputModel,
-				     AudioPlaySource *source,
-				     sv_frame_t startFrame,
-				     sv_frame_t duration,
-				     const QMap<QString, Model *> &modelMap,
-				     QStringList candidateModelNames,
-				     QString defaultModelName)
+                                     AudioPlaySource *source,
+                                     sv_frame_t startFrame,
+                                     sv_frame_t duration,
+                                     const QMap<QString, Model *> &modelMap,
+                                     QStringList candidateModelNames,
+                                     QString defaultModelName)
 {
     bool ok = false;
     QString id = transform.getPluginIdentifier();
@@ -108,7 +108,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
             static_cast<RealTimePluginInstance *>(plugin);
 
         if (effect && source) {
-	    SVDEBUG << "Setting auditioning effect" << endl;
+            SVDEBUG << "Setting auditioning effect" << endl;
             source->setAuditioningEffect(rtp);
         }
 
@@ -116,38 +116,38 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
         Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
 
-	frequency = (vp->getInputDomain() == Vamp::Plugin::FrequencyDomain);
+        frequency = (vp->getInputDomain() == Vamp::Plugin::FrequencyDomain);
 
-	std::vector<Vamp::Plugin::OutputDescriptor> od =
-	    vp->getOutputDescriptors();
+        std::vector<Vamp::Plugin::OutputDescriptor> od =
+            vp->getOutputDescriptors();
 
-//	cerr << "configure: looking for output: " << output << endl;
+//        cerr << "configure: looking for output: " << output << endl;
 
-	if (od.size() > 1) {
-	    for (size_t i = 0; i < od.size(); ++i) {
-		if (od[i].identifier == output.toStdString()) {
-		    outputLabel = od[i].name.c_str();
-		    outputDescription = od[i].description.c_str();
-		    break;
-		}
-	    }
+        if (od.size() > 1) {
+            for (size_t i = 0; i < od.size(); ++i) {
+                if (od[i].identifier == output.toStdString()) {
+                    outputLabel = od[i].name.c_str();
+                    outputDescription = od[i].description.c_str();
+                    break;
+                }
+            }
         }
     }
     
     int sourceChannels = 1;
     if (dynamic_cast<DenseTimeValueModel *>(inputModel)) {
-	sourceChannels = dynamic_cast<DenseTimeValueModel *>(inputModel)
-	    ->getChannelCount();
+        sourceChannels = dynamic_cast<DenseTimeValueModel *>(inputModel)
+            ->getChannelCount();
     }
 
     int minChannels = 1, maxChannels = sourceChannels;
     getChannelRange(transform.getIdentifier(), plugin,
-		    minChannels, maxChannels);
+                    minChannels, maxChannels);
 
     int targetChannels = sourceChannels;
     if (!effect) {
-	if (sourceChannels < minChannels) targetChannels = minChannels;
-	if (sourceChannels > maxChannels) targetChannels = maxChannels;
+        if (sourceChannels < minChannels) targetChannels = minChannels;
+        if (sourceChannels > maxChannels) targetChannels = maxChannels;
     }
 
     int defaultChannel = -1; //!!! no longer saved! [was context.channel]
@@ -156,20 +156,20 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
         (plugin, parentWidget);
 
     dialog->setMoreInfoUrl(TransformFactory::getInstance()->
-			   getTransformInfoUrl(transform.getIdentifier()));
+                           getTransformInfoUrl(transform.getIdentifier()));
 
     if (candidateModelNames.size() > 1 && !generator) {
-	dialog->setCandidateInputModels(candidateModelNames,
-					defaultModelName);
+        dialog->setCandidateInputModels(candidateModelNames,
+                                        defaultModelName);
     }
 
     if (startFrame != 0 || duration != 0) {
-	dialog->setShowSelectionOnlyOption(true);
+        dialog->setShowSelectionOnlyOption(true);
     }
 
     if (targetChannels > 0) {
-	dialog->setChannelArrangement(sourceChannels, targetChannels,
-				      defaultChannel);
+        dialog->setChannelArrangement(sourceChannels, targetChannels,
+                                      defaultChannel);
     }
         
     dialog->setOutputLabel(outputLabel, outputDescription);
@@ -177,24 +177,24 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     dialog->setShowProcessingOptions(true, frequency);
 
     if (dialog->exec() == QDialog::Accepted) {
-	ok = true;
+        ok = true;
     }
 
     QString selectedInput = dialog->getInputModel();
     if (selectedInput != "") {
-	if (modelMap.contains(selectedInput)) {
-	    inputModel = modelMap.value(selectedInput);
-	    SVDEBUG << "Found selected input \"" << selectedInput << "\" in model map, result is " << inputModel << endl;
-	} else {
-	    SVDEBUG << "Failed to find selected input \"" << selectedInput << "\" in model map" << endl;
-	}
+        if (modelMap.contains(selectedInput)) {
+            inputModel = modelMap.value(selectedInput);
+            SVDEBUG << "Found selected input \"" << selectedInput << "\" in model map, result is " << inputModel << endl;
+        } else {
+            SVDEBUG << "Failed to find selected input \"" << selectedInput << "\" in model map" << endl;
+        }
     } else {
-	SVDEBUG << "Selected input empty: \"" << selectedInput << "\"" << endl;
+        SVDEBUG << "Selected input empty: \"" << selectedInput << "\"" << endl;
     }
         
     // Write parameters back to transform object
     TransformFactory::getInstance()->
-	setParametersFromPlugin(transform, plugin);
+        setParametersFromPlugin(transform, plugin);
 
     input.setChannel(dialog->getChannel());
         
@@ -204,20 +204,20 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     //(whenever that may be)
 
     if (startFrame != 0 || duration != 0) {
-	if (dialog->getSelectionOnly()) {
-	    transform.setStartTime(RealTime::frame2RealTime
-				   (startFrame, inputModel->getSampleRate()));
-	    transform.setDuration(RealTime::frame2RealTime
-				  (duration, inputModel->getSampleRate()));
-	}
+        if (dialog->getSelectionOnly()) {
+            transform.setStartTime(RealTime::frame2RealTime
+                                   (startFrame, inputModel->getSampleRate()));
+            transform.setDuration(RealTime::frame2RealTime
+                                  (duration, inputModel->getSampleRate()));
+        }
     }
 
     int stepSize = 0, blockSize = 0;
     WindowType windowType = HanningWindow;
 
     dialog->getProcessingParameters(stepSize,
-				    blockSize,
-				    windowType);
+                                    blockSize,
+                                    windowType);
 
     transform.setStepSize(stepSize);
     transform.setBlockSize(blockSize);
@@ -226,7 +226,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     delete dialog;
 
     if (effect && source) {
-	source->setAuditioningEffect(0);
+        source->setAuditioningEffect(0);
     }
 
     return ok;

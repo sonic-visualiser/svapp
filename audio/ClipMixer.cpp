@@ -60,9 +60,9 @@ ClipMixer::loadClipData(QString path, double f0, double level)
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
     if (!file) {
-	cerr << "ClipMixer::loadClipData: Failed to open file path \""
+        cerr << "ClipMixer::loadClipData: Failed to open file path \""
              << path << "\": " << sf_strerror(file) << endl;
-	return false;
+        return false;
     }
 
     tmpFrames = (float *)malloc(info.frames * info.channels * sizeof(float));
@@ -77,16 +77,16 @@ ClipMixer::loadClipData(QString path, double f0, double level)
     m_clipData = (float *)malloc(info.frames * sizeof(float));
     if (!m_clipData) {
         cerr << "ClipMixer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
-	free(tmpFrames);
-	return false;
+        free(tmpFrames);
+        return false;
     }
 
     for (i = 0; i < info.frames; ++i) {
-	int j;
-	m_clipData[i] = 0.0f;
-	for (j = 0; j < info.channels; ++j) {
-	    m_clipData[i] += tmpFrames[i * info.channels + j] * float(level);
-	}
+        int j;
+        m_clipData[i] = 0.0f;
+        for (j = 0; j < info.channels; ++j) {
+            m_clipData[i] += tmpFrames[i * info.channels + j] * float(level);
+        }
     }
 
     free(tmpFrames);

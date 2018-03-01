@@ -26,10 +26,10 @@ public:
                            Transform &transform,
                            Vamp::PluginBase *plugin,
                            Model *&inputModel,
-			   AudioPlaySource *source,
-			   sv_frame_t startFrame,
-			   sv_frame_t duration,
-			   const QMap<QString, Model *> &modelMap,
+                           AudioPlaySource *source,
+                           sv_frame_t startFrame,
+                           sv_frame_t duration,
+                           const QMap<QString, Model *> &modelMap,
                            QStringList candidateModelNames,
                            QString defaultModelName);
 

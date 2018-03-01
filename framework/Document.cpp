@@ -82,32 +82,32 @@ Document::~Document()
     SVDEBUG << "Document::~Document: about to delete layers" << endl;
 #endif
     while (!m_layers.empty()) {
-	deleteLayer(*m_layers.begin(), true);
+        deleteLayer(*m_layers.begin(), true);
     }
 
     if (!m_models.empty()) {
-	SVDEBUG << "Document::~Document: WARNING: " 
-		  << m_models.size() << " model(s) still remain -- "
-		  << "should have been garbage collected when deleting layers"
-		  << endl;
-	while (!m_models.empty()) {
+        SVDEBUG << "Document::~Document: WARNING: " 
+                  << m_models.size() << " model(s) still remain -- "
+                  << "should have been garbage collected when deleting layers"
+                  << endl;
+        while (!m_models.empty()) {
             Model *model = m_models.begin()->first;
-	    if (model == m_mainModel) {
-		// just in case!
-		SVDEBUG << "Document::~Document: WARNING: Main model is also"
-			  << " in models list!" << endl;
-	    } else if (model) {
+            if (model == m_mainModel) {
+                // just in case!
+                SVDEBUG << "Document::~Document: WARNING: Main model is also"
+                          << " in models list!" << endl;
+            } else if (model) {
                 model->aboutToDelete();
-		emit modelAboutToBeDeleted(model);
-		delete model;
-	    }
-	    m_models.erase(m_models.begin());
-	}
+                emit modelAboutToBeDeleted(model);
+                delete model;
+            }
+            m_models.erase(m_models.begin());
+        }
     }
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::~Document: About to get rid of main model"
-	      << endl;
+              << endl;
 #endif
     if (m_mainModel) {
         m_mainModel->aboutToDelete();
@@ -151,11 +151,11 @@ Layer *
 Document::createImportedLayer(Model *model)
 {
     LayerFactory::LayerTypeSet types =
-	LayerFactory::getInstance()->getValidLayerTypes(model);
+        LayerFactory::getInstance()->getValidLayerTypes(model);
 
     if (types.empty()) {
-	cerr << "WARNING: Document::importLayer: no valid display layer for model" << endl;
-	return 0;
+        cerr << "WARNING: Document::importLayer: no valid display layer for model" << endl;
+        return 0;
     }
 
     //!!! for now, just use the first suitable layer type
@@ -189,13 +189,13 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
     if (!m_mainModel) return 0;
 
     Model *newModel =
-	LayerFactory::getInstance()->createEmptyModel(type, m_mainModel);
+        LayerFactory::getInstance()->createEmptyModel(type, m_mainModel);
     if (!newModel) return 0;
 
     Layer *newLayer = createLayer(type);
     if (!newLayer) {
-	delete newModel;
-	return 0;
+        delete newModel;
+        return 0;
     }
 
     addImportedModel(newModel);
@@ -206,7 +206,7 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
 
 Layer *
 Document::createDerivedLayer(LayerFactory::LayerType type,
-			     TransformId transform)
+                             TransformId transform)
 {
     Layer *newLayer = createLayer(type);
     if (!newLayer) return 0;
@@ -444,8 +444,8 @@ Document::setMainModel(WaveFileModel *model)
 
     for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
 
-	Layer *layer = *i;
-	Model *model = layer->getModel();
+        Layer *layer = *i;
+        Model *model = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
         cerr << "Document::setMainModel: inspecting model "
@@ -453,56 +453,56 @@ Document::setMainModel(WaveFileModel *model)
                   << layer->objectName() << endl;
 #endif
 
-	if (model == oldMainModel) {
+        if (model == oldMainModel) {
 #ifdef DEBUG_DOCUMENT
             cerr << "... it uses the old main model, replacing" << endl;
 #endif
-	    LayerFactory::getInstance()->setModel(layer, m_mainModel);
-	    continue;
-	}
+            LayerFactory::getInstance()->setModel(layer, m_mainModel);
+            continue;
+        }
 
         if (!model) {
             cerr << "WARNING: Document::setMainModel: Null model in layer "
                       << layer << endl;
-	    // get rid of this hideous degenerate
-	    obsoleteLayers.push_back(layer);
-	    continue;
-	}
+            // get rid of this hideous degenerate
+            obsoleteLayers.push_back(layer);
+            continue;
+        }
 
-	if (m_models.find(model) == m_models.end()) {
-	    cerr << "WARNING: Document::setMainModel: Unknown model "
-		      << model << " in layer " << layer << endl;
-	    // and this one
-	    obsoleteLayers.push_back(layer);
-	    continue;
-	}
-	    
-	if (m_models[model].source &&
+        if (m_models.find(model) == m_models.end()) {
+            cerr << "WARNING: Document::setMainModel: Unknown model "
+                      << model << " in layer " << layer << endl;
+            // and this one
+            obsoleteLayers.push_back(layer);
+            continue;
+        }
+            
+        if (m_models[model].source &&
             (m_models[model].source == oldMainModel)) {
 
 #ifdef DEBUG_DOCUMENT
             cerr << "... it uses a model derived from the old main model, regenerating" << endl;
 #endif
 
-	    // This model was derived from the previous main
-	    // model: regenerate it.
-	    
-	    const Transform &transform = m_models[model].transform;
+            // This model was derived from the previous main
+            // model: regenerate it.
+            
+            const Transform &transform = m_models[model].transform;
             QString transformId = transform.getIdentifier();
-	    
+            
             //!!! We have a problem here if the number of channels in
             //the main model has changed.
 
             QString message;
-	    Model *replacementModel =
+            Model *replacementModel =
                 addDerivedModel(transform,
                                 ModelTransformer::Input
                                 (m_mainModel, m_models[model].channel),
                                 message);
-	    
-	    if (!replacementModel) {
-		cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
-			  << transformId << "\"" << " in layer " << layer << endl;
+            
+            if (!replacementModel) {
+                cerr << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
+                          << transformId << "\"" << " in layer " << layer << endl;
                 if (failedTransformers.find(transformId)
                     == failedTransformers.end()) {
                     emit modelRegenerationFailed(layer->objectName(),
@@ -510,8 +510,8 @@ Document::setMainModel(WaveFileModel *model)
                                                  message);
                     failedTransformers.insert(transformId);
                 }
-		obsoleteLayers.push_back(layer);
-	    } else {
+                obsoleteLayers.push_back(layer);
+            } else {
                 if (message != "") {
                     emit modelRegenerationWarning(layer->objectName(),
                                                   transformId,
@@ -533,13 +533,13 @@ Document::setMainModel(WaveFileModel *model)
                     cerr << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel!" << endl;
                 }
 #endif
-		setModel(layer, replacementModel);
-	    }
-	}	    
+                setModel(layer, replacementModel);
+            }
+        }            
     }
 
     for (size_t k = 0; k < obsoleteLayers.size(); ++k) {
-	deleteLayer(obsoleteLayers[k], true);
+        deleteLayer(obsoleteLayers[k], true);
     }
 
     for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
@@ -592,9 +592,9 @@ Document::addAlreadyDerivedModel(const Transform &transform,
                                  Model *outputModelToAdd)
 {
     if (m_models.find(outputModelToAdd) != m_models.end()) {
-	cerr << "WARNING: Document::addAlreadyDerivedModel: Model already added"
-		  << endl;
-	return;
+        cerr << "WARNING: Document::addAlreadyDerivedModel: Model already added"
+                  << endl;
+        return;
     }
 
 #ifdef DEBUG_DOCUMENT
@@ -633,9 +633,9 @@ void
 Document::addImportedModel(Model *model)
 {
     if (m_models.find(model) != m_models.end()) {
-	cerr << "WARNING: Document::addImportedModel: Model already added"
-		  << endl;
-	return;
+        cerr << "WARNING: Document::addImportedModel: Model already added"
+                  << endl;
+        return;
     }
 
     ModelRecord rec;
@@ -669,9 +669,9 @@ void
 Document::addAdditionalModel(Model *model)
 {
     if (m_models.find(model) != m_models.end()) {
-	cerr << "WARNING: Document::addAdditionalModel: Model already added"
-		  << endl;
-	return;
+        cerr << "WARNING: Document::addAdditionalModel: Model already added"
+                  << endl;
+        return;
     }
 
     ModelRecord rec;
@@ -775,7 +775,7 @@ Document::addDerivedModels(const Transforms &transforms,
             addAlreadyDerivedModel(applied, input, model);
         }
     }
-	
+        
     return mm;
 }
 
@@ -783,54 +783,54 @@ void
 Document::releaseModel(Model *model) // Will _not_ release main model!
 {
     if (model == 0) {
-	return;
+        return;
     }
 
     if (model == m_mainModel) {
-	return;
+        return;
     }
 
     bool toDelete = false;
 
     if (m_models.find(model) != m_models.end()) {
-	if (m_models[model].refcount == 0) {
-	    SVCERR << "WARNING: Document::releaseModel: model " << model
+        if (m_models[model].refcount == 0) {
+            SVCERR << "WARNING: Document::releaseModel: model " << model
                    << " reference count is zero already!" << endl;
-	} else {
-	    if (--m_models[model].refcount == 0) {
-		toDelete = true;
-	    }
-	}
+        } else {
+            if (--m_models[model].refcount == 0) {
+                toDelete = true;
+            }
+        }
     } else if (m_aggregateModels.find(model) != m_aggregateModels.end()) {
         SVDEBUG << "Document::releaseModel: is an aggregate model" << endl;
         toDelete = true;
     } else { 
-	SVCERR << "WARNING: Document::releaseModel: Unfound model "
+        SVCERR << "WARNING: Document::releaseModel: Unfound model "
                << model << endl;
-	toDelete = true;
+        toDelete = true;
     }
 
     if (toDelete) {
 
-	int sourceCount = 0;
+        int sourceCount = 0;
 
-	for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
-	    if (i->second.source == model) {
-		++sourceCount;
-		i->second.source = 0;
-	    }
-	}
+        for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
+            if (i->second.source == model) {
+                ++sourceCount;
+                i->second.source = 0;
+            }
+        }
 
-	if (sourceCount > 0) {
-	    SVDEBUG << "Document::releaseModel: Deleting model "
+        if (sourceCount > 0) {
+            SVDEBUG << "Document::releaseModel: Deleting model "
                     << model << " even though it is source for "
                     << sourceCount << " other derived model(s) -- resetting "
                     << "their source fields appropriately" << endl;
-	}
+        }
 
         model->aboutToDelete();
-	emit modelAboutToBeDeleted(model);
-	m_models.erase(model);
+        emit modelAboutToBeDeleted(model);
+        m_models.erase(model);
 
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::releaseModel: Deleted model " << model << endl;
@@ -841,7 +841,7 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
         cerr << endl;
 #endif
 
-	delete model;
+        delete model;
     }
 }
 
@@ -849,39 +849,39 @@ void
 Document::deleteLayer(Layer *layer, bool force)
 {
     if (m_layerViewMap.find(layer) != m_layerViewMap.end() &&
-	m_layerViewMap[layer].size() > 0) {
+        m_layerViewMap[layer].size() > 0) {
 
-	cerr << "WARNING: Document::deleteLayer: Layer "
-		  << layer << " [" << layer->objectName() << "]"
-		  << " is still used in " << m_layerViewMap[layer].size()
-		  << " views!" << endl;
+        cerr << "WARNING: Document::deleteLayer: Layer "
+                  << layer << " [" << layer->objectName() << "]"
+                  << " is still used in " << m_layerViewMap[layer].size()
+                  << " views!" << endl;
 
-	if (force) {
+        if (force) {
 
 #ifdef DEBUG_DOCUMENT
-	    cerr << "(force flag set -- deleting from all views)" << endl;
+            cerr << "(force flag set -- deleting from all views)" << endl;
 #endif
 
-	    for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
-		 j != m_layerViewMap[layer].end(); ++j) {
-		// don't use removeLayerFromView, as it issues a command
-		layer->setLayerDormant(*j, true);
-		(*j)->removeLayer(layer);
-	    }
-	    
-	    m_layerViewMap.erase(layer);
+            for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
+                 j != m_layerViewMap[layer].end(); ++j) {
+                // don't use removeLayerFromView, as it issues a command
+                layer->setLayerDormant(*j, true);
+                (*j)->removeLayer(layer);
+            }
+            
+            m_layerViewMap.erase(layer);
 
-	} else {
-	    return;
-	}
+        } else {
+            return;
+        }
     }
 
     if (m_layers.find(layer) == m_layers.end()) {
-	SVDEBUG << "Document::deleteLayer: Layer "
+        SVDEBUG << "Document::deleteLayer: Layer "
                   << layer << " (" << typeid(layer).name() <<
                   ") does not exist, or has already been deleted "
-		  << "(this may not be as serious as it sounds)" << endl;
-	return;
+                  << "(this may not be as serious as it sounds)" << endl;
+        return;
     }
 
     m_layers.erase(layer);
@@ -901,14 +901,14 @@ void
 Document::setModel(Layer *layer, Model *model)
 {
     if (model && 
-	model != m_mainModel &&
-	m_models.find(model) == m_models.end()) {
-	cerr << "ERROR: Document::setModel: Layer " << layer
-		  << " (\"" << layer->objectName()
+        model != m_mainModel &&
+        m_models.find(model) == m_models.end()) {
+        cerr << "ERROR: Document::setModel: Layer " << layer
+                  << " (\"" << layer->objectName()
                   << "\") wants to use unregistered model " << model
-		  << ": register the layer's model before setting it!"
-		  << endl;
-	return;
+                  << ": register the layer's model before setting it!"
+                  << endl;
+        return;
     }
 
     Model *previousModel = layer->getModel();
@@ -923,7 +923,7 @@ Document::setModel(Layer *layer, Model *model)
     }
 
     if (model && model != m_mainModel) {
-	m_models[model].refcount ++;
+        m_models[model].refcount ++;
     }
 
     if (model && previousModel) {
@@ -932,7 +932,7 @@ Document::setModel(Layer *layer, Model *model)
     }
 
     LayerFactory::getInstance()->setModel(layer, model);
-	// std::cerr << "layer type: " << LayerFactory::getInstance()->getLayerTypeName(LayerFactory::getInstance()->getLayerType(layer)) << std::endl;
+        // std::cerr << "layer type: " << LayerFactory::getInstance()->getLayerTypeName(LayerFactory::getInstance()->getLayerType(layer)) << std::endl;
 
     if (previousModel) {
         releaseModel(previousModel);
@@ -951,29 +951,29 @@ Document::addLayerToView(View *view, Layer *layer)
     Model *model = layer->getModel();
     if (!model) {
 #ifdef DEBUG_DOCUMENT
-	SVDEBUG << "Document::addLayerToView: Layer (\""
+        SVDEBUG << "Document::addLayerToView: Layer (\""
                   << layer->objectName()                  << "\") with no model being added to view: "
                   << "normally you want to set the model first" << endl;
 #endif
     } else {
-	if (model != m_mainModel &&
-	    m_models.find(model) == m_models.end()) {
-	    cerr << "ERROR: Document::addLayerToView: Layer " << layer
-		      << " has unregistered model " << model
-		      << " -- register the layer's model before adding the layer!" << endl;
-	    return;
-	}
+        if (model != m_mainModel &&
+            m_models.find(model) == m_models.end()) {
+            cerr << "ERROR: Document::addLayerToView: Layer " << layer
+                      << " has unregistered model " << model
+                      << " -- register the layer's model before adding the layer!" << endl;
+            return;
+        }
     }
 
     CommandHistory::getInstance()->addCommand
-	(new Document::AddLayerCommand(this, view, layer));
+        (new Document::AddLayerCommand(this, view, layer));
 }
 
 void
 Document::removeLayerFromView(View *view, Layer *layer)
 {
     CommandHistory::getInstance()->addCommand
-	(new Document::RemoveLayerCommand(this, view, layer));
+        (new Document::RemoveLayerCommand(this, view, layer));
 }
 
 void
@@ -983,10 +983,10 @@ Document::addToLayerViewMap(Layer *layer, View *view)
                       m_layerViewMap[layer].empty());
 
     if (m_layerViewMap[layer].find(view) !=
-	m_layerViewMap[layer].end()) {
-	cerr << "WARNING: Document::addToLayerViewMap:"
-		  << " Layer " << layer << " -> view " << view << " already in"
-		  << " layer view map -- internal inconsistency" << endl;
+        m_layerViewMap[layer].end()) {
+        cerr << "WARNING: Document::addToLayerViewMap:"
+                  << " Layer " << layer << " -> view " << view << " already in"
+                  << " layer view map -- internal inconsistency" << endl;
     }
 
     m_layerViewMap[layer].insert(view);
@@ -998,10 +998,10 @@ void
 Document::removeFromLayerViewMap(Layer *layer, View *view)
 {
     if (m_layerViewMap[layer].find(view) ==
-	m_layerViewMap[layer].end()) {
-	cerr << "WARNING: Document::removeFromLayerViewMap:"
-		  << " Layer " << layer << " -> view " << view << " not in"
-		  << " layer view map -- internal inconsistency" << endl;
+        m_layerViewMap[layer].end()) {
+        cerr << "WARNING: Document::removeFromLayerViewMap:"
+                  << " Layer " << layer << " -> view " << view << " not in"
+                  << " layer view map -- internal inconsistency" << endl;
     }
 
     m_layerViewMap[layer].erase(view);
@@ -1120,8 +1120,8 @@ Document::alignModels()
 }
 
 Document::AddLayerCommand::AddLayerCommand(Document *d,
-					   View *view,
-					   Layer *layer) :
+                                           View *view,
+                                           Layer *layer) :
     m_d(d),
     m_view(view),
     m_layer(layer),
@@ -1136,7 +1136,7 @@ Document::AddLayerCommand::~AddLayerCommand()
     SVDEBUG << "Document::AddLayerCommand::~AddLayerCommand" << endl;
 #endif
     if (!m_added) {
-	m_d->deleteLayer(m_layer);
+        m_d->deleteLayer(m_layer);
     }
 }
 
@@ -1154,12 +1154,12 @@ void
 Document::AddLayerCommand::execute()
 {
     for (int i = 0; i < m_view->getLayerCount(); ++i) {
-	if (m_view->getLayer(i) == m_layer) {
-	    // already there
-	    m_layer->setLayerDormant(m_view, false);
-	    m_added = true;
-	    return;
-	}
+        if (m_view->getLayer(i) == m_layer) {
+            // already there
+            m_layer->setLayerDormant(m_view, false);
+            m_added = true;
+            return;
+        }
     }
 
     m_view->addLayer(m_layer);
@@ -1180,8 +1180,8 @@ Document::AddLayerCommand::unexecute()
 }
 
 Document::RemoveLayerCommand::RemoveLayerCommand(Document *d,
-						 View *view,
-						 Layer *layer) :
+                                                 View *view,
+                                                 Layer *layer) :
     m_d(d),
     m_view(view),
     m_layer(layer),
@@ -1197,7 +1197,7 @@ Document::RemoveLayerCommand::~RemoveLayerCommand()
     SVDEBUG << "Document::RemoveLayerCommand::~RemoveLayerCommand" << endl;
 #endif
     if (!m_added) {
-	m_d->deleteLayer(m_layer);
+        m_d->deleteLayer(m_layer);
     }
 }
 
@@ -1216,16 +1216,16 @@ Document::RemoveLayerCommand::execute()
 {
     bool have = false;
     for (int i = 0; i < m_view->getLayerCount(); ++i) {
-	if (m_view->getLayer(i) == m_layer) {
-	    have = true;
-	    break;
-	}
+        if (m_view->getLayer(i) == m_layer) {
+            have = true;
+            break;
+        }
     }
 
     if (!have) { // not there!
-	m_layer->setLayerDormant(m_view, true);
-	m_added = false;
-	return;
+        m_layer->setLayerDormant(m_view, true);
+        m_added = false;
+        return;
     }
 
     m_view->removeLayer(m_layer);
@@ -1325,10 +1325,10 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     std::set<Model *> written;
 
     for (ModelMap::const_iterator i = m_models.begin();
-	 i != m_models.end(); ++i) {
+         i != m_models.end(); ++i) {
 
         Model *model = i->first;
-	const ModelRecord &rec = i->second;
+        const ModelRecord &rec = i->second;
 
         if (used.find(model) == used.end()) continue;
         
@@ -1365,10 +1365,10 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
             written.insert(model);
         }
 
-	if (haveDerivation) {
+        if (haveDerivation) {
             writeBackwardCompatibleDerivation(out, indent + "  ",
                                               model, rec);
-	}
+        }
 
         //!!! We should probably own the PlayParameterRepository
         PlayParameters *playParameters =
@@ -1390,7 +1390,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     // should probably wait for it if it isn't already by this point.
 
     for (std::set<Model *>::const_iterator i = written.begin();
-	 i != written.end(); ++i) {
+         i != written.end(); ++i) {
 
         const Model *model = *i;
         const AlignmentModel *alignment = model->getAlignment();
@@ -1400,9 +1400,9 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     }
 
     for (LayerSet::const_iterator i = m_layers.begin();
-	 i != m_layers.end(); ++i) {
+         i != m_layers.end(); ++i) {
 
-	(*i)->toXml(out, indent + "  ");
+        (*i)->toXml(out, indent + "  ");
     }
 
     out << indent + "</data>\n";
@@ -1471,7 +1471,7 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
             .arg(RealTime::realTime2Frame(transform.getDuration(),
                                           targetModel->getSampleRate()));
     }
-	    
+            
     out << indent;
     out << QString("<derivation type=\"transform\" source=\"%1\" "
                    "model=\"%2\" channel=\"%3\" domain=\"%4\" "

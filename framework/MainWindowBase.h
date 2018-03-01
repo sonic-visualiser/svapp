@@ -411,52 +411,52 @@ protected:
     class PaneCallback : public SVFileReaderPaneCallback
     {
     public:
-	PaneCallback(MainWindowBase *mw) : m_mw(mw) { }
-	virtual Pane *addPane() { return m_mw->addPaneToStack(); }
-	virtual void setWindowSize(int width, int height) {
-	    m_mw->resizeConstrained(QSize(width, height));
-	}
-	virtual void addSelection(sv_frame_t start, sv_frame_t end) {
-	    m_mw->m_viewManager->addSelectionQuietly(Selection(start, end));
-	}
+        PaneCallback(MainWindowBase *mw) : m_mw(mw) { }
+        virtual Pane *addPane() { return m_mw->addPaneToStack(); }
+        virtual void setWindowSize(int width, int height) {
+            m_mw->resizeConstrained(QSize(width, height));
+        }
+        virtual void addSelection(sv_frame_t start, sv_frame_t end) {
+            m_mw->m_viewManager->addSelectionQuietly(Selection(start, end));
+        }
     protected:
-	MainWindowBase *m_mw;
+        MainWindowBase *m_mw;
     };
 
     class AddPaneCommand : public Command
     {
     public:
-	AddPaneCommand(MainWindowBase *mw);
-	virtual ~AddPaneCommand();
-	
-	virtual void execute();
-	virtual void unexecute();
-	virtual QString getName() const;
+        AddPaneCommand(MainWindowBase *mw);
+        virtual ~AddPaneCommand();
+        
+        virtual void execute();
+        virtual void unexecute();
+        virtual QString getName() const;
 
-	Pane *getPane() { return m_pane; }
+        Pane *getPane() { return m_pane; }
 
     protected:
-	MainWindowBase *m_mw;
-	Pane *m_pane; // Main window owns this, but I determine its lifespan
-	Pane *m_prevCurrentPane; // I don't own this
-	bool m_added;
+        MainWindowBase *m_mw;
+        Pane *m_pane; // Main window owns this, but I determine its lifespan
+        Pane *m_prevCurrentPane; // I don't own this
+        bool m_added;
     };
 
     class RemovePaneCommand : public Command
     {
     public:
-	RemovePaneCommand(MainWindowBase *mw, Pane *pane);
-	virtual ~RemovePaneCommand();
-	
-	virtual void execute();
-	virtual void unexecute();
-	virtual QString getName() const;
+        RemovePaneCommand(MainWindowBase *mw, Pane *pane);
+        virtual ~RemovePaneCommand();
+        
+        virtual void execute();
+        virtual void unexecute();
+        virtual QString getName() const;
 
     protected:
-	MainWindowBase *m_mw;
-	Pane *m_pane; // Main window owns this, but I determine its lifespan
-	Pane *m_prevCurrentPane; // I don't own this
-	bool m_added;
+        MainWindowBase *m_mw;
+        Pane *m_pane; // Main window owns this, but I determine its lifespan
+        Pane *m_prevCurrentPane; // I don't own this
+        bool m_added;
     };
 
     virtual bool checkSaveModified() = 0;

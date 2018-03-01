@@ -168,7 +168,7 @@ class SVFileReader : public QObject, QXmlDefaultHandler
 
 public:
     SVFileReader(Document *document,
-		 SVFileReaderPaneCallback &callback,
+                 SVFileReaderPaneCallback &callback,
                  QString location = ""); // for audio file locate mechanism
     virtual ~SVFileReader();
 
@@ -182,15 +182,15 @@ public:
     void setCurrentPane(Pane *pane) { m_currentPane = pane; }
     
     virtual bool startElement(const QString &namespaceURI,
-			      const QString &localName,
-			      const QString &qName,
-			      const QXmlAttributes& atts);
+                              const QString &localName,
+                              const QString &qName,
+                              const QXmlAttributes& atts);
 
     virtual bool characters(const QString &);
 
     virtual bool endElement(const QString &namespaceURI,
-			    const QString &localName,
-			    const QString &qName);
+                            const QString &localName,
+                            const QString &qName);
 
     bool error(const QXmlParseException &exception);
     bool fatalError(const QXmlParseException &exception);

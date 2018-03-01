@@ -27,7 +27,7 @@
 
 
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
-			     QString myVersion) :
+                             QString myVersion) :
     m_myVersion(myVersion),
     m_reply(0),
     m_httpFailed(false),

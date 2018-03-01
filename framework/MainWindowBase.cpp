@@ -124,10 +124,10 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
     char errstr[256];
     XGetErrorText(dpy, err->error_code, errstr, 256);
     if (err->error_code != BadWindow) {
-	cerr << "Sonic Visualiser: X Error: "
-		  << errstr << " " << int(err->error_code)
-		  << "\nin major opcode:  "
-		  << int(err->request_code) << endl;
+        cerr << "Sonic Visualiser: X Error: "
+                  << errstr << " " << int(err->error_code)
+                  << "\nin major opcode:  "
+                  << int(err->request_code) << endl;
     }
     return 0;
 }
@@ -182,17 +182,17 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(this, SIGNAL(hideSplash()), this, SLOT(emitHideSplash()));
     
     connect(CommandHistory::getInstance(), SIGNAL(commandExecuted()),
-	    this, SLOT(documentModified()));
+            this, SLOT(documentModified()));
     connect(CommandHistory::getInstance(), SIGNAL(documentRestored()),
-	    this, SLOT(documentRestored()));
+            this, SLOT(documentRestored()));
     
     SVDEBUG << "MainWindowBase: Creating view manager" << endl;
 
     m_viewManager = new ViewManager();
     connect(m_viewManager, SIGNAL(selectionChanged()),
-	    this, SLOT(updateMenuStates()));
+            this, SLOT(updateMenuStates()));
     connect(m_viewManager, SIGNAL(inProgressSelectionChanged()),
-	    this, SLOT(inProgressSelectionChanged()));
+            this, SLOT(inProgressSelectionChanged()));
 
     SVDEBUG << "MainWindowBase: Calculating view font size" << endl;
 
@@ -219,9 +219,9 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 
     m_paneStack = new PaneStack(0, m_viewManager);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
-	    this, SLOT(currentPaneChanged(Pane *)));
+            this, SLOT(currentPaneChanged(Pane *)));
     connect(m_paneStack, SIGNAL(currentLayerChanged(Pane *, Layer *)),
-	    this, SLOT(currentLayerChanged(Pane *, Layer *)));
+            this, SLOT(currentLayerChanged(Pane *, Layer *)));
     connect(m_paneStack, SIGNAL(rightButtonMenuRequested(Pane *, QPoint)),
             this, SLOT(rightButtonMenuRequested(Pane *, QPoint)));
     connect(m_paneStack, SIGNAL(contextHelpChanged(const QString &)),
@@ -264,7 +264,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
             this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
     connect(m_viewManager, SIGNAL(monitoringLevelsChanged(float, float)),
-	    this, SLOT(monitoringLevelsChanged(float, float)));
+            this, SLOT(monitoringLevelsChanged(float, float)));
 
     connect(m_viewManager, SIGNAL(playbackFrameChanged(sv_frame_t)),
             this, SLOT(playbackFrameChanged(sv_frame_t)));
@@ -607,22 +607,22 @@ MainWindowBase::updateMenuStates()
         (haveCurrentPane &&
          (currentLayer != 0));
     bool haveMainModel =
-	(getMainModel() != 0);
+        (getMainModel() != 0);
     bool havePlayTarget =
-	(m_playTarget != 0 || m_audioIO != 0);
+        (m_playTarget != 0 || m_audioIO != 0);
     bool haveSelection = 
-	(m_viewManager &&
-	 !m_viewManager->getSelections().empty());
+        (m_viewManager &&
+         !m_viewManager->getSelections().empty());
     bool haveCurrentEditableLayer =
-	(haveCurrentLayer &&
-	 currentLayer->isLayerEditable());
+        (haveCurrentLayer &&
+         currentLayer->isLayerEditable());
     bool haveCurrentTimeInstantsLayer = 
-	(haveCurrentLayer &&
-	 dynamic_cast<TimeInstantLayer *>(currentLayer));
+        (haveCurrentLayer &&
+         dynamic_cast<TimeInstantLayer *>(currentLayer));
     bool haveCurrentDurationLayer = 
-	(haveCurrentLayer &&
-	 (dynamic_cast<NoteLayer *>(currentLayer) ||
-	  dynamic_cast<FlexiNoteLayer *>(currentLayer) ||
+        (haveCurrentLayer &&
+         (dynamic_cast<NoteLayer *>(currentLayer) ||
+          dynamic_cast<FlexiNoteLayer *>(currentLayer) ||
           dynamic_cast<RegionLayer *>(currentLayer)));
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
@@ -693,7 +693,7 @@ MainWindowBase::documentModified()
 
     if (!m_documentModified) {
         //!!! this in subclass implementation?
-	setWindowTitle(tr("%1 (modified)").arg(windowTitle()));
+        setWindowTitle(tr("%1 (modified)").arg(windowTitle()));
     }
 
     m_documentModified = true;
@@ -707,9 +707,9 @@ MainWindowBase::documentRestored()
 
     if (m_documentModified) {
         //!!! this in subclass implementation?
-	QString wt(windowTitle());
-	wt.replace(tr(" (modified)"), "");
-	setWindowTitle(wt);
+        QString wt(windowTitle());
+        wt.replace(tr(" (modified)"), "");
+        setWindowTitle(wt);
     }
 
     m_documentModified = false;
@@ -722,9 +722,9 @@ MainWindowBase::playLoopToggled()
     QAction *action = dynamic_cast<QAction *>(sender());
     
     if (action) {
-	m_viewManager->setPlayLoopMode(action->isChecked());
+        m_viewManager->setPlayLoopMode(action->isChecked());
     } else {
-	m_viewManager->setPlayLoopMode(!m_viewManager->getPlayLoopMode());
+        m_viewManager->setPlayLoopMode(!m_viewManager->getPlayLoopMode());
     }
 }
 
@@ -734,9 +734,9 @@ MainWindowBase::playSelectionToggled()
     QAction *action = dynamic_cast<QAction *>(sender());
     
     if (action) {
-	m_viewManager->setPlaySelectionMode(action->isChecked());
+        m_viewManager->setPlaySelectionMode(action->isChecked());
     } else {
-	m_viewManager->setPlaySelectionMode(!m_viewManager->getPlaySelectionMode());
+        m_viewManager->setPlaySelectionMode(!m_viewManager->getPlaySelectionMode());
     }
 }
 
@@ -746,9 +746,9 @@ MainWindowBase::playSoloToggled()
     QAction *action = dynamic_cast<QAction *>(sender());
     
     if (action) {
-	m_viewManager->setPlaySoloMode(action->isChecked());
+        m_viewManager->setPlaySoloMode(action->isChecked());
     } else {
-	m_viewManager->setPlaySoloMode(!m_viewManager->getPlaySoloMode());
+        m_viewManager->setPlaySoloMode(!m_viewManager->getPlaySoloMode());
     }
 
     if (m_viewManager->getPlaySoloMode()) {
@@ -847,7 +847,7 @@ MainWindowBase::selectAll()
 {
     if (!getMainModel()) return;
     m_viewManager->setSelection(Selection(getMainModel()->getStartFrame(),
-					  getMainModel()->getEndFrame()));
+                                          getMainModel()->getEndFrame()));
 }
 
 void
@@ -855,7 +855,7 @@ MainWindowBase::selectToStart()
 {
     if (!getMainModel()) return;
     m_viewManager->setSelection(Selection(getMainModel()->getStartFrame(),
-					  m_viewManager->getGlobalCentreFrame()));
+                                          m_viewManager->getGlobalCentreFrame()));
 }
 
 void
@@ -863,7 +863,7 @@ MainWindowBase::selectToEnd()
 {
     if (!getMainModel()) return;
     m_viewManager->setSelection(Selection(m_viewManager->getGlobalCentreFrame(),
-					  getMainModel()->getEndFrame()));
+                                          getMainModel()->getEndFrame()));
 }
 
 void
@@ -1005,7 +1005,7 @@ void
 MainWindowBase::deleteSelected()
 {
     if (m_paneStack->getCurrentPane() &&
-	m_paneStack->getCurrentPane()->getSelectedLayer()) {
+        m_paneStack->getCurrentPane()->getSelectedLayer()) {
         
         Layer *layer = m_paneStack->getCurrentPane()->getSelectedLayer();
 
@@ -1025,7 +1025,7 @@ MainWindowBase::deleteSelected()
                     layer->deleteSelection(*i);
                 }
             }
-	}
+        }
     }
 }
 
@@ -1459,7 +1459,7 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
 
     if (!newModel->isOK()) {
-	delete newModel;
+        delete newModel;
         m_openingAudioFile = false;
         if (source.wasCancelled()) {
             return FileOpenCancelled;
@@ -1582,28 +1582,28 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
         SVDEBUG << "SV about to call setMainModel(" << newModel << "): prevMain is " << prevMain << endl;
 
-	m_document->setMainModel(newModel);
+        m_document->setMainModel(newModel);
 
-	setupMenus();
+        setupMenus();
 
-	if (loadedTemplate || (m_sessionFile == "")) {
+        if (loadedTemplate || (m_sessionFile == "")) {
             //!!! shouldn't be dealing directly with title from here -- call a method
-	    setWindowTitle(tr("%1: %2")
+            setWindowTitle(tr("%1: %2")
                            .arg(QApplication::applicationName())
                            .arg(source.getLocation()));
-	    CommandHistory::getInstance()->clear();
-	    CommandHistory::getInstance()->documentSaved();
-	    m_documentModified = false;
-	} else {
-	    setWindowTitle(tr("%1: %2 [%3]")
+            CommandHistory::getInstance()->clear();
+            CommandHistory::getInstance()->documentSaved();
+            m_documentModified = false;
+        } else {
+            setWindowTitle(tr("%1: %2 [%3]")
                            .arg(QApplication::applicationName())
-			   .arg(QFileInfo(m_sessionFile).fileName())
-			   .arg(source.getLocation()));
-	    if (m_documentModified) {
-		m_documentModified = false;
-		documentModified(); // so as to restore "(modified)" window title
-	    }
-	}
+                           .arg(QFileInfo(m_sessionFile).fileName())
+                           .arg(source.getLocation()));
+            if (m_documentModified) {
+                m_documentModified = false;
+                documentModified(); // so as to restore "(modified)" window title
+            }
+        }
 
         if (!source.isRemote()) m_audioFile = source.getLocalFilename();
 
@@ -1611,15 +1611,15 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
         SVCERR << "Mode is CreateAdditionalModel" << endl;
         
-	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getBasename()), true);
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Import \"%1\"").arg(source.getBasename()), true);
 
-	m_document->addImportedModel(newModel);
+        m_document->addImportedModel(newModel);
 
-	AddPaneCommand *command = new AddPaneCommand(this);
-	CommandHistory::getInstance()->addCommand(command);
+        AddPaneCommand *command = new AddPaneCommand(this);
+        CommandHistory::getInstance()->addCommand(command);
 
-	Pane *pane = command->getPane();
+        Pane *pane = command->getPane();
 
         if (m_timeRulerLayer) {
             SVCERR << "Have time ruler, adding it" << endl;
@@ -1628,13 +1628,13 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
             SVCERR << "Do not have time ruler" << endl;
         }
 
-	Layer *newLayer = m_document->createImportedLayer(newModel);
+        Layer *newLayer = m_document->createImportedLayer(newModel);
 
-	if (newLayer) {
-	    m_document->addLayerToView(pane, newLayer);
-	}
-	
-	CommandHistory::getInstance()->endCompoundOperation();
+        if (newLayer) {
+            m_document->addLayerToView(pane, newLayer);
+        }
+        
+        CommandHistory::getInstance()->endCompoundOperation();
 
     } else if (mode == ReplaceCurrentPane) {
 
@@ -1655,22 +1655,22 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
             }
         }
 
-	CommandHistory::getInstance()->startCompoundOperation
-	    (tr("Import \"%1\"").arg(source.getBasename()), true);
+        CommandHistory::getInstance()->startCompoundOperation
+            (tr("Import \"%1\"").arg(source.getBasename()), true);
 
-	m_document->addImportedModel(newModel);
+        m_document->addImportedModel(newModel);
 
         if (replace) {
             m_document->removeLayerFromView(pane, replace);
         }
 
-	Layer *newLayer = m_document->createImportedLayer(newModel);
+        Layer *newLayer = m_document->createImportedLayer(newModel);
 
-	if (newLayer) {
-	    m_document->addLayerToView(pane, newLayer);
-	}
-	
-	CommandHistory::getInstance()->endCompoundOperation();
+        if (newLayer) {
+            m_document->addLayerToView(pane, newLayer);
+        }
+        
+        CommandHistory::getInstance()->endCompoundOperation();
     }
 
     updateMenuStates();
@@ -1738,15 +1738,15 @@ MainWindowBase::openLayer(FileSource source)
     Pane *pane = m_paneStack->getCurrentPane();
     
     if (!pane) {
-	// shouldn't happen, as the menu action should have been disabled
-	cerr << "WARNING: MainWindowBase::openLayer: no current pane" << endl;
-	return FileOpenWrongMode;
+        // shouldn't happen, as the menu action should have been disabled
+        cerr << "WARNING: MainWindowBase::openLayer: no current pane" << endl;
+        return FileOpenWrongMode;
     }
 
     if (!getMainModel()) {
-	// shouldn't happen, as the menu action should have been disabled
-	cerr << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << endl;
-	return FileOpenWrongMode;
+        // shouldn't happen, as the menu action should have been disabled
+        cerr << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << endl;
+        return FileOpenWrongMode;
     }
 
     if (!source.isAvailable()) return FileOpenFailed;
@@ -1870,9 +1870,9 @@ MainWindowBase::openImage(FileSource source)
     Pane *pane = m_paneStack->getCurrentPane();
     
     if (!pane) {
-	// shouldn't happen, as the menu action should have been disabled
-	cerr << "WARNING: MainWindowBase::openImage: no current pane" << endl;
-	return FileOpenWrongMode;
+        // shouldn't happen, as the menu action should have been disabled
+        cerr << "WARNING: MainWindowBase::openImage: no current pane" << endl;
+        return FileOpenWrongMode;
     }
 
     if (!m_document->getMainModel()) {
@@ -2062,19 +2062,19 @@ MainWindowBase::openSession(FileSource source)
 
         emit activity(tr("Import session file \"%1\"").arg(source.getLocation()));
 
-	setWindowTitle(tr("%1: %2")
+        setWindowTitle(tr("%1: %2")
                        .arg(QApplication::applicationName())
-		       .arg(source.getLocation()));
+                       .arg(source.getLocation()));
 
-	if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
+        if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
 
-	setupMenus();
+        setupMenus();
         findTimeRulerLayer();
 
-	CommandHistory::getInstance()->clear();
-	CommandHistory::getInstance()->documentSaved();
-	m_documentModified = false;
-	updateMenuStates();
+        CommandHistory::getInstance()->clear();
+        CommandHistory::getInstance()->documentSaved();
+        m_documentModified = false;
+        updateMenuStates();
 
         m_recentFiles.addFile(source.getLocation());
 
@@ -2087,7 +2087,7 @@ MainWindowBase::openSession(FileSource source)
         emit sessionLoaded();
 
     } else {
-	setWindowTitle(QApplication::applicationName());
+        setWindowTitle(QApplication::applicationName());
     }
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
@@ -2161,13 +2161,13 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
         emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
 
-	setupMenus();
+        setupMenus();
         findTimeRulerLayer();
 
-	CommandHistory::getInstance()->clear();
-	CommandHistory::getInstance()->documentSaved();
-	m_documentModified = false;
-	updateMenuStates();
+        CommandHistory::getInstance()->clear();
+        CommandHistory::getInstance()->documentSaved();
+        m_documentModified = false;
+        updateMenuStates();
 
         emit sessionLoaded();
     }
@@ -2530,20 +2530,20 @@ MainWindowBase::createDocument()
     m_document = new Document;
 
     connect(m_document, SIGNAL(layerAdded(Layer *)),
-	    this, SLOT(layerAdded(Layer *)));
+            this, SLOT(layerAdded(Layer *)));
     connect(m_document, SIGNAL(layerRemoved(Layer *)),
-	    this, SLOT(layerRemoved(Layer *)));
+            this, SLOT(layerRemoved(Layer *)));
     connect(m_document, SIGNAL(layerAboutToBeDeleted(Layer *)),
-	    this, SLOT(layerAboutToBeDeleted(Layer *)));
+            this, SLOT(layerAboutToBeDeleted(Layer *)));
     connect(m_document, SIGNAL(layerInAView(Layer *, bool)),
-	    this, SLOT(layerInAView(Layer *, bool)));
+            this, SLOT(layerInAView(Layer *, bool)));
 
     connect(m_document, SIGNAL(modelAdded(Model *)),
-	    this, SLOT(modelAdded(Model *)));
+            this, SLOT(modelAdded(Model *)));
     connect(m_document, SIGNAL(mainModelChanged(WaveFileModel *)),
-	    this, SLOT(mainModelChanged(WaveFileModel *)));
+            this, SLOT(mainModelChanged(WaveFileModel *)));
     connect(m_document, SIGNAL(modelAboutToBeDeleted(Model *)),
-	    this, SLOT(modelAboutToBeDeleted(Model *)));
+            this, SLOT(modelAboutToBeDeleted(Model *)));
 
     connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
             this, SLOT(modelGenerationFailed(QString, QString)));
@@ -2659,15 +2659,15 @@ MainWindowBase::toXml(QTextStream &out, bool asTemplate)
     out << "<display>\n";
 
     out << QString("  <window width=\"%1\" height=\"%2\"/>\n")
-	.arg(width()).arg(height());
+        .arg(width()).arg(height());
 
     for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
 
-	Pane *pane = m_paneStack->getPane(i);
+        Pane *pane = m_paneStack->getPane(i);
 
-	if (pane) {
+        if (pane) {
             pane->toXml(out, indent);
-	}
+        }
     }
 
     out << "</display>\n";
@@ -2965,7 +2965,7 @@ MainWindowBase::play()
         if (m_audioIO) m_audioIO->resume();
         else if (m_playTarget) m_playTarget->resume();
         playbackFrameChanged(m_viewManager->getPlaybackFrame());
-	m_playSource->play(m_viewManager->getPlaybackFrame());
+        m_playSource->play(m_viewManager->getPlaybackFrame());
     }
 }
 
@@ -3082,24 +3082,24 @@ MainWindowBase::record()
         setupMenus();
         findTimeRulerLayer();
 
-	if (loadedTemplate || (m_sessionFile == "")) {
+        if (loadedTemplate || (m_sessionFile == "")) {
             //!!! shouldn't be dealing directly with title from here -- call a method
-	    setWindowTitle(tr("%1: %2")
+            setWindowTitle(tr("%1: %2")
                            .arg(QApplication::applicationName())
                            .arg(model->getLocation()));
-	    CommandHistory::getInstance()->clear();
-	    CommandHistory::getInstance()->documentSaved();
-	    m_documentModified = false;
-	} else {
-	    setWindowTitle(tr("%1: %2 [%3]")
+            CommandHistory::getInstance()->clear();
+            CommandHistory::getInstance()->documentSaved();
+            m_documentModified = false;
+        } else {
+            setWindowTitle(tr("%1: %2 [%3]")
                            .arg(QApplication::applicationName())
-			   .arg(QFileInfo(m_sessionFile).fileName())
-			   .arg(model->getLocation()));
-	    if (m_documentModified) {
-		m_documentModified = false;
-		documentModified(); // so as to restore "(modified)" window title
-	    }
-	}
+                           .arg(QFileInfo(m_sessionFile).fileName())
+                           .arg(model->getLocation()));
+            if (m_documentModified) {
+                m_documentModified = false;
+                documentModified(); // so as to restore "(modified)" window title
+            }
+        }
 
     } else {
 
@@ -3122,7 +3122,7 @@ MainWindowBase::record()
         if (newLayer) {
             m_document->addLayerToView(pane, newLayer);
         }
-	
+        
         CommandHistory::getInstance()->endCompoundOperation();
     }
 
@@ -3392,7 +3392,7 @@ MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw) :
 MainWindowBase::AddPaneCommand::~AddPaneCommand()
 {
     if (m_pane && !m_added) {
-	m_mw->m_paneStack->deletePane(m_pane);
+        m_mw->m_paneStack->deletePane(m_pane);
     }
 }
 
@@ -3406,13 +3406,13 @@ void
 MainWindowBase::AddPaneCommand::execute()
 {
     if (!m_pane) {
-	m_prevCurrentPane = m_mw->m_paneStack->getCurrentPane();
-	m_pane = m_mw->m_paneStack->addPane();
+        m_prevCurrentPane = m_mw->m_paneStack->getCurrentPane();
+        m_pane = m_mw->m_paneStack->addPane();
 
         connect(m_pane, SIGNAL(contextHelpChanged(const QString &)),
                 m_mw, SLOT(contextHelpChanged(const QString &)));
     } else {
-	m_mw->m_paneStack->showPane(m_pane);
+        m_mw->m_paneStack->showPane(m_pane);
     }
 
     m_mw->m_paneStack->setCurrentPane(m_pane);
@@ -3438,7 +3438,7 @@ MainWindowBase::RemovePaneCommand::RemovePaneCommand(MainWindowBase *mw, Pane *p
 MainWindowBase::RemovePaneCommand::~RemovePaneCommand()
 {
     if (m_pane && !m_added) {
-	m_mw->m_paneStack->deletePane(m_pane);
+        m_mw->m_paneStack->deletePane(m_pane);
     }
 }
 
@@ -3468,21 +3468,21 @@ void
 MainWindowBase::deleteCurrentPane()
 {
     CommandHistory::getInstance()->startCompoundOperation
-	(tr("Delete Pane"), true);
+        (tr("Delete Pane"), true);
 
     Pane *pane = m_paneStack->getCurrentPane();
     if (pane) {
-	while (pane->getLayerCount() > 0) {
-	    Layer *layer = pane->getLayer(0);
-	    if (layer) {
-		m_document->removeLayerFromView(pane, layer);
-	    } else {
-		break;
-	    }
-	}
+        while (pane->getLayerCount() > 0) {
+            Layer *layer = pane->getLayer(0);
+            if (layer) {
+                m_document->removeLayerFromView(pane, layer);
+            } else {
+                break;
+            }
+        }
 
-	RemovePaneCommand *command = new RemovePaneCommand(this, pane);
-	CommandHistory::getInstance()->addCommand(command);
+        RemovePaneCommand *command = new RemovePaneCommand(this, pane);
+        CommandHistory::getInstance()->addCommand(command);
     }
 
     CommandHistory::getInstance()->endCompoundOperation();
@@ -3495,10 +3495,10 @@ MainWindowBase::deleteCurrentLayer()
 {
     Pane *pane = m_paneStack->getCurrentPane();
     if (pane) {
-	Layer *layer = pane->getSelectedLayer();
-	if (layer) {
-	    m_document->removeLayerFromView(pane, layer);
-	}
+        Layer *layer = pane->getSelectedLayer();
+        if (layer) {
+            m_document->removeLayerFromView(pane, layer);
+        }
     }
     updateMenuStates();
 }
@@ -3779,8 +3779,8 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
     removeLayerEditDialog(layer);
 
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
-//	cerr << "(this is the time ruler layer)" << endl;
-	m_timeRulerLayer = 0;
+//        cerr << "(this is the time ruler layer)" << endl;
+        m_timeRulerLayer = 0;
     }
 }
 
@@ -3842,7 +3842,7 @@ void
 MainWindowBase::modelAdded(Model *model)
 {
 //    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
-	std::cerr << "\nAdding model " << model->getTypeName() << " to playsource " << std::endl;
+        std::cerr << "\nAdding model " << model->getTypeName() << " to playsource " << std::endl;
     m_playSource->addModel(model);
 }
 
@@ -3885,7 +3885,7 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
     }
 
     CommandHistory::getInstance()->startCompoundOperation
-	(tr("Delete Pane"), true);
+        (tr("Delete Pane"), true);
 
     while (pane->getLayerCount() > 0) {
         Layer *layer = pane->getLayer(0);

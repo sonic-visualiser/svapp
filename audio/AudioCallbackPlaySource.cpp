@@ -90,18 +90,18 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_viewManager->setAudioPlaySource(this);
 
     connect(m_viewManager, SIGNAL(selectionChanged()),
-	    this, SLOT(selectionChanged()));
+            this, SLOT(selectionChanged()));
     connect(m_viewManager, SIGNAL(playLoopModeChanged()),
-	    this, SLOT(playLoopModeChanged()));
+            this, SLOT(playLoopModeChanged()));
     connect(m_viewManager, SIGNAL(playSelectionModeChanged()),
-	    this, SLOT(playSelectionModeChanged()));
+            this, SLOT(playSelectionModeChanged()));
 
     connect(this, SIGNAL(playStatusChanged(bool)),
             m_viewManager, SLOT(playStatusChanged(bool)));
 
     connect(PlayParameterRepository::getInstance(),
-	    SIGNAL(playParametersChanged(PlayParameters *)),
-	    this, SLOT(playParametersChanged(PlayParameters *)));
+            SIGNAL(playParametersChanged(PlayParameters *)),
+            this, SLOT(playParametersChanged(PlayParameters *)));
 
     connect(Preferences::getInstance(),
             SIGNAL(propertyChanged(PropertyContainer::PropertyName)),
@@ -120,14 +120,14 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     cout << "AudioCallbackPlaySource dtor: awakening thread" << endl;
 #endif
         m_condition.wakeAll();
-	m_fillThread->wait();
-	delete m_fillThread;
+        m_fillThread->wait();
+        delete m_fillThread;
     }
 
     clearModels();
     
     if (m_readBuffers != m_writeBuffers) {
-	delete m_readBuffers;
+        delete m_readBuffers;
     }
 
     delete m_writeBuffers;
@@ -161,7 +161,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 
     m_models.insert(model);
     if (model->getEndFrame() > m_lastModelEndFrame) {
-	m_lastModelEndFrame = model->getEndFrame();
+        m_lastModelEndFrame = model->getEndFrame();
     }
 
     bool buffersIncreased = false, srChanged = false;
@@ -170,7 +170,7 @@ AudioCallbackPlaySource::addModel(Model *model)
     ReadOnlyWaveFileModel *rowfm = qobject_cast<ReadOnlyWaveFileModel *>(model);
     if (rowfm) modelChannels = rowfm->getChannelCount();
     if (modelChannels > m_sourceChannelCount) {
-	m_sourceChannelCount = modelChannels;
+        m_sourceChannelCount = modelChannels;
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -182,8 +182,8 @@ AudioCallbackPlaySource::addModel(Model *model)
         SVDEBUG << "AudioCallbackPlaySource::addModel: Source rate changing from 0 to "
             << model->getSampleRate() << endl;
 
-	m_sourceSampleRate = model->getSampleRate();
-	srChanged = true;
+        m_sourceSampleRate = model->getSampleRate();
+        srChanged = true;
 
     } else if (model->getSampleRate() != m_sourceSampleRate) {
 
@@ -238,10 +238,10 @@ AudioCallbackPlaySource::addModel(Model *model)
     if (!m_writeBuffers || (int)m_writeBuffers->size() < getTargetChannelCount()) {
         cerr << "m_writeBuffers size = " << (m_writeBuffers ? m_writeBuffers->size() : 0) << endl;
         cerr << "target channel count = " << (getTargetChannelCount()) << endl;
-	clearRingBuffers(true, getTargetChannelCount());
-	buffersIncreased = true;
+        clearRingBuffers(true, getTargetChannelCount());
+        buffersIncreased = true;
     } else {
-	if (willPlay) clearRingBuffers(true);
+        if (willPlay) clearRingBuffers(true);
     }
 
     if (srChanged) {
@@ -283,8 +283,8 @@ AudioCallbackPlaySource::addModel(Model *model)
     }
     
     if (!m_fillThread) {
-	m_fillThread = new FillThread(*this);
-	m_fillThread->start();
+        m_fillThread = new FillThread(*this);
+        m_fillThread->start();
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -338,20 +338,20 @@ AudioCallbackPlaySource::removeModel(Model *model)
     // last one, then we save work by not having reset this here
     //
 //    if (m_models.empty()) {
-//	m_sourceSampleRate = 0;
+//        m_sourceSampleRate = 0;
 //    }
 
     sv_frame_t lastEnd = 0;
     for (std::set<Model *>::const_iterator i = m_models.begin();
-	 i != m_models.end(); ++i) {
+         i != m_models.end(); ++i) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << endl;
+        cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << endl;
 #endif
-	if ((*i)->getEndFrame() > lastEnd) {
+        if ((*i)->getEndFrame() > lastEnd) {
             lastEnd = (*i)->getEndFrame();
         }
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	cout << "(done, lastEnd now " << lastEnd << ")" << endl;
+        cout << "(done, lastEnd now " << lastEnd << ")" << endl;
 #endif
     }
     m_lastModelEndFrame = lastEnd;
@@ -397,7 +397,7 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
     rebuildRangeLists();
 
     if (count == 0) {
-	if (m_writeBuffers) count = int(m_writeBuffers->size());
+        if (m_writeBuffers) count = int(m_writeBuffers->size());
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -413,22 +413,22 @@ AudioCallbackPlaySource::clearRingBuffers(bool haveLock, int count)
 #endif
 
     if (m_readBuffers != m_writeBuffers) {
-	delete m_writeBuffers;
+        delete m_writeBuffers;
     }
 
     m_writeBuffers = new RingBufferVector;
 
     for (int i = 0; i < count; ++i) {
-	m_writeBuffers->push_back(new RingBuffer<float>(m_ringBufferSize));
+        m_writeBuffers->push_back(new RingBuffer<float>(m_ringBufferSize));
     }
 
     m_audioGenerator->reset();
     
 //    cout << "AudioCallbackPlaySource::clearRingBuffers: Created "
-//	      << count << " write buffers" << endl;
+//              << count << " write buffers" << endl;
 
     if (!haveLock) {
-	m_mutex.unlock();
+        m_mutex.unlock();
     }
 }
 
@@ -443,7 +443,7 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
     }
     
     if (m_viewManager->getPlaySelectionMode() &&
-	!m_viewManager->getSelections().empty()) {
+        !m_viewManager->getSelections().empty()) {
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
         cout << "AudioCallbackPlaySource::play: constraining frame " << startFrame << " to selection = ";
@@ -459,9 +459,9 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
         if (startFrame < 0) {
             startFrame = 0;
         }
-	if (startFrame >= m_lastModelEndFrame) {
-	    startFrame = 0;
-	}
+        if (startFrame >= m_lastModelEndFrame) {
+            startFrame = 0;
+        }
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -556,7 +556,7 @@ void
 AudioCallbackPlaySource::selectionChanged()
 {
     if (m_viewManager->getPlaySelectionMode()) {
-	clearRingBuffers();
+        clearRingBuffers();
     }
 }
 
@@ -570,7 +570,7 @@ void
 AudioCallbackPlaySource::playSelectionModeChanged()
 {
     if (!m_viewManager->getSelections().empty()) {
-	clearRingBuffers();
+        clearRingBuffers();
     }
 }
 
@@ -712,11 +712,11 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     int inbuffer = 0; // at target rate
 
     for (int c = 0; c < getTargetChannelCount(); ++c) {
-	RingBuffer<float> *rb = getReadRingBuffer(c);
-	if (rb) {
-	    int here = rb->getReadSpace();
-	    if (c == 0 || here < inbuffer) inbuffer = here;
-	}
+        RingBuffer<float> *rb = getReadRingBuffer(c);
+        if (rb) {
+            int here = rb->getReadSpace();
+            if (c == 0 || here < inbuffer) inbuffer = here;
+        }
     }
 
     sv_frame_t readBufferFill = m_readBufferFill;
@@ -1144,7 +1144,7 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
         cout << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
 #endif
         v_zero_channels(buffer, requestedChannels, count);
-	return 0;
+        return 0;
     }
     if (requestedChannels < channels) {
         SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not enough device channels (" << requestedChannels << ", need " << channels << "); hoping device is about to be reopened" << endl;
@@ -1223,36 +1223,36 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
 
     if (!ts || ratio == 1.f) {
 
-	int got = 0;
+        int got = 0;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
         cout << "channels == " << channels << endl;
 #endif
         
-	for (int ch = 0; ch < channels; ++ch) {
+        for (int ch = 0; ch < channels; ++ch) {
 
-	    RingBuffer<float> *rb = getReadRingBuffer(ch);
+            RingBuffer<float> *rb = getReadRingBuffer(ch);
 
-	    if (rb) {
+            if (rb) {
 
-		// this is marginally more likely to leave our channels in
-		// sync after a processing failure than just passing "count":
-		sv_frame_t request = count;
-		if (ch > 0) request = got;
+                // this is marginally more likely to leave our channels in
+                // sync after a processing failure than just passing "count":
+                sv_frame_t request = count;
+                if (ch > 0) request = got;
 
-		got = rb->read(buffer[ch], int(request));
-	    
+                got = rb->read(buffer[ch], int(request));
+            
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-		cout << "AudioCallbackPlaySource::getSamples: got " << got << " (of " << count << ") samples on channel " << ch << ", signalling for more (possibly)" << endl;
+                cout << "AudioCallbackPlaySource::getSamples: got " << got << " (of " << count << ") samples on channel " << ch << ", signalling for more (possibly)" << endl;
 #endif
-	    }
+            }
 
-	    for (int ch = 0; ch < channels; ++ch) {
-		for (int i = got; i < count; ++i) {
-		    buffer[ch][i] = 0.0;
-		}
-	    }
-	}
+            for (int ch = 0; ch < channels; ++ch) {
+                for (int i = got; i < count; ++i) {
+                    buffer[ch][i] = 0.0;
+                }
+            }
+        }
 
         applyAuditioningEffect(count, buffer);
 
@@ -1262,7 +1262,7 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
 
         m_condition.wakeAll();
 
-	return got;
+        return got;
     }
 
     sv_frame_t available;
@@ -1405,11 +1405,11 @@ AudioCallbackPlaySource::fillBuffers()
 
     sv_frame_t space = 0;
     for (int c = 0; c < getTargetChannelCount(); ++c) {
-	RingBuffer<float> *wb = getWriteRingBuffer(c);
-	if (wb) {
-	    sv_frame_t spaceHere = wb->getWriteSpace();
-	    if (c == 0 || spaceHere < space) space = spaceHere;
-	}
+        RingBuffer<float> *wb = getWriteRingBuffer(c);
+        if (wb) {
+            sv_frame_t spaceHere = wb->getWriteSpace();
+            if (c == 0 || spaceHere < space) space = spaceHere;
+        }
     }
     
     if (space == 0) {
@@ -1423,7 +1423,7 @@ AudioCallbackPlaySource::fillBuffers()
     // channel's write ringbuffer
     
     sv_frame_t f = m_writeBufferFill;
-	
+        
     bool readWriteEqual = (m_readBuffers == m_writeBuffers);
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -1443,9 +1443,9 @@ AudioCallbackPlaySource::fillBuffers()
     static int bufferPtrCount = 0;
 
     if (bufferPtrCount < channels) {
-	if (bufferPtrs) delete[] bufferPtrs;
-	bufferPtrs = new float *[channels];
-	bufferPtrCount = channels;
+        if (bufferPtrs) delete[] bufferPtrs;
+        bufferPtrs = new float *[channels];
+        bufferPtrCount = channels;
     }
 
     sv_frame_t generatorBlockSize = m_audioGenerator->getBlockSize();
@@ -1471,7 +1471,7 @@ AudioCallbackPlaySource::fillBuffers()
     for (int c = 0; c < channels; ++c) {
 
         bufferPtrs[c] = tmp + c * space;
-	    
+            
         for (int i = 0; i < space; ++i) {
             tmp[c * space + i] = 0.0f;
         }
@@ -1521,7 +1521,7 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
     
     bool looping = m_viewManager->getPlayLoopMode();
     bool constrained = (m_viewManager->getPlaySelectionMode() &&
-			!m_viewManager->getSelections().empty());
+                        !m_viewManager->getSelections().empty());
 
     int channels = getTargetChannelCount();
 
@@ -1543,137 +1543,137 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
     static int chunkBufferPtrCount = 0;
 
     if (chunkBufferPtrCount < channels) {
-	if (chunkBufferPtrs) delete[] chunkBufferPtrs;
-	chunkBufferPtrs = new float *[channels];
-	chunkBufferPtrCount = channels;
+        if (chunkBufferPtrs) delete[] chunkBufferPtrs;
+        chunkBufferPtrs = new float *[channels];
+        chunkBufferPtrCount = channels;
     }
 
     for (int c = 0; c < channels; ++c) {
-	chunkBufferPtrs[c] = buffers[c];
+        chunkBufferPtrs[c] = buffers[c];
     }
 
     while (processed < count) {
-	
-	chunkSize = count - processed;
-	nextChunkStart = chunkStart + chunkSize;
-	selectionSize = 0;
+        
+        chunkSize = count - processed;
+        nextChunkStart = chunkStart + chunkSize;
+        selectionSize = 0;
 
-	sv_frame_t fadeIn = 0, fadeOut = 0;
+        sv_frame_t fadeIn = 0, fadeOut = 0;
 
-	if (constrained) {
+        if (constrained) {
 
             sv_frame_t rChunkStart =
                 m_viewManager->alignPlaybackFrameToReference(chunkStart);
-	    
-	    Selection selection =
-		m_viewManager->getContainingSelection(rChunkStart, true);
-	    
-	    if (selection.isEmpty()) {
-		if (looping) {
-		    selection = *m_viewManager->getSelections().begin();
-		    chunkStart = m_viewManager->alignReferenceToPlaybackFrame
+            
+            Selection selection =
+                m_viewManager->getContainingSelection(rChunkStart, true);
+            
+            if (selection.isEmpty()) {
+                if (looping) {
+                    selection = *m_viewManager->getSelections().begin();
+                    chunkStart = m_viewManager->alignReferenceToPlaybackFrame
                         (selection.getStartFrame());
-		    fadeIn = 50;
-		}
-	    }
+                    fadeIn = 50;
+                }
+            }
 
-	    if (selection.isEmpty()) {
+            if (selection.isEmpty()) {
 
-		chunkSize = 0;
-		nextChunkStart = chunkStart;
+                chunkSize = 0;
+                nextChunkStart = chunkStart;
 
-	    } else {
+            } else {
 
                 sv_frame_t sf = m_viewManager->alignReferenceToPlaybackFrame
                     (selection.getStartFrame());
                 sv_frame_t ef = m_viewManager->alignReferenceToPlaybackFrame
                     (selection.getEndFrame());
 
-		selectionSize = ef - sf;
+                selectionSize = ef - sf;
 
-		if (chunkStart < sf) {
-		    chunkStart = sf;
-		    fadeIn = 50;
-		}
+                if (chunkStart < sf) {
+                    chunkStart = sf;
+                    fadeIn = 50;
+                }
 
-		nextChunkStart = chunkStart + chunkSize;
+                nextChunkStart = chunkStart + chunkSize;
 
-		if (nextChunkStart >= ef) {
-		    nextChunkStart = ef;
-		    fadeOut = 50;
-		}
+                if (nextChunkStart >= ef) {
+                    nextChunkStart = ef;
+                    fadeOut = 50;
+                }
 
-		chunkSize = nextChunkStart - chunkStart;
-	    }
-	
-	} else if (looping && m_lastModelEndFrame > 0) {
+                chunkSize = nextChunkStart - chunkStart;
+            }
+        
+        } else if (looping && m_lastModelEndFrame > 0) {
 
-	    if (chunkStart >= m_lastModelEndFrame) {
-		chunkStart = 0;
-	    }
-	    if (chunkSize > m_lastModelEndFrame - chunkStart) {
-		chunkSize = m_lastModelEndFrame - chunkStart;
-	    }
-	    nextChunkStart = chunkStart + chunkSize;
-	}
+            if (chunkStart >= m_lastModelEndFrame) {
+                chunkStart = 0;
+            }
+            if (chunkSize > m_lastModelEndFrame - chunkStart) {
+                chunkSize = m_lastModelEndFrame - chunkStart;
+            }
+            nextChunkStart = chunkStart + chunkSize;
+        }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-	cout << "chunkStart " << chunkStart << ", chunkSize " << chunkSize << ", nextChunkStart " << nextChunkStart << ", frame " << frame << ", count " << count << ", processed " << processed << endl;
+        cout << "chunkStart " << chunkStart << ", chunkSize " << chunkSize << ", nextChunkStart " << nextChunkStart << ", frame " << frame << ", count " << count << ", processed " << processed << endl;
 #endif
         
-	if (!chunkSize) {
-	    // We need to maintain full buffers so that the other
-	    // thread can tell where it's got to in the playback -- so
-	    // return the full amount here
-	    frame = frame + count;
+        if (!chunkSize) {
+            // We need to maintain full buffers so that the other
+            // thread can tell where it's got to in the playback -- so
+            // return the full amount here
+            frame = frame + count;
             if (frame < nextChunkStart) {
                 frame = nextChunkStart;
             }
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	    cout << "mixModels: ending at " << nextChunkStart << ", returning frame as "
+            cout << "mixModels: ending at " << nextChunkStart << ", returning frame as "
                  << frame << endl;
 #endif
-	    return count;
-	}
+            return count;
+        }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	cout << "mixModels: chunk at " << chunkStart << " -> " << nextChunkStart << " (size " << chunkSize << ")" << endl;
+        cout << "mixModels: chunk at " << chunkStart << " -> " << nextChunkStart << " (size " << chunkSize << ")" << endl;
 #endif
 
-	if (selectionSize < 100) {
-	    fadeIn = 0;
-	    fadeOut = 0;
-	} else if (selectionSize < 300) {
-	    if (fadeIn > 0) fadeIn = 10;
-	    if (fadeOut > 0) fadeOut = 10;
-	}
+        if (selectionSize < 100) {
+            fadeIn = 0;
+            fadeOut = 0;
+        } else if (selectionSize < 300) {
+            if (fadeIn > 0) fadeIn = 10;
+            if (fadeOut > 0) fadeOut = 10;
+        }
 
-	if (fadeIn > 0) {
-	    if (processed * 2 < fadeIn) {
-		fadeIn = processed * 2;
-	    }
-	}
+        if (fadeIn > 0) {
+            if (processed * 2 < fadeIn) {
+                fadeIn = processed * 2;
+            }
+        }
 
-	if (fadeOut > 0) {
-	    if ((count - processed - chunkSize) * 2 < fadeOut) {
-		fadeOut = (count - processed - chunkSize) * 2;
-	    }
-	}
+        if (fadeOut > 0) {
+            if ((count - processed - chunkSize) * 2 < fadeOut) {
+                fadeOut = (count - processed - chunkSize) * 2;
+            }
+        }
 
-	for (std::set<Model *>::iterator mi = m_models.begin();
-	     mi != m_models.end(); ++mi) {
-	    
-	    (void) m_audioGenerator->mixModel(*mi, chunkStart, 
+        for (std::set<Model *>::iterator mi = m_models.begin();
+             mi != m_models.end(); ++mi) {
+            
+            (void) m_audioGenerator->mixModel(*mi, chunkStart, 
                                               chunkSize, chunkBufferPtrs,
                                               fadeIn, fadeOut);
-	}
+        }
 
-	for (int c = 0; c < channels; ++c) {
-	    chunkBufferPtrs[c] += chunkSize;
-	}
+        for (int c = 0; c < channels; ++c) {
+            chunkBufferPtrs[c] += chunkSize;
+        }
 
-	processed += chunkSize;
-	chunkStart = nextChunkStart;
+        processed += chunkSize;
+        chunkStart = nextChunkStart;
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -1691,31 +1691,31 @@ AudioCallbackPlaySource::unifyRingBuffers()
 
     // only unify if there will be something to read
     for (int c = 0; c < getTargetChannelCount(); ++c) {
-	RingBuffer<float> *wb = getWriteRingBuffer(c);
-	if (wb) {
-	    if (wb->getReadSpace() < m_blockSize * 2) {
-		if ((m_writeBufferFill + m_blockSize * 2) < 
-		    m_lastModelEndFrame) {
-		    // OK, we don't have enough and there's more to
-		    // read -- don't unify until we can do better
+        RingBuffer<float> *wb = getWriteRingBuffer(c);
+        if (wb) {
+            if (wb->getReadSpace() < m_blockSize * 2) {
+                if ((m_writeBufferFill + m_blockSize * 2) < 
+                    m_lastModelEndFrame) {
+                    // OK, we don't have enough and there's more to
+                    // read -- don't unify until we can do better
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
                     cout << "AudioCallbackPlaySource::unifyRingBuffers: Not unifying: write buffer has less (" << wb->getReadSpace() << ") than " << m_blockSize*2 << " to read and write buffer fill (" << m_writeBufferFill << ") is not close to end frame (" << m_lastModelEndFrame << ")" << endl;
 #endif
-		    return;
-		}
-	    }
-	    break;
-	}
+                    return;
+                }
+            }
+            break;
+        }
     }
 
     sv_frame_t rf = m_readBufferFill;
     RingBuffer<float> *rb = getReadRingBuffer(0);
     if (rb) {
-	int rs = rb->getReadSpace();
-	//!!! incorrect when in non-contiguous selection, see comments elsewhere
-//	cout << "rs = " << rs << endl;
-	if (rs < rf) rf -= rs;
-	else rf = 0;
+        int rs = rb->getReadSpace();
+        //!!! incorrect when in non-contiguous selection, see comments elsewhere
+//        cout << "rs = " << rs << endl;
+        if (rs < rf) rf -= rs;
+        else rf = 0;
     }
     
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
@@ -1725,26 +1725,26 @@ AudioCallbackPlaySource::unifyRingBuffers()
     sv_frame_t wf = m_writeBufferFill;
     sv_frame_t skip = 0;
     for (int c = 0; c < getTargetChannelCount(); ++c) {
-	RingBuffer<float> *wb = getWriteRingBuffer(c);
-	if (wb) {
-	    if (c == 0) {
-		
-		int wrs = wb->getReadSpace();
-//		cout << "wrs = " << wrs << endl;
+        RingBuffer<float> *wb = getWriteRingBuffer(c);
+        if (wb) {
+            if (c == 0) {
+                
+                int wrs = wb->getReadSpace();
+//                cout << "wrs = " << wrs << endl;
 
-		if (wrs < wf) wf -= wrs;
-		else wf = 0;
-//		cout << "wf = " << wf << endl;
-		
-		if (wf < rf) skip = rf - wf;
-		if (skip == 0) break;
-	    }
+                if (wrs < wf) wf -= wrs;
+                else wf = 0;
+//                cout << "wf = " << wf << endl;
+                
+                if (wf < rf) skip = rf - wf;
+                if (skip == 0) break;
+            }
 
-//	    cout << "skipping " << skip << endl;
-	    wb->skip(int(skip));
-	}
+//            cout << "skipping " << skip << endl;
+            wb->skip(int(skip));
+        }
     }
-		    
+                    
     m_bufferScavenger.claim(m_readBuffers);
     m_readBuffers = m_writeBuffers;
     m_readBufferFill = m_writeBufferFill;
@@ -1769,63 +1769,63 @@ AudioCallbackPlaySource::FillThread::run()
 
     while (!s.m_exiting) {
 
-	s.unifyRingBuffers();
-	s.m_bufferScavenger.scavenge();
+        s.unifyRingBuffers();
+        s.m_bufferScavenger.scavenge();
         s.m_pluginScavenger.scavenge();
 
-	if (work && s.m_playing && s.getSourceSampleRate()) {
-	    
+        if (work && s.m_playing && s.getSourceSampleRate()) {
+            
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	    cout << "AudioCallbackPlaySourceFillThread: not waiting" << endl;
+            cout << "AudioCallbackPlaySourceFillThread: not waiting" << endl;
 #endif
 
-	    s.m_mutex.unlock();
-	    s.m_mutex.lock();
+            s.m_mutex.unlock();
+            s.m_mutex.lock();
 
-	} else {
-	    
-	    double ms = 100;
-	    if (s.getSourceSampleRate() > 0) {
-		ms = double(s.m_ringBufferSize) / s.getSourceSampleRate() * 1000.0;
-	    }
-	    
-	    if (s.m_playing) ms /= 10;
+        } else {
+            
+            double ms = 100;
+            if (s.getSourceSampleRate() > 0) {
+                ms = double(s.m_ringBufferSize) / s.getSourceSampleRate() * 1000.0;
+            }
+            
+            if (s.m_playing) ms /= 10;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
             if (!s.m_playing) cout << endl;
-	    cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms << "ms..." << endl;
+            cout << "AudioCallbackPlaySourceFillThread: waiting for " << ms << "ms..." << endl;
 #endif
-	    
-	    s.m_condition.wait(&s.m_mutex, int(ms));
-	}
+            
+            s.m_condition.wait(&s.m_mutex, int(ms));
+        }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	cout << "AudioCallbackPlaySourceFillThread: awoken" << endl;
+        cout << "AudioCallbackPlaySourceFillThread: awoken" << endl;
 #endif
 
-	work = false;
+        work = false;
 
-	if (!s.getSourceSampleRate()) {
+        if (!s.getSourceSampleRate()) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
             cout << "AudioCallbackPlaySourceFillThread: source sample rate is zero" << endl;
 #endif
             continue;
         }
 
-	bool playing = s.m_playing;
+        bool playing = s.m_playing;
 
-	if (playing && !previouslyPlaying) {
+        if (playing && !previouslyPlaying) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-	    cout << "AudioCallbackPlaySourceFillThread: playback state changed, resetting" << endl;
+            cout << "AudioCallbackPlaySourceFillThread: playback state changed, resetting" << endl;
 #endif
-	    for (int c = 0; c < s.getTargetChannelCount(); ++c) {
-		RingBuffer<float> *rb = s.getReadRingBuffer(c);
-		if (rb) rb->reset();
-	    }
-	}
-	previouslyPlaying = playing;
+            for (int c = 0; c < s.getTargetChannelCount(); ++c) {
+                RingBuffer<float> *rb = s.getReadRingBuffer(c);
+                if (rb) rb->reset();
+            }
+        }
+        previouslyPlaying = playing;
 
-	work = s.fillBuffers();
+        work = s.fillBuffers();
     }
 
     s.m_mutex.unlock();

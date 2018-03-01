@@ -69,7 +69,7 @@ class Align;
  */
 
 class Document : public QObject,
-		 public XmlExportable
+                 public XmlExportable
 {
     Q_OBJECT
 
@@ -350,24 +350,24 @@ protected:
 
     struct ModelRecord
     {
-	// Information associated with a non-main model.  If this
-	// model is derived from another, then source will be non-NULL
-	// and the transform name will be set appropriately.  If the
-	// transform name is set but source is NULL, then there was a
-	// transform involved but the (target) model has been modified
-	// since being generated from it.
+        // Information associated with a non-main model.  If this
+        // model is derived from another, then source will be non-NULL
+        // and the transform name will be set appropriately.  If the
+        // transform name is set but source is NULL, then there was a
+        // transform involved but the (target) model has been modified
+        // since being generated from it.
         
         // This does not use ModelTransformer::Input, because it would
         // be confusing to have Input objects hanging around with NULL
         // models in them.
 
-	const Model *source;
+        const Model *source;
         int channel;
         Transform transform;
         bool additional;
 
-	// Count of the number of layers using this model.
-	int refcount;
+        // Count of the number of layers using this model.
+        int refcount;
     };
 
     typedef std::map<Model *, ModelRecord> ModelMap;
@@ -384,38 +384,38 @@ protected:
     class AddLayerCommand : public Command
     {
     public:
-	AddLayerCommand(Document *d, View *view, Layer *layer);
-	virtual ~AddLayerCommand();
-	
-	virtual void execute();
-	virtual void unexecute();
-	virtual QString getName() const;
+        AddLayerCommand(Document *d, View *view, Layer *layer);
+        virtual ~AddLayerCommand();
+        
+        virtual void execute();
+        virtual void unexecute();
+        virtual QString getName() const;
 
     protected:
-	Document *m_d;
-	View *m_view; // I don't own this
-	Layer *m_layer; // Document owns this, but I determine its lifespan
-	QString m_name;
-	bool m_added;
+        Document *m_d;
+        View *m_view; // I don't own this
+        Layer *m_layer; // Document owns this, but I determine its lifespan
+        QString m_name;
+        bool m_added;
     };
 
     class RemoveLayerCommand : public Command
     {
     public:
-	RemoveLayerCommand(Document *d, View *view, Layer *layer);
-	virtual ~RemoveLayerCommand();
-	
-	virtual void execute();
-	virtual void unexecute();
-	virtual QString getName() const;
+        RemoveLayerCommand(Document *d, View *view, Layer *layer);
+        virtual ~RemoveLayerCommand();
+        
+        virtual void execute();
+        virtual void unexecute();
+        virtual QString getName() const;
 
     protected:
-	Document *m_d;
-	View *m_view; // I don't own this
-	Layer *m_layer; // Document owns this, but I determine its lifespan
+        Document *m_d;
+        View *m_view; // I don't own this
+        Layer *m_layer; // Document owns this, but I determine its lifespan
         bool m_wasDormant;
-	QString m_name;
-	bool m_added;
+        QString m_name;
+        bool m_added;
     };
 
     typedef std::map<Layer *, std::set<View *> > LayerViewMap;

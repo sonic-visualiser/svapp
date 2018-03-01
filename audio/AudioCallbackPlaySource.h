@@ -58,7 +58,7 @@ class AudioCallbackPlayTarget;
  * available sample data from these buffers.
  */
 class AudioCallbackPlaySource : public QObject,
-				public AudioPlaySource,
+                                public AudioPlaySource,
                                 public breakfastquay::ApplicationPlaybackSource
 {
     Q_OBJECT
@@ -336,12 +336,12 @@ protected:
 
     class RingBufferVector : public std::vector<RingBuffer<float> *> {
     public:
-	virtual ~RingBufferVector() {
-	    while (!empty()) {
-		delete *begin();
-		erase(begin());
-	    }
-	}
+        virtual ~RingBufferVector() {
+            while (!empty()) {
+                delete *begin();
+                erase(begin());
+            }
+        }
     };
 
     std::set<Model *>                 m_models;
@@ -376,20 +376,20 @@ protected:
     RealTime                          m_playStartedAt;
 
     RingBuffer<float> *getWriteRingBuffer(int c) {
-	if (m_writeBuffers && c < (int)m_writeBuffers->size()) {
-	    return (*m_writeBuffers)[c];
-	} else {
-	    return 0;
-	}
+        if (m_writeBuffers && c < (int)m_writeBuffers->size()) {
+            return (*m_writeBuffers)[c];
+        } else {
+            return 0;
+        }
     }
 
     RingBuffer<float> *getReadRingBuffer(int c) {
-	RingBufferVector *rb = m_readBuffers;
-	if (rb && c < (int)rb->size()) {
-	    return (*rb)[c];
-	} else {
-	    return 0;
-	}
+        RingBufferVector *rb = m_readBuffers;
+        if (rb && c < (int)rb->size()) {
+            return (*rb)[c];
+        } else {
+            return 0;
+        }
     }
 
     void clearRingBuffers(bool haveLock = false, int count = 0);
@@ -427,14 +427,14 @@ protected:
     class FillThread : public Thread
     {
     public:
-	FillThread(AudioCallbackPlaySource &source) :
+        FillThread(AudioCallbackPlaySource &source) :
             Thread(Thread::NonRTThread),
-	    m_source(source) { }
+            m_source(source) { }
 
-	virtual void run();
+        virtual void run();
 
     protected:
-	AudioCallbackPlaySource &m_source;
+        AudioCallbackPlaySource &m_source;
     };
 
     QMutex m_mutex;

@@ -82,7 +82,7 @@ public:
      * Mix a single model into an output buffer.
      */
     virtual sv_frame_t mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
-			    float **buffer, sv_frame_t fadeIn = 0, sv_frame_t fadeOut = 0);
+                            float **buffer, sv_frame_t fadeIn = 0, sv_frame_t fadeOut = 0);
 
     /**
      * Specify that only the given set of models should be played.
@@ -111,13 +111,13 @@ protected:
         NoteOff(float _freq, sv_frame_t _frame) : frequency(_freq), frame(_frame) { }
 
         float frequency;
-	sv_frame_t frame;
+        sv_frame_t frame;
 
-	struct Comparator {
-	    bool operator()(const NoteOff &n1, const NoteOff &n2) const {
-		return n1.frame < n2.frame;
-	    }
-	};
+        struct Comparator {
+            bool operator()(const NoteOff &n1, const NoteOff &n2) const {
+                return n1.frame < n2.frame;
+            }
+        };
     };
 
 
