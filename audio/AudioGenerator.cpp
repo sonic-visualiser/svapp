@@ -65,7 +65,7 @@ AudioGenerator::AudioGenerator() :
 AudioGenerator::~AudioGenerator()
 {
 #ifdef DEBUG_AUDIO_GENERATOR
-    SVDEBUG << "AudioGenerator::~AudioGenerator" << endl;
+    cerr << "AudioGenerator::~AudioGenerator" << endl;
 #endif
 
     for (int i = 0; i < m_channelBufCount; ++i) {
@@ -570,9 +570,27 @@ AudioGenerator::mixClipModel(Model *model,
              ni != notes.end(); ++ni) {
 
             sv_frame_t noteFrame = ni->start;
+            sv_frame_t noteDuration = ni->duration;
 
             if (noteFrame < reqStart ||
-                noteFrame >= reqStart + m_processingBlockSize) continue;
+                noteFrame >= reqStart + m_processingBlockSize) {
+                continue;
+            }
+
+            if (noteDuration == 0) {
+                // If we have a note-off and a note-on with the same
+                // time, then the note-off will be assumed (in the
+                // logic below that deals with two-point note-on/off
+                // events) to be switching off an earlier note before
+                // this one begins -- that's necessary in order to
+                // support adjoining notes of equal pitch. But it does
+                // mean we have to explicitly ignore zero-duration
+                // notes, otherwise they'll be played without end
+#ifdef DEBUG_AUDIO_GENERATOR
+                cerr << "mixModel [clip]: zero-duration note found at frame " << noteFrame << ", skipping it" << endl;
+#endif
+                continue;
+            }
 
             while (noteOffs.begin() != noteOffs.end() &&
                    noteOffs.begin()->frame <= noteFrame) {
@@ -602,7 +620,7 @@ AudioGenerator::mixClipModel(Model *model,
             
             starts.push_back(on);
             noteOffs.insert
-                (NoteOff(on.frequency, noteFrame + ni->duration));
+                (NoteOff(on.frequency, noteFrame + noteDuration));
         }
 
         while (noteOffs.begin() != noteOffs.end() &&

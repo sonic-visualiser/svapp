@@ -159,8 +159,13 @@ ClipMixer::mix(float **toBuffers,
         bool ending = false;
 
         foreach (NoteEnd end, endingNotes) {
-            if (end.frequency == note.frequency && 
-                end.frameOffset >= start &&
+            if (end.frequency == note.frequency &&
+                // This is > rather than >= because if we have a
+                // note-off and a note-on at the same time, the
+                // note-off must be switching off an earlier note-on,
+                // not the current one (zero-duration notes are
+                // forbidden earlier in the pipeline)
+                end.frameOffset > start &&
                 end.frameOffset <= m_blockSize) {
                 ending = true;
                 durationHere = end.frameOffset;
