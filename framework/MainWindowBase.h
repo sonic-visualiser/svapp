@@ -396,6 +396,9 @@ protected:
     const WaveFileModel *getMainModel() const;
     void createDocument();
 
+    sv_frame_t getModelsStartFrame() const; // earliest across all views
+    sv_frame_t getModelsEndFrame() const; // latest across all views
+    
     Pane *addPaneToStack();
     Layer *getSnapLayer() const;
 

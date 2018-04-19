@@ -842,12 +842,40 @@ MainWindowBase::currentLayerChanged(Pane *p, Layer *)
     updateVisibleRangeDisplay(p);
 }
 
+sv_frame_t
+MainWindowBase::getModelsStartFrame() const
+{
+    sv_frame_t startFrame = 0;
+    if (!m_paneStack) return startFrame;
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        sv_frame_t thisStart = m_paneStack->getPane(i)->getModelsStartFrame();
+        if (i == 0 || thisStart < startFrame) {
+            startFrame = thisStart;
+        }
+    }
+    return startFrame;
+}
+
+sv_frame_t
+MainWindowBase::getModelsEndFrame() const
+{
+    sv_frame_t endFrame = 0;
+    if (!m_paneStack) return endFrame;
+    for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
+        sv_frame_t thisEnd = m_paneStack->getPane(i)->getModelsEndFrame();
+        if (i == 0 || thisEnd > endFrame) {
+            endFrame = thisEnd;
+        }
+    }
+    return endFrame;
+}
+
 void
 MainWindowBase::selectAll()
 {
     if (!getMainModel()) return;
-    m_viewManager->setSelection(Selection(getMainModel()->getStartFrame(),
-                                          getMainModel()->getEndFrame()));
+    m_viewManager->setSelection(Selection(getModelsStartFrame(),
+                                          getModelsEndFrame()));
 }
 
 void
