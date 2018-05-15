@@ -81,7 +81,7 @@ AudioGenerator::initialiseSampleDir()
 
     try {
         m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
-    } catch (DirectoryCreationFailed f) {
+    } catch (const DirectoryCreationFailed &f) {
         cerr << "WARNING: AudioGenerator::initialiseSampleDir:"
                   << " Failed to create temporary sample directory"
                   << endl;
