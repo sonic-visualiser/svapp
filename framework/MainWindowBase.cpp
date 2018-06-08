@@ -73,6 +73,8 @@
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
 
+#include "system/System.h"
+
 #include <bqaudioio/SystemPlaybackTarget.h>
 #include <bqaudioio/SystemAudioIO.h>
 #include <bqaudioio/AudioFactory.h>
@@ -3996,8 +3998,11 @@ MainWindowBase::openHelpUrl(QString url)
     process->start("open", args);
 #else
 #ifdef Q_OS_WIN32
-    QString pf(getenv("ProgramFiles"));
-    QString command = pf + QString("\\Internet Explorer\\IEXPLORE.EXE");
+    std::string pfiles;
+    (void)getEnvUtf8("ProgramFiles", pfiles);
+    QString command =
+        QString::fromStdString(pfiles) +
+        QString("\\Internet Explorer\\IEXPLORE.EXE");
 
     args.append(url);
     process->start(command, args);
