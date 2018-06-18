@@ -196,7 +196,7 @@ public:
      * Get the main model (the source for playback sample rate, etc).
      */
     const WaveFileModel *getMainModel() const { return m_mainModel; }
-
+    
     std::vector<Model *> getTransformInputModels();
 
     bool isKnownModel(const Model *) const;
@@ -292,6 +292,15 @@ public:
      * the main model has changed since they were calculated.
      */
     void alignModels();
+
+    /**
+     * Return true if any external files (most obviously audio) failed
+     * to be found on load, so that the document is incomplete
+     * compared to its saved description.
+     */
+    bool isIncomplete() const { return m_isIncomplete; }
+
+    void setIncomplete(bool i) { m_isIncomplete = i; }
 
     void toXml(QTextStream &, QString indent, QString extraAttributes) const;
     void toXmlAsTemplate(QTextStream &, QString indent, QString extraAttributes) const;
@@ -443,6 +452,8 @@ protected:
 
     bool m_autoAlignment;
     Align *m_align;
+
+    bool m_isIncomplete;
 };
 
 #endif

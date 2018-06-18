@@ -669,7 +669,7 @@ MainWindowBase::updateMenuStates()
     emit canClearSelection(haveSelection);
     emit canEditSelection(haveSelection && haveCurrentEditableLayer);
     emit canSave(m_sessionFile != "" && m_documentModified);
-    emit canSaveAs(haveMainModel);
+    emit canSaveAs(haveMainModel); // possibly used only in Tony, not SV
     emit canSelectPreviousPane(havePrevPane);
     emit canSelectNextPane(haveNextPane);
     emit canSelectPreviousLayer(havePrevLayer);
@@ -2096,7 +2096,15 @@ MainWindowBase::openSession(FileSource source)
                        .arg(QApplication::applicationName())
                        .arg(source.getLocation()));
 
-        if (!source.isRemote()) m_sessionFile = source.getLocalFilename();
+        if (!source.isRemote() && !m_document->isIncomplete()) {
+            // Setting the session file path enables the Save (as
+            // opposed to Save As...) option. We can't do this if we
+            // don't have a local path to save to, but we also don't
+            // want to do it if we failed to find an audio file or
+            // similar on load, as the audio reference would then end
+            // up being lost from any saved or auto-saved-on-exit copy
+            m_sessionFile = source.getLocalFilename();
+        }
 
         setupMenus();
         findTimeRulerLayer();

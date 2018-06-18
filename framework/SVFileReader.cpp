@@ -103,7 +103,7 @@ SVFileReader::isOK()
 SVFileReader::~SVFileReader()
 {
     if (!m_awaitingDatasets.empty()) {
-        cerr << "WARNING: SV-XML: File ended with "
+        SVCERR << "WARNING: SV-XML: File ended with "
                   << m_awaitingDatasets.size() << " unfilled model dataset(s)"
                   << endl;
     }
@@ -118,7 +118,7 @@ SVFileReader::~SVFileReader()
     }
 
     if (!unaddedModels.empty()) {
-        cerr << "WARNING: SV-XML: File contained "
+        SVCERR << "WARNING: SV-XML: File contained "
                   << unaddedModels.size() << " unused models"
                   << endl;
         while (!unaddedModels.empty()) {
@@ -241,12 +241,12 @@ SVFileReader::startElement(const QString &, const QString &,
         ok = readParameter(attributes);
 
     } else {
-        cerr << "WARNING: SV-XML: Unexpected element \""
+        SVCERR << "WARNING: SV-XML: Unexpected element \""
                   << name << "\"" << endl;
     }
 
     if (!ok) {
-        cerr << "WARNING: SV-XML: Failed to completely process element \""
+        SVCERR << "WARNING: SV-XML: Failed to completely process element \""
                   << name << "\"" << endl;
     }
 
@@ -261,7 +261,7 @@ SVFileReader::characters(const QString &text)
     if (m_inRow) {
         ok = readRowData(text);
         if (!ok) {
-            cerr << "WARNING: SV-XML: Failed to read row data content for row " << m_rowNumber << endl;
+            SVCERR << "WARNING: SV-XML: Failed to read row data content for row " << m_rowNumber << endl;
         }
     }
 
@@ -291,7 +291,7 @@ SVFileReader::endElement(const QString &, const QString &,
             }
 
             if (!foundInAwaiting) {
-                cerr << "WARNING: SV-XML: Dataset precedes model, or no model uses dataset" << endl;
+                SVCERR << "WARNING: SV-XML: Dataset precedes model, or no model uses dataset" << endl;
             }
         }
 
@@ -306,10 +306,10 @@ SVFileReader::endElement(const QString &, const QString &,
 
         if (!m_currentDerivedModel) {
             if (m_currentDerivedModelId < 0) {
-                cerr << "WARNING: SV-XML: Bad derivation output model id "
+                SVCERR << "WARNING: SV-XML: Bad derivation output model id "
                           << m_currentDerivedModelId << endl;
             } else if (haveModel(m_currentDerivedModelId)) {
-                cerr << "WARNING: SV-XML: Derivation has existing model "
+                SVCERR << "WARNING: SV-XML: Derivation has existing model "
                           << m_currentDerivedModelId
                           << " as target, not regenerating" << endl;
             } else {
@@ -368,7 +368,7 @@ SVFileReader::error(const QXmlParseException &exception)
         .arg(exception.message())
         .arg(exception.lineNumber())
         .arg(exception.columnNumber());
-    cerr << m_errorString << endl;
+    SVCERR << m_errorString << endl;
     return QXmlDefaultHandler::error(exception);
 }
 
@@ -380,7 +380,7 @@ SVFileReader::fatalError(const QXmlParseException &exception)
         .arg(exception.message())
         .arg(exception.lineNumber())
         .arg(exception.columnNumber());
-    cerr << m_errorString << endl;
+    SVCERR << m_errorString << endl;
     return QXmlDefaultHandler::fatalError(exception);
 }
 
@@ -388,7 +388,7 @@ SVFileReader::fatalError(const QXmlParseException &exception)
 #define READ_MANDATORY(TYPE, NAME, CONVERSION)                      \
     TYPE NAME = attributes.value(#NAME).trimmed().CONVERSION(&ok); \
     if (!ok) { \
-        cerr << "WARNING: SV-XML: Missing or invalid mandatory " #TYPE " attribute \"" #NAME "\"" << endl; \
+        SVCERR << "WARNING: SV-XML: Missing or invalid mandatory " #TYPE " attribute \"" #NAME "\"" << endl; \
         return false; \
     }
 
@@ -439,7 +439,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
     READ_MANDATORY(int, id, toInt);
 
     if (haveModel(id)) {
-        cerr << "WARNING: SV-XML: Ignoring duplicate model id " << id
+        SVCERR << "WARNING: SV-XML: Ignoring duplicate model id " << id
                   << endl;
         return false;
     }
@@ -469,9 +469,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         file.waitForStatus();
 
         if (!file.isOK()) {
-            cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: " << file.getErrorString() << endl;
+            SVCERR << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: " << file.getErrorString() << endl;
         } else if (!file.isAvailable()) {
-            cerr << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: Source unavailable" << endl;
+            SVCERR << "SVFileReader::readModel: Failed to retrieve file \"" << path << "\" for wave file model: Source unavailable" << endl;
         } else {
 
             file.waitForData();
@@ -494,7 +494,10 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             }
         }
 
-        if (!model) return false;
+        if (!model) {
+            m_document->setIncomplete(true);
+            return false;
+        }
 
         model->setObjectName(name);
         m_models[id] = model;
@@ -544,7 +547,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         } else {
 
-            cerr << "WARNING: SV-XML: Unexpected dense model dimension ("
+            SVCERR << "WARNING: SV-XML: Unexpected dense model dimension ("
                       << dimensions << ")" << endl;
         }
     } else if (type == "sparse") {
@@ -669,7 +672,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         } else {
 
-            cerr << "WARNING: SV-XML: Unexpected sparse model dimension ("
+            SVCERR << "WARNING: SV-XML: Unexpected sparse model dimension ("
                       << dimensions << ")" << endl;
         }
 
@@ -684,7 +687,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         if (m_models.find(reference) != m_models.end()) {
             refModel = m_models[reference];
         } else {
-            cerr << "WARNING: SV-XML: Unknown reference model id "
+            SVCERR << "WARNING: SV-XML: Unknown reference model id "
                       << reference << " in alignment model id " << id
                       << endl;
         }
@@ -692,7 +695,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         if (m_models.find(aligned) != m_models.end()) {
             alignedModel = m_models[aligned];
         } else {
-            cerr << "WARNING: SV-XML: Unknown aligned model id "
+            SVCERR << "WARNING: SV-XML: Unknown aligned model id "
                       << aligned << " in alignment model id " << id
                       << endl;
         }
@@ -700,7 +703,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         if (m_models.find(path) != m_models.end()) {
             pathModel = m_models[path];
         } else {
-            cerr << "WARNING: SV-XML: Unknown path model id "
+            SVCERR << "WARNING: SV-XML: Unknown path model id "
                       << path << " in alignment model id " << id
                       << endl;
         }
@@ -710,7 +713,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                 (refModel, alignedModel, 0, 0);
             PathModel *pm = dynamic_cast<PathModel *>(pathModel);
             if (!pm) {
-                cerr << "WARNING: SV-XML: Model id " << path
+                SVCERR << "WARNING: SV-XML: Model id " << path
                           << " referenced as path for alignment " << id
                           << " is not a path model" << endl;
             } else {
@@ -739,17 +742,17 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     m_currentPane = 0;
     
     if (type != "pane") {
-        cerr << "WARNING: SV-XML: Unexpected view type \""
+        SVCERR << "WARNING: SV-XML: Unexpected view type \""
                   << type << "\"" << endl;
         return false;
     }
 
     m_currentPane = m_paneCallback.addPane();
 
-    cerr << "SVFileReader::addPane: pane is " << m_currentPane << endl;
+    SVCERR << "SVFileReader::addPane: pane is " << m_currentPane << endl;
 
     if (!m_currentPane) {
-        cerr << "WARNING: SV-XML: Internal error: Failed to add pane!"
+        SVCERR << "WARNING: SV-XML: Internal error: Failed to add pane!"
                   << endl;
         return false;
     }
@@ -800,7 +803,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     id = attributes.value("id").trimmed().toInt(&ok);
 
     if (!ok) {
-        cerr << "WARNING: SV-XML: No layer id for layer of type \""
+        SVCERR << "WARNING: SV-XML: No layer id for layer of type \""
                   << type
                   << "\"" << endl;
         return false;
@@ -818,7 +821,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     if (m_inData) {
 
         if (m_layers.find(id) != m_layers.end()) {
-            cerr << "WARNING: SV-XML: Ignoring duplicate layer id " << id
+            SVCERR << "WARNING: SV-XML: Ignoring duplicate layer id " << id
                       << " in data section" << endl;
             return false;
         }
@@ -834,7 +837,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     } else {
 
         if (!m_currentPane) {
-            cerr << "WARNING: SV-XML: No current pane for layer " << id
+            SVCERR << "WARNING: SV-XML: No current pane for layer " << id
                       << " in view section" << endl;
             return false;
         }
@@ -844,7 +847,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
             layer = m_layers[id];
         
         } else {
-            cerr << "WARNING: SV-XML: Layer id " << id 
+            SVCERR << "WARNING: SV-XML: Layer id " << id 
                       << " in view section has not been defined -- defining it here"
                       << endl;
 
@@ -859,7 +862,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     }
             
     if (!layer) {
-        cerr << "WARNING: SV-XML: Failed to add layer of type \""
+        SVCERR << "WARNING: SV-XML: Failed to add layer of type \""
                   << type
                   << "\"" << endl;
         return false;
@@ -882,7 +885,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
                 Model *model = m_models[modelId];
                 m_document->setModel(layer, model);
             } else {
-                cerr << "WARNING: SV-XML: Unknown model id " << modelId
+                SVCERR << "WARNING: SV-XML: Unknown model id " << modelId
                           << " in layer definition" << endl;
                 if (!layer->canExistWithoutModel()) {
                     // Don't add a layer with an unknown model id
@@ -931,7 +934,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     READ_MANDATORY(int, dimensions, toInt);
     
     if (m_awaitingDatasets.find(id) == m_awaitingDatasets.end()) {
-        cerr << "WARNING: SV-XML: Unwanted dataset " << id << endl;
+        SVCERR << "WARNING: SV-XML: Unwanted dataset " << id << endl;
         return false;
     }
     
@@ -941,7 +944,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     if (haveModel(modelId)) {
         model = m_models[modelId];
     } else {
-        cerr << "WARNING: SV-XML: Internal error: Unknown model " << modelId
+        SVCERR << "WARNING: SV-XML: Internal error: Unknown model " << modelId
                   << " expecting dataset " << id << endl;
         return false;
     }
@@ -972,7 +975,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     }
 
     if (!good) {
-        cerr << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
+        SVCERR << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
         m_currentDataset = 0;
         return false;
     }
@@ -994,7 +997,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         (m_currentDataset);
 
     if (sodm) {
-//        cerr << "Current dataset is a sparse one dimensional model" << endl;
+//        SVCERR << "Current dataset is a sparse one dimensional model" << endl;
         QString label = attributes.value("label");
         sodm->addPoint(SparseOneDimensionalModel::Point(frame, label));
         return true;
@@ -1004,7 +1007,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         (m_currentDataset);
 
     if (stvm) {
-//        cerr << "Current dataset is a sparse time-value model" << endl;
+//        SVCERR << "Current dataset is a sparse time-value model" << endl;
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
@@ -1015,7 +1018,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     NoteModel *nm = dynamic_cast<NoteModel *>(m_currentDataset);
 
     if (nm) {
-//        cerr << "Current dataset is a note model" << endl;
+//        SVCERR << "Current dataset is a note model" << endl;
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = 0;
@@ -1033,7 +1036,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
 
     if (fnm) {
-//        cerr << "Current dataset is a flexinote model" << endl;
+//        SVCERR << "Current dataset is a flexinote model" << endl;
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = 0;
@@ -1051,7 +1054,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
 
     if (rm) {
-//        cerr << "Current dataset is a region model" << endl;
+//        SVCERR << "Current dataset is a region model" << endl;
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = 0;
@@ -1064,7 +1067,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     TextModel *tm = dynamic_cast<TextModel *>(m_currentDataset);
 
     if (tm) {
-//        cerr << "Current dataset is a text model" << endl;
+//        SVCERR << "Current dataset is a text model" << endl;
         float height = 0.0;
         height = attributes.value("height").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
@@ -1076,7 +1079,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     PathModel *pm = dynamic_cast<PathModel *>(m_currentDataset);
 
     if (pm) {
-//        cerr << "Current dataset is a path model" << endl;
+//        SVCERR << "Current dataset is a path model" << endl;
         int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
 //        SVDEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
         pm->addPoint(PathModel::Point(frame, mapframe));
@@ -1086,7 +1089,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     ImageModel *im = dynamic_cast<ImageModel *>(m_currentDataset);
 
     if (im) {
-//        cerr << "Current dataset is an image model" << endl;
+//        SVCERR << "Current dataset is an image model" << endl;
         QString image = attributes.value("image");
         QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
@@ -1094,7 +1097,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         return ok;
     }
 
-    cerr << "WARNING: SV-XML: Point element found in non-point dataset" << endl;
+    SVCERR << "WARNING: SV-XML: Point element found in non-point dataset" << endl;
 
     return false;
 }
@@ -1111,7 +1114,7 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
         bool ok = false;
         int n = attributes.value("number").trimmed().toInt(&ok);
         if (!ok) {
-            cerr << "WARNING: SV-XML: Missing or invalid bin number"
+            SVCERR << "WARNING: SV-XML: Missing or invalid bin number"
                       << endl;
             return false;
         }
@@ -1122,7 +1125,7 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
         return true;
     }
 
-    cerr << "WARNING: SV-XML: Bin definition found in incompatible dataset" << endl;
+    SVCERR << "WARNING: SV-XML: Bin definition found in incompatible dataset" << endl;
 
     return false;
 }
@@ -1136,14 +1139,14 @@ SVFileReader::addRowToDataset(const QXmlAttributes &attributes)
     bool ok = false;
     m_rowNumber = attributes.value("n").trimmed().toInt(&ok);
     if (!ok) {
-        cerr << "WARNING: SV-XML: Missing or invalid row number"
+        SVCERR << "WARNING: SV-XML: Missing or invalid row number"
                   << endl;
         return false;
     }
     
     m_inRow = true;
 
-//    cerr << "SV-XML: In row " << m_rowNumber << endl;
+//    SVCERR << "SV-XML: In row " << m_rowNumber << endl;
     
     return true;
 }
@@ -1166,7 +1169,7 @@ SVFileReader::readRowData(const QString &text)
 
             if (int(values.size()) == dtdm->getHeight()) {
                 if (!warned) {
-                    cerr << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
+                    SVCERR << "WARNING: SV-XML: Too many y-bins in 3-D dataset row "
                               << m_rowNumber << endl;
                     warned = true;
                 }
@@ -1175,7 +1178,7 @@ SVFileReader::readRowData(const QString &text)
             bool ok;
             float value = i->toFloat(&ok);
             if (!ok) {
-                cerr << "WARNING: SV-XML: Bad floating-point value "
+                SVCERR << "WARNING: SV-XML: Bad floating-point value "
                           << i->toLocal8Bit().data()
                           << " in row data" << endl;
             } else {
@@ -1187,7 +1190,7 @@ SVFileReader::readRowData(const QString &text)
         return true;
     }
 
-    cerr << "WARNING: SV-XML: Row data found in non-row dataset" << endl;
+    SVCERR << "WARNING: SV-XML: Row data found in non-row dataset" << endl;
 
     return false;
 }
@@ -1200,7 +1203,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     modelId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
-        cerr << "WARNING: SV-XML: No model id specified for derivation" << endl;
+        SVCERR << "WARNING: SV-XML: No model id specified for derivation" << endl;
         return false;
     }
 
@@ -1294,7 +1297,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
     modelId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
-        cerr << "WARNING: SV-XML: No model id specified for play parameters" << endl;
+        SVCERR << "WARNING: SV-XML: No model id specified for play parameters" << endl;
         return false;
     }
 
@@ -1306,7 +1309,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
             getPlayParameters(m_models[modelId]);
 
         if (!parameters) {
-            cerr << "WARNING: SV-XML: Play parameters for model "
+            SVCERR << "WARNING: SV-XML: Play parameters for model "
                       << modelId
                       << " not found - has model been added to document?"
                       << endl;
@@ -1327,11 +1330,11 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
         
         m_currentPlayParameters = parameters;
 
-//        cerr << "Current play parameters for model: " << m_models[modelId] << ": " << m_currentPlayParameters << endl;
+//        SVCERR << "Current play parameters for model: " << m_models[modelId] << ": " << m_currentPlayParameters << endl;
 
     } else {
 
-        cerr << "WARNING: SV-XML: Unknown model " << modelId
+        SVCERR << "WARNING: SV-XML: Unknown model " << modelId
                   << " for play parameters" << endl;
         return false;
     }
@@ -1347,7 +1350,7 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
     } else if (m_currentPlayParameters) {
         return readPluginForPlayback(attributes);
     } else {
-        cerr << "WARNING: SV-XML: Plugin found outside derivation or play parameters" << endl;
+        SVCERR << "WARNING: SV-XML: Plugin found outside derivation or play parameters" << endl;
         return false;
     }
 }
@@ -1394,7 +1397,7 @@ bool
 SVFileReader::readTransform(const QXmlAttributes &attributes)
 {
     if (m_currentDerivedModelId < 0) {
-        cerr << "WARNING: SV-XML: Transform found outside derivation" << endl;
+        SVCERR << "WARNING: SV-XML: Transform found outside derivation" << endl;
         return false;
     }
 
@@ -1407,13 +1410,13 @@ bool
 SVFileReader::readParameter(const QXmlAttributes &attributes)
 {
     if (m_currentDerivedModelId < 0) {
-        cerr << "WARNING: SV-XML: Parameter found outside derivation" << endl;
+        SVCERR << "WARNING: SV-XML: Parameter found outside derivation" << endl;
         return false;
     }
 
     QString name = attributes.value("name");
     if (name == "") {
-        cerr << "WARNING: SV-XML: Ignoring nameless transform parameter"
+        SVCERR << "WARNING: SV-XML: Ignoring nameless transform parameter"
                   << endl;
         return false;
     }
@@ -1444,7 +1447,7 @@ SVFileReader::readMeasurement(const QXmlAttributes &attributes)
               << m_inLayer << ", layer " << m_currentLayer << endl;
 
     if (!m_inLayer) {
-        cerr << "WARNING: SV-XML: Measurement found outside layer" << endl;
+        SVCERR << "WARNING: SV-XML: Measurement found outside layer" << endl;
         return false;
     }
 

@@ -51,7 +51,8 @@ using std::vector;
 Document::Document() :
     m_mainModel(0),
     m_autoAlignment(false),
-    m_align(new Align())
+    m_align(new Align()),
+    m_isIncomplete(false)
 {
     connect(this,
             SIGNAL(modelAboutToBeDeleted(Model *)),
