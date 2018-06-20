@@ -2104,6 +2104,12 @@ MainWindowBase::openSession(FileSource source)
             // similar on load, as the audio reference would then end
             // up being lost from any saved or auto-saved-on-exit copy
             m_sessionFile = source.getLocalFilename();
+        } else {
+            QMessageBox::warning
+                (this,
+                 tr("Incomplete session loaded"),
+                 tr("Some of the audio content referred to by the original session file could not be found.\nIf you save this session, it will be saved without any reference to that audio, and information may be lost."),
+                 QMessageBox::Ok);
         }
 
         setupMenus();
