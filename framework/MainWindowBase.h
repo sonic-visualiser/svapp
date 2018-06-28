@@ -396,6 +396,12 @@ protected:
     const WaveFileModel *getMainModel() const;
     void createDocument();
 
+    FileOpenStatus addOpenedAudioModel(FileSource source,
+                                       WaveFileModel *model,
+                                       AudioFileOpenMode mode,
+                                       QString templateName,
+                                       bool registerSource);
+    
     sv_frame_t getModelsStartFrame() const; // earliest across all views
     sv_frame_t getModelsEndFrame() const; // latest across all views
     
