@@ -4064,6 +4064,7 @@ MainWindowBase::openLocalFolder(QString path)
 #endif
             args);
 #endif
+        process.waitForFinished();
     }
 }
 
