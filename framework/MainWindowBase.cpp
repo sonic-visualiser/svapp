@@ -4054,7 +4054,7 @@ MainWindowBase::openLocalFolder(QString path)
         args << path;
         QProcess process;
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-        env.remove("LD_LIBRARY_PATH");
+        env.insert("LD_LIBRARY_PATH", "");
         process.setProcessEnvironment(env);
         process.start(
 #if defined Q_OS_MAC
