@@ -4052,7 +4052,11 @@ MainWindowBase::openLocalFolder(QString path)
         QProcess::execute("c:/windows/explorer.exe", args);
 #else
         args << path;
-        QProcess::execute(
+        QProcess process;
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.remove("LD_LIBRARY_PATH");
+        process.setProcessEnvironment(env);
+        process.start(
 #if defined Q_OS_MAC
             "/usr/bin/open",
 #else
