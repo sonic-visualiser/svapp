@@ -4063,8 +4063,8 @@ MainWindowBase::openLocalFolder(QString path)
             "/usr/bin/xdg-open",
 #endif
             args);
-#endif
         process.waitForFinished();
+#endif
     }
 }
 
