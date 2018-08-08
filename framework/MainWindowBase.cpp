@@ -2459,6 +2459,7 @@ MainWindowBase::createAudioIO()
             createCallbackIO(m_recordTarget, m_resamplerWrapper,
                              preference, errorString);
         if (m_audioIO) {
+            SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         } else {
@@ -2474,6 +2475,7 @@ MainWindowBase::createAudioIO()
             createCallbackPlayTarget(m_resamplerWrapper,
                                      preference, errorString);
         if (m_playTarget) {
+            SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);
         }
@@ -2551,6 +2553,7 @@ MainWindowBase::recreateAudioIO()
 void
 MainWindowBase::audioChannelCountIncreased(int)
 {
+    SVCERR << "MainWindowBase::audioChannelCountIncreased" << endl;
     recreateAudioIO();
 
     if (m_recordTarget &&
@@ -3036,7 +3039,7 @@ MainWindowBase::record()
     }
 
     if (!m_audioIO) {
-        cerr << "MainWindowBase::record: about to create audio IO" << endl;
+        SVDEBUG << "MainWindowBase::record: about to create audio IO" << endl;
         createAudioIO();
     }
 
@@ -3075,7 +3078,7 @@ MainWindowBase::record()
 
     if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
     
-    SVDEBUG << "MainWindowBase::record: about to resume" << endl;
+    SVCERR << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
     WritableWaveFileModel *model = m_recordTarget->startRecording();
@@ -3089,12 +3092,15 @@ MainWindowBase::record()
     }
 
     if (!model->isOK()) {
+        SVCERR << "MainWindowBase::record: Model not OK, stopping and suspending" << endl;
         m_recordTarget->stopRecording();
         m_audioIO->suspend();
         if (action) action->setChecked(false);
         delete model;
         return;
     }
+
+    SVCERR << "MainWindowBase::record: Model is OK, continuing..." << endl;
     
     PlayParameterRepository::getInstance()->addPlayable(model);
 
@@ -3108,6 +3114,7 @@ MainWindowBase::record()
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
+                SVCERR << "MainWindowBase::record: Session template open cancelled, stopping and suspending" << endl;
                 m_recordTarget->stopRecording();
                 m_audioIO->suspend();
                 PlayParameterRepository::getInstance()->removePlayable(model);
@@ -3180,7 +3187,7 @@ MainWindowBase::record()
     updateMenuStates();
     m_recentFiles.addFile(model->getLocation());
     currentPaneChanged(m_paneStack->getCurrentPane());
-
+    
     emit audioFileLoaded();
 }
 
@@ -3421,6 +3428,8 @@ MainWindowBase::stop()
     
     m_playSource->stop();
 
+    SVCERR << "MainWindowBase::stop: suspending" << endl;
+    
     if (m_audioIO) m_audioIO->suspend();
     else if (m_playTarget) m_playTarget->suspend();
     

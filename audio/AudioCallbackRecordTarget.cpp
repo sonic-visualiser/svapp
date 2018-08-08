@@ -142,6 +142,10 @@ AudioCallbackRecordTarget::putSamples(const float *const *samples, int, int nfra
 void
 AudioCallbackRecordTarget::updateModel()
 {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+    cerr << "AudioCallbackRecordTarget::updateModel" << endl;
+#endif
+    
     bool secChanged = false;
     sv_frame_t frameToEmit = 0;
 
@@ -162,6 +166,10 @@ AudioCallbackRecordTarget::updateModel()
         return;
     }
 
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+    cerr << "AudioCallbackRecordTarget::updateModel: have " << nframes << " frames" << endl;
+#endif
+
     float **samples = new float *[m_recordChannelCount];
     for (int c = 0; c < m_recordChannelCount; ++c) {
         samples[c] = new float[nframes];
@@ -177,25 +185,13 @@ AudioCallbackRecordTarget::updateModel()
     
     sv_frame_t priorFrameCount = m_frameCount;
     m_frameCount += nframes;
-
-    RealTime priorRT =
-        RealTime::frame2RealTime(priorFrameCount, m_recordSampleRate);
     
-    RealTime postRT =
-        RealTime::frame2RealTime(m_frameCount, m_recordSampleRate);
-
-    secChanged = (postRT.sec > priorRT.sec);
-    if (secChanged) {
-        m_model->updateModel();
-        frameToEmit = m_frameCount;
-    }
-
-    if (secChanged) {
-        emit recordDurationChanged(frameToEmit, m_recordSampleRate);
-    }
+    m_model->updateModel();
+    frameToEmit = m_frameCount;
+    emit recordDurationChanged(frameToEmit, m_recordSampleRate);
 
     if (m_recording) {
-        QTimer::singleShot(1000, this, SLOT(updateModel()));
+        QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
     }    
 }
 
@@ -301,7 +297,7 @@ AudioCallbackRecordTarget::startRecording()
 
     emit recordStatusChanged(true);
 
-    QTimer::singleShot(1000, this, SLOT(updateModel()));
+    QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
     
     return m_model;
 }
