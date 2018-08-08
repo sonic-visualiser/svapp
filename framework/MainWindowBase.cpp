@@ -2552,6 +2552,13 @@ void
 MainWindowBase::audioChannelCountIncreased(int)
 {
     recreateAudioIO();
+
+    if (m_recordTarget &&
+        m_recordTarget->isRecording() &&
+        m_audioIO) {
+        SVCERR << "MainWindowBase::audioChannelCountIncreased: we were recording already, so resuming IO now" << endl;
+        m_audioIO->resume();
+    }
 }
 
 WaveFileModel *
