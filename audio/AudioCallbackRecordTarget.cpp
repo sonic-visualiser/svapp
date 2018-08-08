@@ -22,6 +22,10 @@
 #include <QDir>
 #include <QTimer>
 
+//#define DEBUG_AUDIO_CALLBACK_RECORD_TARGET 1
+
+static const int recordUpdateTimeout = 200; // ms
+
 AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
                                                      QString clientName) :
     m_viewManager(manager),
@@ -149,6 +153,12 @@ AudioCallbackRecordTarget::updateModel()
     }
 
     if (nframes == 0) {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+        cerr << "AudioCallbackRecordTarget::updateModel: no frames available" << endl;
+#endif 
+        if (m_recording) {
+            QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
+        }    
         return;
     }
 
