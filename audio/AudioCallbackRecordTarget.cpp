@@ -146,7 +146,6 @@ AudioCallbackRecordTarget::updateModel()
     cerr << "AudioCallbackRecordTarget::updateModel" << endl;
 #endif
     
-    bool secChanged = false;
     sv_frame_t frameToEmit = 0;
 
     int nframes = 0;
@@ -183,7 +182,6 @@ AudioCallbackRecordTarget::updateModel()
     }
     delete[] samples;
     
-    sv_frame_t priorFrameCount = m_frameCount;
     m_frameCount += nframes;
     
     m_model->updateModel();
