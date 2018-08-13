@@ -356,8 +356,10 @@ AudioGenerator::clearSoloModelSet()
 }
 
 sv_frame_t
-AudioGenerator::mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
-                         float **buffer, sv_frame_t fadeIn, sv_frame_t fadeOut)
+AudioGenerator::mixModel(Model *model,
+                         sv_frame_t startFrame, sv_frame_t frameCount,
+                         float **buffer,
+                         sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
         cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
