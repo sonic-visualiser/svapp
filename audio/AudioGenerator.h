@@ -112,8 +112,8 @@ protected:
 
     struct NoteOff {
 
-        NoteOff(float _freq, sv_frame_t _frame, sv_frame_t _startFrame) :
-            frequency(_freq), frame(_frame), startFrame(_startFrame) { }
+        NoteOff(float _freq, sv_frame_t _frame) :
+            frequency(_freq), frame(_frame) { }
 
         float frequency;
         sv_frame_t frame;
