@@ -13,10 +13,9 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _AUDIO_GENERATOR_H_
-#define _AUDIO_GENERATOR_H_
+#ifndef SV_AUDIO_GENERATOR_H
+#define SV_AUDIO_GENERATOR_H
 
-class Model;
 class NoteModel;
 class FlexiNoteModel;
 class DenseTimeValueModel;
@@ -33,6 +32,7 @@ class ContinuousSynth;
 #include <vector>
 
 #include "base/BaseTypes.h"
+#include "data/model/Model.h"
 
 class AudioGenerator : public QObject
 {
@@ -140,12 +140,12 @@ protected:
     };
 
 
-    typedef std::map<const Model *, ClipMixer *> ClipMixerMap;
+    typedef std::map<const ModelId, ClipMixer *> ClipMixerMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
-    typedef std::map<const Model *, NoteOffSet> NoteOffMap;
+    typedef std::map<const ModelId, NoteOffSet> NoteOffMap;
 
-    typedef std::map<const Model *, ContinuousSynth *> ContinuousSynthMap;
+    typedef std::map<const ModelId, ContinuousSynth *> ContinuousSynthMap;
 
     QMutex m_mutex;
 
