@@ -112,15 +112,29 @@ protected:
 
     struct NoteOff {
 
-        NoteOff(float _freq, sv_frame_t _frame) :
-            frequency(_freq), frame(_frame) { }
+        NoteOff(float _freq, sv_frame_t _offFrame, sv_frame_t _onFrame) :
+            frequency(_freq), offFrame(_offFrame), onFrame(_onFrame) { }
 
         float frequency;
-        sv_frame_t frame;
+        sv_frame_t offFrame;
+
+        // This is the frame at which the note whose note-off appears
+        // here began. It is used to determine when we should silence
+        // a note because the playhead has jumped back in time - if
+        // the current frame for rendering is earlier than this one,
+        // then we should end and discard the note
+        //
+        sv_frame_t onFrame;
 
         struct Comparator {
             bool operator()(const NoteOff &n1, const NoteOff &n2) const {
-                return n1.frame < n2.frame;
+                if (n1.offFrame != n2.offFrame) {
+                    return n1.offFrame < n2.offFrame;
+                } else if (n1.onFrame != n2.onFrame) {
+                    return n1.onFrame < n2.onFrame;
+                } else {
+                    return n1.frequency < n2.frequency;
+                }
             }
         };
     };

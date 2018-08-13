@@ -568,6 +568,24 @@ AudioGenerator::mixClipModel(Model *model,
         std::vector<ClipMixer::NoteStart> starts;
         std::vector<ClipMixer::NoteEnd> ends;
 
+        while (noteOffs.begin() != noteOffs.end() &&
+               noteOffs.begin()->onFrame > reqStart) {
+
+            // We must have jumped back in time, as there is a
+            // note-off pending for a note that hasn't begun yet. Emit
+            // the note-off now and discard
+
+            off.frameOffset = 0;
+            off.frequency = noteOffs.begin()->frequency;
+
+#ifdef DEBUG_AUDIO_GENERATOR
+            cerr << "mixModel [clip]: adding rewind-caused note-off at frame offset 0 frequency " << off.frequency << endl;
+#endif
+
+            ends.push_back(off);
+            noteOffs.erase(noteOffs.begin());
+        }
+        
         for (NoteList::const_iterator ni = notes.begin();
              ni != notes.end(); ++ni) {
 
@@ -595,9 +613,9 @@ AudioGenerator::mixClipModel(Model *model,
             }
 
             while (noteOffs.begin() != noteOffs.end() &&
-                   noteOffs.begin()->frame <= noteFrame) {
+                   noteOffs.begin()->offFrame <= noteFrame) {
 
-                sv_frame_t eventFrame = noteOffs.begin()->frame;
+                sv_frame_t eventFrame = noteOffs.begin()->offFrame;
                 if (eventFrame < reqStart) eventFrame = reqStart;
 
                 off.frameOffset = eventFrame - reqStart;
@@ -622,13 +640,14 @@ AudioGenerator::mixClipModel(Model *model,
             
             starts.push_back(on);
             noteOffs.insert
-                (NoteOff(on.frequency, noteFrame + noteDuration));
+                (NoteOff(on.frequency, noteFrame + noteDuration, noteFrame));
         }
 
         while (noteOffs.begin() != noteOffs.end() &&
-               noteOffs.begin()->frame <= reqStart + m_processingBlockSize) {
+               noteOffs.begin()->offFrame <=
+               reqStart + m_processingBlockSize) {
 
-            sv_frame_t eventFrame = noteOffs.begin()->frame;
+            sv_frame_t eventFrame = noteOffs.begin()->offFrame;
             if (eventFrame < reqStart) eventFrame = reqStart;
 
             off.frameOffset = eventFrame - reqStart;
