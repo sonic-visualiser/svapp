@@ -141,7 +141,7 @@ AudioGenerator::addModel(Model *model)
         ClipMixer *mixer = makeClipMixerFor(model);
         if (mixer) {
             QMutexLocker locker(&m_mutex);
-            m_clipMixerMap[model] = mixer;
+            m_clipMixerMap[model->getId()] = mixer;
             return willPlay;
         }
     }
@@ -150,7 +150,7 @@ AudioGenerator::addModel(Model *model)
         ContinuousSynth *synth = makeSynthFor(model);
         if (synth) {
             QMutexLocker locker(&m_mutex);
-            m_continuousSynthMap[model] = synth;
+            m_continuousSynthMap[model->getId()] = synth;
             return willPlay;
         }
     }
@@ -169,12 +169,14 @@ AudioGenerator::playClipIdChanged(const Playable *playable, QString)
         return;
     }
 
-    if (m_clipMixerMap.find(model) == m_clipMixerMap.end()) return;
+    if (m_clipMixerMap.find(model->getId()) == m_clipMixerMap.end()) {
+        return;
+    }
 
     ClipMixer *mixer = makeClipMixerFor(model);
     if (mixer) {
         QMutexLocker locker(&m_mutex);
-        m_clipMixerMap[model] = mixer;
+        m_clipMixerMap[model->getId()] = mixer;
     }
 }
 
@@ -279,10 +281,12 @@ AudioGenerator::removeModel(Model *model)
 
     QMutexLocker locker(&m_mutex);
 
-    if (m_clipMixerMap.find(sodm) == m_clipMixerMap.end()) return;
+    if (m_clipMixerMap.find(sodm->getId()) == m_clipMixerMap.end()) {
+        return;
+    }
 
-    ClipMixer *mixer = m_clipMixerMap[sodm];
-    m_clipMixerMap.erase(sodm);
+    ClipMixer *mixer = m_clipMixerMap[sodm->getId()];
+    m_clipMixerMap.erase(sodm->getId());
     delete mixer;
 }
 
@@ -307,7 +311,8 @@ AudioGenerator::reset()
     cerr << "AudioGenerator::reset()" << endl;
 #endif
 
-    for (ClipMixerMap::iterator i = m_clipMixerMap.begin(); i != m_clipMixerMap.end(); ++i) {
+    for (ClipMixerMap::iterator i = m_clipMixerMap.begin();
+         i != m_clipMixerMap.end(); ++i) {
         if (i->second) {
             i->second->reset();
         }
@@ -356,8 +361,10 @@ AudioGenerator::clearSoloModelSet()
 }
 
 sv_frame_t
-AudioGenerator::mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
-                         float **buffer, sv_frame_t fadeIn, sv_frame_t fadeOut)
+AudioGenerator::mixModel(Model *model,
+                         sv_frame_t startFrame, sv_frame_t frameCount,
+                         float **buffer,
+                         sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
         cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
@@ -520,7 +527,7 @@ AudioGenerator::mixClipModel(Model *model,
                              sv_frame_t startFrame, sv_frame_t frames,
                              float **buffer, float gain, float pan)
 {
-    ClipMixer *clipMixer = m_clipMixerMap[model];
+    ClipMixer *clipMixer = m_clipMixerMap[model->getId()];
     if (!clipMixer) return 0;
 
     int blocks = int(frames / m_processingBlockSize);
@@ -548,7 +555,7 @@ AudioGenerator::mixClipModel(Model *model,
     ClipMixer::NoteStart on;
     ClipMixer::NoteEnd off;
 
-    NoteOffSet &noteOffs = m_noteOffs[model];
+    NoteOffSet &noteOffs = m_noteOffs[model->getId()];
 
     float **bufferIndexes = new float *[m_targetChannelCount];
 
@@ -566,6 +573,24 @@ AudioGenerator::mixClipModel(Model *model,
         std::vector<ClipMixer::NoteStart> starts;
         std::vector<ClipMixer::NoteEnd> ends;
 
+        while (noteOffs.begin() != noteOffs.end() &&
+               noteOffs.begin()->onFrame > reqStart) {
+
+            // We must have jumped back in time, as there is a
+            // note-off pending for a note that hasn't begun yet. Emit
+            // the note-off now and discard
+
+            off.frameOffset = 0;
+            off.frequency = noteOffs.begin()->frequency;
+
+#ifdef DEBUG_AUDIO_GENERATOR
+            cerr << "mixModel [clip]: adding rewind-caused note-off at frame offset 0 frequency " << off.frequency << endl;
+#endif
+
+            ends.push_back(off);
+            noteOffs.erase(noteOffs.begin());
+        }
+        
         for (NoteList::const_iterator ni = notes.begin();
              ni != notes.end(); ++ni) {
 
@@ -593,9 +618,9 @@ AudioGenerator::mixClipModel(Model *model,
             }
 
             while (noteOffs.begin() != noteOffs.end() &&
-                   noteOffs.begin()->frame <= noteFrame) {
+                   noteOffs.begin()->offFrame <= noteFrame) {
 
-                sv_frame_t eventFrame = noteOffs.begin()->frame;
+                sv_frame_t eventFrame = noteOffs.begin()->offFrame;
                 if (eventFrame < reqStart) eventFrame = reqStart;
 
                 off.frameOffset = eventFrame - reqStart;
@@ -620,13 +645,14 @@ AudioGenerator::mixClipModel(Model *model,
             
             starts.push_back(on);
             noteOffs.insert
-                (NoteOff(on.frequency, noteFrame + noteDuration));
+                (NoteOff(on.frequency, noteFrame + noteDuration, noteFrame));
         }
 
         while (noteOffs.begin() != noteOffs.end() &&
-               noteOffs.begin()->frame <= reqStart + m_processingBlockSize) {
+               noteOffs.begin()->offFrame <=
+               reqStart + m_processingBlockSize) {
 
-            sv_frame_t eventFrame = noteOffs.begin()->frame;
+            sv_frame_t eventFrame = noteOffs.begin()->offFrame;
             if (eventFrame < reqStart) eventFrame = reqStart;
 
             off.frameOffset = eventFrame - reqStart;
@@ -660,7 +686,7 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
                                         float gain, 
                                         float pan)
 {
-    ContinuousSynth *synth = m_continuousSynthMap[model];
+    ContinuousSynth *synth = m_continuousSynthMap[model->getId()];
     if (!synth) return 0;
 
     // only type we support here at the moment

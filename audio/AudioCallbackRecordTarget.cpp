@@ -22,6 +22,10 @@
 #include <QDir>
 #include <QTimer>
 
+//#define DEBUG_AUDIO_CALLBACK_RECORD_TARGET 1
+
+static const int recordUpdateTimeout = 200; // ms
+
 AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
                                                      QString clientName) :
     m_viewManager(manager),
@@ -138,7 +142,10 @@ AudioCallbackRecordTarget::putSamples(const float *const *samples, int, int nfra
 void
 AudioCallbackRecordTarget::updateModel()
 {
-    bool secChanged = false;
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+    cerr << "AudioCallbackRecordTarget::updateModel" << endl;
+#endif
+    
     sv_frame_t frameToEmit = 0;
 
     int nframes = 0;
@@ -149,8 +156,18 @@ AudioCallbackRecordTarget::updateModel()
     }
 
     if (nframes == 0) {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+        cerr << "AudioCallbackRecordTarget::updateModel: no frames available" << endl;
+#endif 
+        if (m_recording) {
+            QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
+        }    
         return;
     }
+
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+    cerr << "AudioCallbackRecordTarget::updateModel: have " << nframes << " frames" << endl;
+#endif
 
     float **samples = new float *[m_recordChannelCount];
     for (int c = 0; c < m_recordChannelCount; ++c) {
@@ -165,27 +182,14 @@ AudioCallbackRecordTarget::updateModel()
     }
     delete[] samples;
     
-    sv_frame_t priorFrameCount = m_frameCount;
     m_frameCount += nframes;
-
-    RealTime priorRT =
-        RealTime::frame2RealTime(priorFrameCount, m_recordSampleRate);
     
-    RealTime postRT =
-        RealTime::frame2RealTime(m_frameCount, m_recordSampleRate);
-
-    secChanged = (postRT.sec > priorRT.sec);
-    if (secChanged) {
-        m_model->updateModel();
-        frameToEmit = m_frameCount;
-    }
-
-    if (secChanged) {
-        emit recordDurationChanged(frameToEmit, m_recordSampleRate);
-    }
+    m_model->updateModel();
+    frameToEmit = m_frameCount;
+    emit recordDurationChanged(frameToEmit, m_recordSampleRate);
 
     if (m_recording) {
-        QTimer::singleShot(1000, this, SLOT(updateModel()));
+        QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
     }    
 }
 
@@ -291,7 +295,7 @@ AudioCallbackRecordTarget::startRecording()
 
     emit recordStatusChanged(true);
 
-    QTimer::singleShot(1000, this, SLOT(updateModel()));
+    QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
     
     return m_model;
 }

@@ -13,10 +13,9 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _AUDIO_GENERATOR_H_
-#define _AUDIO_GENERATOR_H_
+#ifndef SV_AUDIO_GENERATOR_H
+#define SV_AUDIO_GENERATOR_H
 
-class Model;
 class NoteModel;
 class FlexiNoteModel;
 class DenseTimeValueModel;
@@ -33,6 +32,7 @@ class ContinuousSynth;
 #include <vector>
 
 #include "base/BaseTypes.h"
+#include "data/model/Model.h"
 
 class AudioGenerator : public QObject
 {
@@ -81,8 +81,12 @@ public:
     /**
      * Mix a single model into an output buffer.
      */
-    virtual sv_frame_t mixModel(Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
-                            float **buffer, sv_frame_t fadeIn = 0, sv_frame_t fadeOut = 0);
+    virtual sv_frame_t mixModel(Model *model,
+                                sv_frame_t startFrame,
+                                sv_frame_t frameCount,
+                                float **buffer,
+                                sv_frame_t fadeIn = 0,
+                                sv_frame_t fadeOut = 0);
 
     /**
      * Specify that only the given set of models should be played.
@@ -108,25 +112,40 @@ protected:
 
     struct NoteOff {
 
-        NoteOff(float _freq, sv_frame_t _frame) : frequency(_freq), frame(_frame) { }
+        NoteOff(float _freq, sv_frame_t _offFrame, sv_frame_t _onFrame) :
+            frequency(_freq), offFrame(_offFrame), onFrame(_onFrame) { }
 
         float frequency;
-        sv_frame_t frame;
+        sv_frame_t offFrame;
+
+        // This is the frame at which the note whose note-off appears
+        // here began. It is used to determine when we should silence
+        // a note because the playhead has jumped back in time - if
+        // the current frame for rendering is earlier than this one,
+        // then we should end and discard the note
+        //
+        sv_frame_t onFrame;
 
         struct Comparator {
             bool operator()(const NoteOff &n1, const NoteOff &n2) const {
-                return n1.frame < n2.frame;
+                if (n1.offFrame != n2.offFrame) {
+                    return n1.offFrame < n2.offFrame;
+                } else if (n1.onFrame != n2.onFrame) {
+                    return n1.onFrame < n2.onFrame;
+                } else {
+                    return n1.frequency < n2.frequency;
+                }
             }
         };
     };
 
 
-    typedef std::map<const Model *, ClipMixer *> ClipMixerMap;
+    typedef std::map<const ModelId, ClipMixer *> ClipMixerMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
-    typedef std::map<const Model *, NoteOffSet> NoteOffMap;
+    typedef std::map<const ModelId, NoteOffSet> NoteOffMap;
 
-    typedef std::map<const Model *, ContinuousSynth *> ContinuousSynthMap;
+    typedef std::map<const ModelId, ContinuousSynth *> ContinuousSynthMap;
 
     QMutex m_mutex;
 

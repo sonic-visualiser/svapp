@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _DOCUMENT_H_
-#define _DOCUMENT_H_
+#ifndef SV_DOCUMENT_H
+#define SV_DOCUMENT_H
 
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
