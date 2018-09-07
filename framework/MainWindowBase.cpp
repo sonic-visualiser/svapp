@@ -1866,6 +1866,7 @@ MainWindowBase::openLayer(FileSource source)
                         (path, dialog->getFormat(),
                          getMainModel()->getSampleRate());
                 }
+                delete dialog;
             }
 
             if (model) {
