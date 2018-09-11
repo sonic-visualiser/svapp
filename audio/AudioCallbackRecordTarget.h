@@ -56,9 +56,6 @@ public:
     virtual void setInputLevels(float peakLeft, float peakRight) override;
 
     virtual void audioProcessingOverload() override { }
-
-    QString getRecordContainerFolder();
-    QString getRecordFolder();
     
     virtual bool isRecording() const override { return m_recording; }
     virtual sv_frame_t getRecordDuration() const override { return m_frameCount; }

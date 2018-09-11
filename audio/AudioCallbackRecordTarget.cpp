@@ -15,7 +15,7 @@
 #include "AudioCallbackRecordTarget.h"
 
 #include "base/ViewManagerBase.h"
-#include "base/TempDirectory.h"
+#include "base/RecordDirectory.h"
 
 #include "data/model/WritableWaveFileModel.h"
 
@@ -222,35 +222,6 @@ AudioCallbackRecordTarget::modelAboutToBeDeleted()
     }
 }
 
-QString
-AudioCallbackRecordTarget::getRecordContainerFolder()
-{
-    QDir parent(TempDirectory::getInstance()->getContainingPath());
-    QString subdirname("recorded");
-
-    if (!parent.mkpath(subdirname)) {
-        SVCERR << "ERROR: AudioCallbackRecordTarget::getRecordContainerFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
-        return "";
-    } else {
-        return parent.filePath(subdirname);
-    }
-}
-
-QString
-AudioCallbackRecordTarget::getRecordFolder()
-{
-    QDir parent(getRecordContainerFolder());
-    QDateTime now = QDateTime::currentDateTime();
-    QString subdirname = QString("%1").arg(now.toString("yyyyMMdd"));
-
-    if (!parent.mkpath(subdirname)) {
-        SVCERR << "ERROR: AudioCallbackRecordTarget::getRecordFolder: Failed to create recorded dir in \"" << parent.canonicalPath() << "\"" << endl;
-        return "";
-    } else {
-        return parent.filePath(subdirname);
-    }
-}
-
 WritableWaveFileModel *
 AudioCallbackRecordTarget::startRecording()
 {
@@ -262,7 +233,7 @@ AudioCallbackRecordTarget::startRecording()
     m_model = 0;
     m_frameCount = 0;
 
-    QString folder = getRecordFolder();
+    QString folder = RecordDirectory::getRecordDirectory();
     if (folder == "") return 0;
     QDir recordedDir(folder);
 
