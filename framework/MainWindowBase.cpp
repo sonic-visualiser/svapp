@@ -1498,8 +1498,16 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
         }
     }
 
-//    cerr << "mode = " << mode << endl;
+    return addOpenedAudioModel(source, newModel, mode, templateName, true);
+}
 
+MainWindowBase::FileOpenStatus
+MainWindowBase::addOpenedAudioModel(FileSource source,
+                                    WaveFileModel *newModel,
+                                    AudioFileOpenMode mode,
+                                    QString templateName,
+                                    bool registerSource)
+{
     if (mode == AskUser) {
         if (getMainModel()) {
 
@@ -1635,7 +1643,9 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
             }
         }
 
-        if (!source.isRemote()) m_audioFile = source.getLocalFilename();
+        if (!source.isRemote() && registerSource) {
+            m_audioFile = source.getLocalFilename();
+        }
 
     } else if (mode == CreateAdditionalModel) {
 
@@ -1704,12 +1714,16 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
     }
 
     updateMenuStates();
-    m_recentFiles.addFile(source.getLocation());
-    if (!source.isRemote()) {
+
+    if (registerSource) {
+        m_recentFiles.addFile(source.getLocation());
+    }
+    if (!source.isRemote() && registerSource) {
         // for file dialog
         registerLastOpenedFilePath(FileFinder::AudioFile,
                                    source.getLocalFilename());
     }
+    
     m_openingAudioFile = false;
 
     currentPaneChanged(m_paneStack->getCurrentPane());
@@ -1856,6 +1870,7 @@ MainWindowBase::openLayer(FileSource source)
                         (path, dialog->getFormat(),
                          getMainModel()->getSampleRate());
                 }
+                delete dialog;
             }
 
             if (model) {
