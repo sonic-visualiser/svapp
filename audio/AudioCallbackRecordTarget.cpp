@@ -248,9 +248,11 @@ AudioCallbackRecordTarget::startRecording()
 
     m_audioFileName = recordedDir.filePath(filename);
 
-    m_model = new WritableWaveFileModel(m_recordSampleRate,
-                                        m_recordChannelCount,
-                                        m_audioFileName);
+    m_model = new WritableWaveFileModel
+        (m_audioFileName,
+         m_recordSampleRate,
+         m_recordChannelCount,
+         WritableWaveFileModel::Normalisation::None);
 
     if (!m_model->isOK()) {
         SVCERR << "ERROR: AudioCallbackRecordTarget::startRecording: Recording failed"
