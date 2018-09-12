@@ -1714,12 +1714,16 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
     }
 
     updateMenuStates();
-    m_recentFiles.addFile(source.getLocation());
+
+    if (registerSource) {
+        m_recentFiles.addFile(source.getLocation());
+    }
     if (!source.isRemote() && registerSource) {
         // for file dialog
         registerLastOpenedFilePath(FileFinder::AudioFile,
                                    source.getLocalFilename());
     }
+    
     m_openingAudioFile = false;
 
     currentPaneChanged(m_paneStack->getCurrentPane());
