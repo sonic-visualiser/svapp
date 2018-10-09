@@ -1452,7 +1452,8 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
+MainWindowBase::openAudio(FileSource source,
+                          AudioFileOpenMode mode,
                           QString templateName)
 {
     SVDEBUG << "MainWindowBase::openAudio(" << source.getLocation() << ") with mode " << mode << " and template " << templateName << endl;
@@ -1478,14 +1479,27 @@ MainWindowBase::openAudio(FileSource source, AudioFileOpenMode mode,
 
     sv_samplerate_t rate = 0;
 
+    SVDEBUG << "Checking whether to preserve incoming audio file's sample rate"
+            << endl;
+    
     if (Preferences::getInstance()->getFixedSampleRate() != 0) {
         rate = Preferences::getInstance()->getFixedSampleRate();
+        SVDEBUG << "No: preferences specify fixed rate of " << rate << endl;
     } else if (Preferences::getInstance()->getResampleOnLoad()) {
         if (getMainModel()) {
-            rate = getMainModel()->getSampleRate();
+            if (mode == ReplaceSession || mode == ReplaceMainModel) {
+                SVDEBUG << "Preferences specify resampling additional models to match main model, but we are opening this file to replace the main model according to the open mode: therefore..." << endl;
+            } else {
+                rate = getMainModel()->getSampleRate();
+                SVDEBUG << "No: preferences specify resampling to match main model, whose rate is currently " << rate << endl;
+            }
         }
     }
 
+    if (rate == 0) {
+        SVDEBUG << "Yes, preserving incoming file rate" << endl;
+    }
+    
     ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
 
     if (!newModel->isOK()) {
