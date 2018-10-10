@@ -769,6 +769,14 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     READ_MANDATORY(int, followZoom, toInt);
     QString tracking = attributes.value("tracking");
 
+    ZoomLevel zoomLevel;
+    int deepZoom = attributes.value("deepZoom").trimmed().toInt(&ok);
+    if (ok && zoom == 1 && deepZoom > 1) {
+        zoomLevel = { ZoomLevel::PixelsPerFrame, deepZoom };
+    } else {
+        zoomLevel = { ZoomLevel::FramesPerPixel, zoom };
+    }
+
     // Specify the follow modes before we set the actual values
     view->setFollowGlobalPan(followPan);
     view->setFollowGlobalZoom(followZoom);
@@ -779,7 +787,7 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 
     // Then set these values
     view->setCentreFrame(centre);
-    view->setZoomLevel(zoom);
+    view->setZoomLevel(zoomLevel);
 
     // And pane properties
     READ_MANDATORY(int, centreLineVisible, toInt);

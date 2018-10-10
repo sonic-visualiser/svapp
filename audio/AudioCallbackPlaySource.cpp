@@ -215,7 +215,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 
             if (conflicting) {
 
-                SVDEBUG << "AudioCallbackPlaySource::addModel: ERROR: "
+                SVCERR << "AudioCallbackPlaySource::addModel: ERROR: "
                           << "New model sample rate does not match" << endl
                           << "existing model(s) (new " << model->getSampleRate()
                           << " vs " << m_sourceSampleRate

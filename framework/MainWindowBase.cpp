@@ -2803,9 +2803,7 @@ MainWindowBase::zoomToFit()
     else pixels = 1;
     if (pixels > 4) pixels -= 4;
 
-    int zoomLevel = int((end - start) / pixels);
-    if (zoomLevel < 1) zoomLevel = 1;
-
+    ZoomLevel zoomLevel = ZoomLevel::fromRatio(pixels, end - start);
     currentPane->setZoomLevel(zoomLevel);
     currentPane->setCentreFrame((start + end) / 2);
 }
@@ -2818,7 +2816,9 @@ MainWindowBase::zoomDefault()
     settings.beginGroup("MainWindow");
     int zoom = settings.value("zoom-default", 1024).toInt();
     settings.endGroup();
-    if (currentPane) currentPane->setZoomLevel(zoom);
+    if (currentPane) {
+        currentPane->setZoomLevel(ZoomLevel(ZoomLevel::FramesPerPixel, zoom));
+    }
 }
 
 void
@@ -3838,7 +3838,7 @@ MainWindowBase::viewCentreFrameChanged(View *v, sv_frame_t frame)
 }
 
 void
-MainWindowBase::viewZoomLevelChanged(View *v, int , bool )
+MainWindowBase::viewZoomLevelChanged(View *v, ZoomLevel, bool )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
     Pane *p = 0;

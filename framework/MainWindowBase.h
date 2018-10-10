@@ -257,7 +257,7 @@ protected slots:
     virtual void playbackFrameChanged(sv_frame_t);
     virtual void globalCentreFrameChanged(sv_frame_t);
     virtual void viewCentreFrameChanged(View *, sv_frame_t);
-    virtual void viewZoomLevelChanged(View *, int, bool);
+    virtual void viewZoomLevelChanged(View *, ZoomLevel, bool);
     virtual void monitoringLevelsChanged(float, float) = 0;
     virtual void recordDurationChanged(sv_frame_t, sv_samplerate_t);
 
