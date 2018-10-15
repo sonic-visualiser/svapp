@@ -229,12 +229,20 @@ protected:
     bool readParameter(const QXmlAttributes &);
     bool readSelection(const QXmlAttributes &);
     bool readMeasurement(const QXmlAttributes &);
+
+    void makeAggregateModels();
     void addUnaddedModels();
 
     bool haveModel(int id) {
         return (m_models.find(id) != m_models.end()) && m_models[id];
     }
 
+    struct PendingAggregateRec {
+        QString name;
+        sv_samplerate_t sampleRate;
+        std::vector<int> components;
+    };
+    
     Document *m_document;
     SVFileReaderPaneCallback &m_paneCallback;
     QString m_location;
@@ -242,6 +250,7 @@ protected:
     std::map<int, Layer *> m_layers;
     std::map<int, Model *> m_models;
     std::set<Model *> m_addedModels;
+    std::map<int, PendingAggregateRec> m_pendingAggregates;
     std::map<int, int> m_awaitingDatasets; // map dataset id -> model id
     Layer *m_currentLayer;
     Model *m_currentDataset;

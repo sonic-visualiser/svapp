@@ -36,6 +36,7 @@
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
 #include "data/model/AlignmentModel.h"
+#include "data/model/AggregateWaveModel.h"
 
 #include "transform/TransformFactory.h"
 
@@ -209,6 +210,7 @@ SVFileReader::startElement(const QString &, const QString &,
 
     } else if (name == "derivation") {
 
+        makeAggregateModels(); // must be done before derivations that use them
         ok = readDerivation(attributes);
 
     } else if (name == "playparameters") {
@@ -403,8 +405,60 @@ SVFileReader::readWindow(const QXmlAttributes &)
 }
 
 void
+SVFileReader::makeAggregateModels()
+{
+    std::map<int, PendingAggregateRec> stillPending;
+    
+    for (auto p: m_pendingAggregates) {
+
+        int id = p.first;
+        const PendingAggregateRec &rec = p.second;
+        bool skip = false;
+
+        AggregateWaveModel::ChannelSpecList specs;
+        for (int componentId: rec.components) {
+            bool found = false;
+            if (m_models.find(componentId) != m_models.end()) {
+                RangeSummarisableTimeValueModel *rs =
+                    dynamic_cast<RangeSummarisableTimeValueModel *>
+                    (m_models[componentId]);
+                if (rs) {
+                    specs.push_back(AggregateWaveModel::ModelChannelSpec
+                                    (rs, -1));
+                    found = true;
+                }
+            }
+            if (!found) {
+                SVDEBUG << "SVFileReader::makeAggregateModels:"
+                        << "Unknown component model id "
+                        << componentId << " in aggregate model id " << id
+                        << ", hoping we won't be needing it just yet"
+                        << endl;
+                skip = true;
+            }                
+        }
+
+        if (skip) {
+            stillPending[id] = rec;
+        } else {
+            AggregateWaveModel *model = new AggregateWaveModel(specs);
+            model->setObjectName(rec.name);
+
+            SVDEBUG << "SVFileReader::makeAggregateModels: created aggregate model id "
+                    << id << " with " << specs.size() << " components" << endl;
+        
+            m_models[id] = model;
+        }
+    }
+
+    m_pendingAggregates = stillPending;
+}
+
+void
 SVFileReader::addUnaddedModels()
 {
+    makeAggregateModels();
+    
     std::set<Model *> unaddedModels;
     
     for (std::map<int, Model *>::iterator i = m_models.begin();
@@ -507,6 +561,30 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         }
         // Derived models will be added when their derivation
         // is found.
+
+        return true;
+
+    } else if (type == "aggregatewave") {
+
+        QString components = attributes.value("components");
+        QStringList componentIdStrings = components.split(",");
+        std::vector<int> componentIds;
+        for (auto cid: componentIdStrings) {
+            bool ok = false;
+            int id = cid.toInt(&ok);
+            if (!ok) {
+                SVCERR << "SVFileReader::readModel: Failed to convert component model id from part \"" << cid << "\" in \"" << components << "\"" << endl;
+            } else {
+                componentIds.push_back(id);
+            }
+        }
+        PendingAggregateRec rec { name, sampleRate, componentIds };
+        m_pendingAggregates[id] = rec;
+
+        // The aggregate model will be constructed from its pending
+        // record in makeAggregateModels; it can't happen here because
+        // the component models might not all have been observed yet
+        // (an unfortunate accident of the way the file is written)
 
         return true;
 
