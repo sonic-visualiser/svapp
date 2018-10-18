@@ -827,7 +827,7 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 
     m_currentPane = m_paneCallback.addPane();
 
-    SVCERR << "SVFileReader::addPane: pane is " << m_currentPane << endl;
+    SVDEBUG << "SVFileReader::addPane: pane is " << m_currentPane << endl;
 
     if (!m_currentPane) {
         SVCERR << "WARNING: SV-XML: Internal error: Failed to add pane!"
