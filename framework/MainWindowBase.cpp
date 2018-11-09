@@ -326,9 +326,17 @@ MainWindowBase::~MainWindowBase()
     delete m_recordTarget;
     
     delete m_viewManager;
-    delete m_oscQueue;
-    delete m_oscQueueStarter;
     delete m_midiInput;
+
+    disconnect(m_oscQueueStarter, 0, 0, 0);
+    m_oscQueueStarter->wait(1000);
+    if (m_oscQueueStarter->isRunning()) {
+        m_oscQueueStarter->terminate();
+        m_oscQueueStarter->wait(1000);
+    }
+    delete m_oscQueueStarter;
+    delete m_oscQueue;
+    
     Profiles::getInstance()->dump();
 }
 
