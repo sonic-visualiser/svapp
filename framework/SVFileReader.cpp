@@ -1554,7 +1554,7 @@ public:
         m_inData(false),
         m_type(SVFileReader::UnknownFileType)
     { }
-    virtual ~SVFileIdentifier() { }
+    ~SVFileIdentifier() override { }
 
     void parse(QXmlInputSource &source) {
         QXmlSimpleReader reader;
@@ -1565,10 +1565,10 @@ public:
 
     SVFileReader::FileType getType() const { return m_type; }
 
-    virtual bool startElement(const QString &,
+    bool startElement(const QString &,
                               const QString &,
                               const QString &qName,
-                              const QXmlAttributes& atts)
+                              const QXmlAttributes& atts) override
     {
         QString name = qName.toLower();
 
@@ -1601,9 +1601,9 @@ public:
         return true;
     }
 
-    virtual bool endElement(const QString &,
+    bool endElement(const QString &,
                             const QString &,
-                            const QString &qName)
+                            const QString &qName) override
     {
         QString name = qName.toLower();
 

@@ -268,7 +268,7 @@ public:
         m_handler(handler) {
     }
 
-    virtual ~AdditionalModelConverter() { }
+    ~AdditionalModelConverter() override { }
 
     void
     setPrimaryLayers(vector<Layer *> layers) {
@@ -276,7 +276,7 @@ public:
     }
 
     void
-    moreModelsAvailable(vector<Model *> models) {
+    moreModelsAvailable(vector<Model *> models) override {
         std::cerr << "AdditionalModelConverter::moreModelsAvailable: " << models.size() << " model(s)" << std::endl;
         // We can't automatically regenerate the additional models on
         // reload -- we should delete them instead
@@ -292,7 +292,7 @@ public:
     }
 
     void
-    noMoreModelsAvailable() {
+    noMoreModelsAvailable() override {
         std::cerr << "AdditionalModelConverter::noMoreModelsAvailable" << std::endl;
         m_handler->layersCreated(this, m_primary, vector<Layer *>());
         delete this;
