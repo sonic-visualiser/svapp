@@ -49,7 +49,7 @@ using std::vector;
 //!!! still need to handle command history, documentRestored/documentModified
 
 Document::Document() :
-    m_mainModel(0),
+    m_mainModel(nullptr),
     m_autoAlignment(false),
     m_align(new Align()),
     m_isIncomplete(false)
@@ -115,7 +115,7 @@ Document::~Document()
         emit modelAboutToBeDeleted(m_mainModel);
     }
 
-    emit mainModelChanged(0);
+    emit mainModelChanged(nullptr);
     delete m_mainModel;
 }
 
@@ -123,7 +123,7 @@ Layer *
 Document::createLayer(LayerFactory::LayerType type)
 {
     Layer *newLayer = LayerFactory::getInstance()->createLayer(type);
-    if (!newLayer) return 0;
+    if (!newLayer) return nullptr;
 
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
@@ -143,7 +143,7 @@ Layer *
 Document::createMainModelLayer(LayerFactory::LayerType type)
 {
     Layer *newLayer = createLayer(type);
-    if (!newLayer) return 0;
+    if (!newLayer) return nullptr;
     setModel(newLayer, m_mainModel);
     return newLayer;
 }
@@ -156,14 +156,14 @@ Document::createImportedLayer(Model *model)
 
     if (types.empty()) {
         cerr << "WARNING: Document::importLayer: no valid display layer for model" << endl;
-        return 0;
+        return nullptr;
     }
 
     //!!! for now, just use the first suitable layer type
     LayerFactory::LayerType type = *types.begin();
 
     Layer *newLayer = LayerFactory::getInstance()->createLayer(type);
-    if (!newLayer) return 0;
+    if (!newLayer) return nullptr;
 
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
@@ -187,16 +187,16 @@ Document::createImportedLayer(Model *model)
 Layer *
 Document::createEmptyLayer(LayerFactory::LayerType type)
 {
-    if (!m_mainModel) return 0;
+    if (!m_mainModel) return nullptr;
 
     Model *newModel =
         LayerFactory::getInstance()->createEmptyModel(type, m_mainModel);
-    if (!newModel) return 0;
+    if (!newModel) return nullptr;
 
     Layer *newLayer = createLayer(type);
     if (!newLayer) {
         delete newModel;
-        return 0;
+        return nullptr;
     }
 
     addImportedModel(newModel);
@@ -210,7 +210,7 @@ Document::createDerivedLayer(LayerFactory::LayerType type,
                              TransformId transform)
 {
     Layer *newLayer = createLayer(type);
-    if (!newLayer) return 0;
+    if (!newLayer) return nullptr;
 
     newLayer->setObjectName(getUniqueLayerName
                             (TransformFactory::getInstance()->
@@ -226,7 +226,7 @@ Document::createDerivedLayer(const Transform &transform,
     Transforms transforms;
     transforms.push_back(transform);
     vector<Layer *> layers = createDerivedLayers(transforms, input);
-    if (layers.empty()) return 0;
+    if (layers.empty()) return nullptr;
     else return layers[0];
 }
 
@@ -235,7 +235,7 @@ Document::createDerivedLayers(const Transforms &transforms,
                               const ModelTransformer::Input &input)
 {
     QString message;
-    vector<Model *> newModels = addDerivedModels(transforms, input, message, 0);
+    vector<Model *> newModels = addDerivedModels(transforms, input, message, nullptr);
 
     if (newModels.empty()) {
         //!!! This identifier may be wrong!
@@ -640,7 +640,7 @@ Document::addImportedModel(Model *model)
     }
 
     ModelRecord rec;
-    rec.source = 0;
+    rec.source = nullptr;
     rec.channel = 0;
     rec.refcount = 0;
     rec.additional = false;
@@ -676,7 +676,7 @@ Document::addAdditionalModel(Model *model)
     }
 
     ModelRecord rec;
-    rec.source = 0;
+    rec.source = nullptr;
     rec.channel = 0;
     rec.refcount = 0;
     rec.additional = true;
@@ -732,8 +732,8 @@ Document::addDerivedModel(const Transform &transform,
 
     Transforms tt;
     tt.push_back(transform);
-    vector<Model *> mm = addDerivedModels(tt, input, message, 0);
-    if (mm.empty()) return 0;
+    vector<Model *> mm = addDerivedModels(tt, input, message, nullptr);
+    if (mm.empty()) return nullptr;
     else return mm[0];
 }
 
@@ -783,7 +783,7 @@ Document::addDerivedModels(const Transforms &transforms,
 void
 Document::releaseModel(Model *model) // Will _not_ release main model!
 {
-    if (model == 0) {
+    if (model == nullptr) {
         return;
     }
 
@@ -818,7 +818,7 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
         for (ModelMap::iterator i = m_models.begin(); i != m_models.end(); ++i) {
             if (i->second.source == model) {
                 ++sourceCount;
-                i->second.source = 0;
+                i->second.source = nullptr;
             }
         }
 
@@ -1101,7 +1101,7 @@ Document::alignModel(Model *model)
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
         SVDEBUG << "Document::alignModel(" << model << "): is main model, setting appropriately" << endl;
-        rm->setAlignment(new AlignmentModel(model, model, 0, 0));
+        rm->setAlignment(new AlignmentModel(model, model, nullptr, nullptr));
         return;
     }
 

@@ -137,32 +137,32 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #endif
 
 MainWindowBase::MainWindowBase(SoundOptions options) :
-    m_document(0),
-    m_paneStack(0),
-    m_viewManager(0),
-    m_timeRulerLayer(0),
+    m_document(nullptr),
+    m_paneStack(nullptr),
+    m_viewManager(nullptr),
+    m_timeRulerLayer(nullptr),
     m_soundOptions(options),
-    m_playSource(0),
-    m_recordTarget(0),
-    m_resamplerWrapper(0),
-    m_playTarget(0),
-    m_audioIO(0),
-    m_oscQueue(0),
-    m_oscQueueStarter(0),
-    m_midiInput(0),
+    m_playSource(nullptr),
+    m_recordTarget(nullptr),
+    m_resamplerWrapper(nullptr),
+    m_playTarget(nullptr),
+    m_audioIO(nullptr),
+    m_oscQueue(nullptr),
+    m_oscQueueStarter(nullptr),
+    m_midiInput(nullptr),
     m_recentFiles("RecentFiles", 20),
     m_recentTransforms("RecentTransforms", 20),
     m_documentModified(false),
     m_openingAudioFile(false),
     m_abandoning(false),
-    m_labeller(0),
+    m_labeller(nullptr),
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
     m_defaultFfwdRwdStep(2, 0),
     m_audioRecordMode(RecordCreateAdditionalModel),
-    m_statusLabel(0),
+    m_statusLabel(nullptr),
     m_iconsVisibleInMenus(true),
-    m_menuShortcutMapper(0)
+    m_menuShortcutMapper(nullptr)
 {
     Profiler profiler("MainWindowBase::MainWindowBase");
 
@@ -219,7 +219,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     }
 #endif
 
-    m_paneStack = new PaneStack(0, m_viewManager);
+    m_paneStack = new PaneStack(nullptr, m_viewManager);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
             this, SLOT(currentPaneChanged(Pane *)));
     connect(m_paneStack, SIGNAL(currentLayerChanged(Pane *, Layer *)),
@@ -328,7 +328,7 @@ MainWindowBase::~MainWindowBase()
     delete m_viewManager;
     delete m_midiInput;
 
-    disconnect(m_oscQueueStarter, 0, 0, 0);
+    disconnect(m_oscQueueStarter, nullptr, nullptr, nullptr);
     m_oscQueueStarter->wait(1000);
     if (m_oscQueueStarter->isRunning()) {
         m_oscQueueStarter->terminate();
@@ -353,7 +353,7 @@ MainWindowBase::finaliseMenus()
     SVDEBUG << "MainWindowBase::finaliseMenus called" << endl;
 
     delete m_menuShortcutMapper;
-    m_menuShortcutMapper = 0;
+    m_menuShortcutMapper = nullptr;
 
     foreach (QShortcut *sc, m_appShortcuts) {
         delete sc;
@@ -524,9 +524,9 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
     FileFinder *ff = FileFinder::getInstance();
 
     if (type == FileFinder::AnyFile) {
-        if (getMainModel() != 0 &&
-            m_paneStack != 0 &&
-            m_paneStack->getCurrentPane() != 0) { // can import a layer
+        if (getMainModel() != nullptr &&
+            m_paneStack != nullptr &&
+            m_paneStack->getCurrentPane() != nullptr) { // can import a layer
             return ff->getOpenFileName(FileFinder::AnyFile, m_sessionFile);
         } else {
             return ff->getOpenFileName(FileFinder::SessionOrAudioFile,
@@ -584,8 +584,8 @@ MainWindowBase::setDefaultSessionTemplate(QString n)
 void
 MainWindowBase::updateMenuStates()
 {
-    Pane *currentPane = 0;
-    Layer *currentLayer = 0;
+    Pane *currentPane = nullptr;
+    Layer *currentLayer = nullptr;
 
     if (m_paneStack) currentPane = m_paneStack->getCurrentPane();
     if (currentPane) currentLayer = currentPane->getSelectedLayer();
@@ -612,14 +612,14 @@ MainWindowBase::updateMenuStates()
     }        
 
     bool haveCurrentPane =
-        (currentPane != 0);
+        (currentPane != nullptr);
     bool haveCurrentLayer =
         (haveCurrentPane &&
-         (currentLayer != 0));
+         (currentLayer != nullptr));
     bool haveMainModel =
-        (getMainModel() != 0);
+        (getMainModel() != nullptr);
     bool havePlayTarget =
-        (m_playTarget != 0 || m_audioIO != 0);
+        (m_playTarget != nullptr || m_audioIO != nullptr);
     bool haveSelection = 
         (m_viewManager &&
          !m_viewManager->getSelections().empty());
@@ -764,7 +764,7 @@ MainWindowBase::playSoloToggled()
     if (m_viewManager->getPlaySoloMode()) {
         currentPaneChanged(m_paneStack->getCurrentPane());
     } else {
-        m_viewManager->setPlaybackModel(0);
+        m_viewManager->setPlaybackModel(nullptr);
         if (m_playSource) {
             m_playSource->clearSoloModelSet();
         }
@@ -782,7 +782,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
     if (!(m_viewManager &&
           m_playSource &&
           m_viewManager->getPlaySoloMode())) {
-        if (m_viewManager) m_viewManager->setPlaybackModel(0);
+        if (m_viewManager) m_viewManager->setPlaybackModel(nullptr);
         return;
     }
 
@@ -1166,7 +1166,7 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
                 }
 
                 m_labeller->label<SparseOneDimensionalModel::Point>
-                    (point, havePrevPoint ? &prevPoint : 0);
+                    (point, havePrevPoint ? &prevPoint : nullptr);
 
                 if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
                     command->addPoint(prevPoint);
@@ -1216,7 +1216,7 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
     if (alignedStart >= alignedEnd) return;
     sv_frame_t alignedDuration = alignedEnd - alignedStart;
 
-    Command *c = 0;
+    Command *c = nullptr;
 
     QString name = tr("Add Item at %1 s")
         .arg(RealTime::frame2RealTime
@@ -1377,9 +1377,9 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    bool canImportLayer = (getMainModel() != 0 &&
-                           m_paneStack != 0 &&
-                           m_paneStack->getCurrentPane() != 0);
+    bool canImportLayer = (getMainModel() != nullptr &&
+                           m_paneStack != nullptr &&
+                           m_paneStack->getCurrentPane() != nullptr);
 
     bool rdf = (source.getExtension().toLower() == "rdf" ||
                 source.getExtension().toLower() == "n3" ||
@@ -1707,7 +1707,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         // know whether the pane contains a waveform model at all.
         
         Pane *pane = m_paneStack->getCurrentPane();
-        Layer *replace = 0;
+        Layer *replace = nullptr;
 
         for (int i = 0; i < pane->getLayerCount(); ++i) {
             Layer *layer = pane->getLayer(i);
@@ -2072,9 +2072,9 @@ MainWindowBase::openSession(FileSource source)
         }
     }
 
-    QXmlInputSource *inputSource = 0;
-    BZipFileDevice *bzFile = 0;
-    QFile *rawFile = 0;
+    QXmlInputSource *inputSource = nullptr;
+    BZipFileDevice *bzFile = nullptr;
+    QFile *rawFile = nullptr;
 
     if (source.getExtension().toLower() == sessionExt) {
         bzFile = new BZipFileDevice(source.getLocalFilename());
@@ -2198,8 +2198,8 @@ MainWindowBase::openSessionTemplate(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    QXmlInputSource *inputSource = 0;
-    QFile *file = 0;
+    QXmlInputSource *inputSource = nullptr;
+    QFile *file = nullptr;
 
     file = new QFile(source.getLocalFilename());
     inputSource = new QXmlInputSource(file);
@@ -2342,7 +2342,7 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         if (w) {
 
             Pane *pane = addPaneToStack();
-            Layer *layer = 0;
+            Layer *layer = nullptr;
 
             if (m_timeRulerLayer) {
                 m_document->addLayerToView(pane, m_timeRulerLayer);
@@ -2561,8 +2561,8 @@ MainWindowBase::deleteAudioIO()
 {
     // First prevent this trying to call target.
     if (m_playSource) {
-        m_playSource->setSystemPlaybackTarget(0);
-        m_playSource->setResamplerWrapper(0);
+        m_playSource->setSystemPlaybackTarget(nullptr);
+        m_playSource->setResamplerWrapper(nullptr);
     }
 
     // Then delete the breakfastquay::System object.
@@ -2575,9 +2575,9 @@ MainWindowBase::deleteAudioIO()
     // of the use cases for recreateAudioIO() calling this
     delete m_resamplerWrapper;
 
-    m_audioIO = 0;
-    m_playTarget = 0;
-    m_resamplerWrapper = 0;
+    m_audioIO = nullptr;
+    m_playTarget = nullptr;
+    m_resamplerWrapper = nullptr;
 }
 
 void
@@ -2604,14 +2604,14 @@ MainWindowBase::audioChannelCountIncreased(int)
 WaveFileModel *
 MainWindowBase::getMainModel()
 {
-    if (!m_document) return 0;
+    if (!m_document) return nullptr;
     return m_document->getMainModel();
 }
 
 const WaveFileModel *
 MainWindowBase::getMainModel() const
 {
-    if (!m_document) return 0;
+    if (!m_document) return nullptr;
     return m_document->getMainModel();
 }
 
@@ -2905,7 +2905,7 @@ MainWindowBase::findTimeRulerLayer()
     if (m_timeRulerLayer) {
         SVCERR << "WARNING: Time ruler layer was not reset to 0 before session template loaded?" << endl;
         delete m_timeRulerLayer;
-        m_timeRulerLayer = 0;
+        m_timeRulerLayer = nullptr;
     }
 }
 
@@ -3430,7 +3430,7 @@ Layer *
 MainWindowBase::getSnapLayer() const
 {
     Pane *pane = m_paneStack->getCurrentPane();
-    if (!pane) return 0;
+    if (!pane) return nullptr;
 
     Layer *layer = pane->getSelectedLayer();
 
@@ -3439,7 +3439,7 @@ MainWindowBase::getSnapLayer() const
         !dynamic_cast<RegionLayer *>(layer) &&
         !dynamic_cast<TimeRulerLayer *>(layer)) {
 
-        layer = 0;
+        layer = nullptr;
 
         for (int i = pane->getLayerCount(); i > 0; --i) {
             Layer *l = pane->getLayer(i-1);
@@ -3480,8 +3480,8 @@ MainWindowBase::stop()
 
 MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw) :
     m_mw(mw),
-    m_pane(0),
-    m_prevCurrentPane(0),
+    m_pane(nullptr),
+    m_prevCurrentPane(nullptr),
     m_added(false)
 {
 }
@@ -3527,7 +3527,7 @@ MainWindowBase::AddPaneCommand::unexecute()
 MainWindowBase::RemovePaneCommand::RemovePaneCommand(MainWindowBase *mw, Pane *pane) :
     m_mw(mw),
     m_pane(pane),
-    m_prevCurrentPane(0),
+    m_prevCurrentPane(nullptr),
     m_added(true)
 {
 }
@@ -3603,7 +3603,7 @@ MainWindowBase::deleteCurrentLayer()
 void
 MainWindowBase::editCurrentLayer()
 {
-    Layer *layer = 0;
+    Layer *layer = nullptr;
     Pane *pane = m_paneStack->getCurrentPane();
     if (pane) layer = pane->getSelectedLayer();
     if (!layer) return;
@@ -3723,7 +3723,7 @@ MainWindowBase::previousLayer()
             if (currentPane->getFixedOrderLayer(i) == currentLayer) {
                 if (i == 0) {
                     m_paneStack->setCurrentLayer
-                        (currentPane, 0); // pane
+                        (currentPane, nullptr); // pane
                 } else {
                     m_paneStack->setCurrentLayer
                         (currentPane, currentPane->getFixedOrderLayer(i-1));
@@ -3758,7 +3758,7 @@ MainWindowBase::nextLayer()
             if (currentPane->getFixedOrderLayer(i) == currentLayer) {
                 if (i == currentPane->getLayerCount()-1) {
                     m_paneStack->setCurrentLayer
-                        (currentPane, 0); // pane
+                        (currentPane, nullptr); // pane
                 } else {
                     m_paneStack->setCurrentLayer
                         (currentPane, currentPane->getFixedOrderLayer(i+1));
@@ -3822,7 +3822,7 @@ void
 MainWindowBase::globalCentreFrameChanged(sv_frame_t )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
-    Pane *p = 0;
+    Pane *p = nullptr;
     if (!m_paneStack || !(p = m_paneStack->getCurrentPane())) return;
     if (!p->getFollowGlobalPan()) return;
     updateVisibleRangeDisplay(p);
@@ -3840,7 +3840,7 @@ MainWindowBase::viewCentreFrameChanged(View *v, sv_frame_t frame)
         }
     }
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
-    Pane *p = 0;
+    Pane *p = nullptr;
     if (!m_paneStack || !(p = m_paneStack->getCurrentPane())) return;
     if (v == p) updateVisibleRangeDisplay(p);
 }
@@ -3849,7 +3849,7 @@ void
 MainWindowBase::viewZoomLevelChanged(View *v, ZoomLevel, bool )
 {
     if ((m_playSource && m_playSource->isPlaying()) || !getMainModel()) return;
-    Pane *p = 0;
+    Pane *p = nullptr;
     if (!m_paneStack || !(p = m_paneStack->getCurrentPane())) return;
     if (v == p) updateVisibleRangeDisplay(p);
 }
@@ -3877,7 +3877,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
 
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
 //        cerr << "(this is the time ruler layer)" << endl;
-        m_timeRulerLayer = 0;
+        m_timeRulerLayer = nullptr;
     }
 }
 
@@ -3960,7 +3960,7 @@ MainWindowBase::modelAboutToBeDeleted(Model *model)
 {
 //    SVDEBUG << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << endl;
     if (model == m_viewManager->getPlaybackModel()) {
-        m_viewManager->setPlaybackModel(0);
+        m_viewManager->setPlaybackModel(nullptr);
     }
     m_playSource->removeModel(model);
 }
@@ -4027,7 +4027,7 @@ MainWindowBase::pollOSC()
 void
 MainWindowBase::inProgressSelectionChanged()
 {
-    Pane *currentPane = 0;
+    Pane *currentPane = nullptr;
     if (m_paneStack) currentPane = m_paneStack->getCurrentPane();
     if (currentPane) {
         //cerr << "JTEST: mouse event on selection pane" << endl;

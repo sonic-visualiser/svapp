@@ -50,7 +50,7 @@ AudioGenerator::AudioGenerator() :
     m_targetChannelCount(1),
     m_waveType(0),
     m_soloing(false),
-    m_channelBuffer(0),
+    m_channelBuffer(nullptr),
     m_channelBufSiz(0),
     m_channelBufCount(0)
 {
@@ -216,7 +216,7 @@ AudioGenerator::makeClipMixerFor(const Model *model)
     QString clipId;
 
     const Playable *playable = model;
-    if (!playable || !playable->canPlay()) return 0;
+    if (!playable || !playable->canPlay()) return nullptr;
 
     PlayParameters *parameters =
         PlayParameterRepository::getInstance()->getPlayParameters(playable);
@@ -230,7 +230,7 @@ AudioGenerator::makeClipMixerFor(const Model *model)
 
     if (clipId == "") {
         SVDEBUG << "AudioGenerator::makeClipMixerFor(" << model << "): no sample, skipping" << endl;
-        return 0;
+        return nullptr;
     }
 
     ClipMixer *mixer = new ClipMixer(m_targetChannelCount,
@@ -244,7 +244,7 @@ AudioGenerator::makeClipMixerFor(const Model *model)
     double level = wantsQuieterClips(model) ? 0.5 : 1.0;
     if (!mixer->loadClipData(clipPath, clipF0, level)) {
         delete mixer;
-        return 0;
+        return nullptr;
     }
 
 #ifdef DEBUG_AUDIO_GENERATOR
@@ -258,7 +258,7 @@ ContinuousSynth *
 AudioGenerator::makeSynthFor(const Model *model)
 {
     const Playable *playable = model;
-    if (!playable || !playable->canPlay()) return 0;
+    if (!playable || !playable->canPlay()) return nullptr;
 
     ContinuousSynth *synth = new ContinuousSynth(m_targetChannelCount,
                                                  m_sourceSampleRate,

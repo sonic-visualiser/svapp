@@ -29,7 +29,7 @@
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
                              QString myVersion) :
     m_myVersion(myVersion),
-    m_reply(0),
+    m_reply(nullptr),
     m_httpFailed(false),
     m_nm(new QNetworkAccessManager)
 {
@@ -90,7 +90,7 @@ void
 VersionTester::finished()
 {
     QNetworkReply *r = m_reply;
-    m_reply = 0;
+    m_reply = nullptr;
 
     r->deleteLater();
     if (m_httpFailed) return;

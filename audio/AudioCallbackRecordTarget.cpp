@@ -34,8 +34,8 @@ AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
     m_recordSampleRate(44100),
     m_recordChannelCount(2),
     m_frameCount(0),
-    m_model(0),
-    m_buffers(0),
+    m_model(nullptr),
+    m_buffers(nullptr),
     m_bufferCount(0),
     m_inputLeft(0.f),
     m_inputRight(0.f),
@@ -51,7 +51,7 @@ AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
 
 AudioCallbackRecordTarget::~AudioCallbackRecordTarget()
 {
-    m_viewManager->setAudioRecordTarget(0);
+    m_viewManager->setAudioRecordTarget(nullptr);
 
     QMutexLocker locker(&m_bufPtrMutex);
     for (int c = 0; c < m_bufferCount; ++c) {
@@ -217,7 +217,7 @@ void
 AudioCallbackRecordTarget::modelAboutToBeDeleted()
 {
     if (sender() == m_model) {
-        m_model = 0;
+        m_model = nullptr;
         m_recording = false;
     }
 }
@@ -227,14 +227,14 @@ AudioCallbackRecordTarget::startRecording()
 {
     if (m_recording) {
         SVCERR << "WARNING: AudioCallbackRecordTarget::startRecording: We are already recording" << endl;
-        return 0;
+        return nullptr;
     }
 
-    m_model = 0;
+    m_model = nullptr;
     m_frameCount = 0;
 
     QString folder = RecordDirectory::getRecordDirectory();
-    if (folder == "") return 0;
+    if (folder == "") return nullptr;
     QDir recordedDir(folder);
 
     QDateTime now = QDateTime::currentDateTime();
@@ -259,8 +259,8 @@ AudioCallbackRecordTarget::startRecording()
                << endl;
         //!!! and throw?
         delete m_model;
-        m_model = 0;
-        return 0;
+        m_model = nullptr;
+        return nullptr;
     }
 
     m_model->setObjectName(label);
@@ -290,7 +290,7 @@ AudioCallbackRecordTarget::stopRecording()
     updateModel();
 
     m_model->writeComplete();
-    m_model = 0;
+    m_model = nullptr;
     
     emit recordStatusChanged(false);
     emit recordCompleted();

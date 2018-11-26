@@ -26,7 +26,7 @@ ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockS
     m_channels(channels),
     m_sampleRate(sampleRate),
     m_blockSize(blockSize),
-    m_clipData(0),
+    m_clipData(nullptr),
     m_clipLength(0),
     m_clipF0(0),
     m_clipRate(0)
