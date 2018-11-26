@@ -431,7 +431,7 @@ protected:
             Thread(Thread::NonRTThread),
             m_source(source) { }
 
-        virtual void run();
+        void run() override;
 
     protected:
         AudioCallbackPlaySource &m_source;

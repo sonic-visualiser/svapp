@@ -302,7 +302,7 @@ public:
 
     void setIncomplete(bool i) { m_isIncomplete = i; }
 
-    void toXml(QTextStream &, QString indent, QString extraAttributes) const;
+    void toXml(QTextStream &, QString indent, QString extraAttributes) const override;
     void toXmlAsTemplate(QTextStream &, QString indent, QString extraAttributes) const;
 
 signals:
@@ -396,9 +396,9 @@ protected:
         AddLayerCommand(Document *d, View *view, Layer *layer);
         virtual ~AddLayerCommand();
         
-        virtual void execute();
-        virtual void unexecute();
-        virtual QString getName() const;
+        void execute() override;
+        void unexecute() override;
+        QString getName() const override;
 
     protected:
         Document *m_d;
@@ -414,9 +414,9 @@ protected:
         RemoveLayerCommand(Document *d, View *view, Layer *layer);
         virtual ~RemoveLayerCommand();
         
-        virtual void execute();
-        virtual void unexecute();
-        virtual QString getName() const;
+        void execute() override;
+        void unexecute() override;
+        QString getName() const override;
 
     protected:
         Document *m_d;

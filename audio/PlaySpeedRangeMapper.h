@@ -26,11 +26,11 @@ public:
     int getMinPosition() const { return m_minpos; }
     int getMaxPosition() const { return m_maxpos; }
     
-    virtual int getPositionForValue(double value) const;
-    virtual int getPositionForValueUnclamped(double value) const;
+    int getPositionForValue(double value) const override;
+    int getPositionForValueUnclamped(double value) const override;
 
-    virtual double getValueForPosition(int position) const;
-    virtual double getValueForPositionUnclamped(int position) const;
+    double getValueForPosition(int position) const override;
+    double getValueForPositionUnclamped(int position) const override;
 
     int getPositionForFactor(double factor) const;
     double getValueForFactor(double factor) const;
@@ -38,7 +38,7 @@ public:
     double getFactorForPosition(int position) const;
     double getFactorForValue(double value) const;
 
-    virtual QString getUnit() const;
+    QString getUnit() const override;
     
 protected:
     int m_minpos;
