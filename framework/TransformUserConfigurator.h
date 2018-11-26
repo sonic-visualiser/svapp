@@ -12,8 +12,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _TRANSFORM_USER_CONFIGURATOR_H_
-#define _TRANSFORM_USER_CONFIGURATOR_H_
+#ifndef SV_TRANSFORM_USER_CONFIGURATOR_H
+#define SV_TRANSFORM_USER_CONFIGURATOR_H
 
 #include "transform/ModelTransformerFactory.h"
 

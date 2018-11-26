@@ -18,8 +18,8 @@
    This file copyright 2000-2009 Chris Cannam.
 */
 
-#ifndef _VERSION_TESTER_H_
-#define _VERSION_TESTER_H_
+#ifndef SV_VERSION_TESTER_H
+#define SV_VERSION_TESTER_H
 
 #include <QStringList>
 #include <QString>

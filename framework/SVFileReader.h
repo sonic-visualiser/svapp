@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _SV_FILE_READER_H_
-#define _SV_FILE_READER_H_
+#ifndef SV_FILE_READER_H
+#define SV_FILE_READER_H
 
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"

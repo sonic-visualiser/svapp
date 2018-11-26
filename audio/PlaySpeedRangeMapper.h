@@ -13,8 +13,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _PLAY_SPEED_RANGE_MAPPER_H_
-#define _PLAY_SPEED_RANGE_MAPPER_H_
+#ifndef SV_PLAY_SPEED_RANGE_MAPPER_H
+#define SV_PLAY_SPEED_RANGE_MAPPER_H
 
 #include "base/RangeMapper.h"
 
