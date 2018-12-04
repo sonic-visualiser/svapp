@@ -3985,7 +3985,7 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
         (tr("Delete Pane"), true);
 
     while (pane->getLayerCount() > 0) {
-        Layer *layer = pane->getLayer(0);
+        Layer *layer = pane->getLayer(pane->getLayerCount() - 1);
         if (layer) {
             m_document->removeLayerFromView(pane, layer);
         } else {
