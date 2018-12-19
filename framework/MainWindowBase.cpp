@@ -277,8 +277,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     connect(m_viewManager, SIGNAL(viewCentreFrameChanged(View *, sv_frame_t)),
             this, SLOT(viewCentreFrameChanged(View *, sv_frame_t)));
 
-    connect(m_viewManager, SIGNAL(viewZoomLevelChanged(View *, int, bool)),
-            this, SLOT(viewZoomLevelChanged(View *, int, bool)));
+    connect(m_viewManager, SIGNAL(viewZoomLevelChanged(View *, ZoomLevel, bool)),
+            this, SLOT(viewZoomLevelChanged(View *, ZoomLevel, bool)));
 
     connect(Preferences::getInstance(),
             SIGNAL(propertyChanged(PropertyContainer::PropertyName)),
