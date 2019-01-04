@@ -16,6 +16,7 @@
 
 #include "base/ViewManagerBase.h"
 #include "base/RecordDirectory.h"
+#include "base/Debug.h"
 
 #include "data/model/WritableWaveFileModel.h"
 
@@ -51,6 +52,10 @@ AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
 
 AudioCallbackRecordTarget::~AudioCallbackRecordTarget()
 {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+    cerr << "AudioCallbackRecordTarget dtor" << endl;
+#endif
+    
     m_viewManager->setAudioRecordTarget(0);
 
     QMutexLocker locker(&m_bufPtrMutex);
@@ -169,6 +174,13 @@ AudioCallbackRecordTarget::updateModel()
     cerr << "AudioCallbackRecordTarget::updateModel: have " << nframes << " frames" << endl;
 #endif
 
+    if (!m_model) {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+        cerr << "AudioCallbackRecordTarget::updateModel: have no model to update; I am hoping there is a good reason for this" << endl;
+#endif
+        return;
+    }
+
     float **samples = new float *[m_recordChannelCount];
     for (int c = 0; c < m_recordChannelCount; ++c) {
         samples[c] = new float[nframes];
@@ -217,8 +229,13 @@ void
 AudioCallbackRecordTarget::modelAboutToBeDeleted()
 {
     if (sender() == m_model) {
+#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
+        cerr << "AudioCallbackRecordTarget::modelAboutToBeDeleted: taking note" << endl;
+#endif
         m_model = 0;
         m_recording = false;
+    } else {
+        SVCERR << "WARNING: AudioCallbackRecordTarget::modelAboutToBeDeleted: ths is not my model!" << endl;
     }
 }
 
@@ -262,6 +279,9 @@ AudioCallbackRecordTarget::startRecording()
         m_model = 0;
         return 0;
     }
+
+    connect(m_model, SIGNAL(aboutToBeDeleted()), 
+            this, SLOT(modelAboutToBeDeleted()));
 
     m_model->setObjectName(label);
     m_recording = true;
