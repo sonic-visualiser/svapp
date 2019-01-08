@@ -234,8 +234,8 @@ AudioCallbackRecordTarget::modelAboutToBeDeleted()
 #endif
         m_model = 0;
         m_recording = false;
-    } else {
-        SVCERR << "WARNING: AudioCallbackRecordTarget::modelAboutToBeDeleted: ths is not my model!" << endl;
+    } else if (m_model) {
+        SVCERR << "WARNING: AudioCallbackRecordTarget::modelAboutToBeDeleted: this is not my model!" << endl;
     }
 }
 
