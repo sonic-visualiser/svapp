@@ -136,7 +136,7 @@ public:
     virtual bool saveSessionTemplate(QString path);
 
     /// Implementation of FrameTimer interface method
-    virtual sv_frame_t getFrame() const;
+    sv_frame_t getFrame() const override;
 
     void setDefaultFfwdRwdStep(RealTime step) {
         m_defaultFfwdRwdStep = step;
@@ -357,7 +357,7 @@ protected:
     {
     public:
         OSCQueueStarter(MainWindowBase *mwb) : QThread(mwb), m_mwb(mwb) { }
-        virtual void run() {
+        void run() override {
             OSCQueue *queue = new OSCQueue(); // can take a long time
             m_mwb->m_oscQueue = queue;
         }
@@ -421,11 +421,11 @@ protected:
     {
     public:
         PaneCallback(MainWindowBase *mw) : m_mw(mw) { }
-        virtual Pane *addPane() { return m_mw->addPaneToStack(); }
-        virtual void setWindowSize(int width, int height) {
+        Pane *addPane() override { return m_mw->addPaneToStack(); }
+        void setWindowSize(int width, int height) override {
             m_mw->resizeConstrained(QSize(width, height));
         }
-        virtual void addSelection(sv_frame_t start, sv_frame_t end) {
+        void addSelection(sv_frame_t start, sv_frame_t end) override {
             m_mw->m_viewManager->addSelectionQuietly(Selection(start, end));
         }
     protected:
@@ -438,9 +438,9 @@ protected:
         AddPaneCommand(MainWindowBase *mw);
         virtual ~AddPaneCommand();
         
-        virtual void execute();
-        virtual void unexecute();
-        virtual QString getName() const;
+        void execute() override;
+        void unexecute() override;
+        QString getName() const override;
 
         Pane *getPane() { return m_pane; }
 
@@ -457,9 +457,9 @@ protected:
         RemovePaneCommand(MainWindowBase *mw, Pane *pane);
         virtual ~RemovePaneCommand();
         
-        virtual void execute();
-        virtual void unexecute();
-        virtual QString getName() const;
+        void execute() override;
+        void unexecute() override;
+        QString getName() const override;
 
     protected:
         MainWindowBase *m_mw;

@@ -12,8 +12,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef _TRANSFORM_USER_CONFIGURATOR_H_
-#define _TRANSFORM_USER_CONFIGURATOR_H_
+#ifndef SV_TRANSFORM_USER_CONFIGURATOR_H
+#define SV_TRANSFORM_USER_CONFIGURATOR_H
 
 #include "transform/ModelTransformerFactory.h"
 
@@ -22,7 +22,7 @@ class TransformUserConfigurator : public ModelTransformerFactory::UserConfigurat
 public:
     // This is of course absolutely gross
 
-    virtual bool configure(ModelTransformer::Input &input,
+    bool configure(ModelTransformer::Input &input,
                            Transform &transform,
                            Vamp::PluginBase *plugin,
                            Model *&inputModel,
@@ -31,7 +31,7 @@ public:
                            sv_frame_t duration,
                            const QMap<QString, Model *> &modelMap,
                            QStringList candidateModelNames,
-                           QString defaultModelName);
+                           QString defaultModelName) override;
 
     static void setParentWidget(QWidget *);
 

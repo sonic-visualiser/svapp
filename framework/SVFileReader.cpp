@@ -58,13 +58,13 @@ SVFileReader::SVFileReader(Document *document,
     m_document(document),
     m_paneCallback(callback),
     m_location(location),
-    m_currentPane(0),
-    m_currentLayer(0),
-    m_currentDataset(0),
-    m_currentDerivedModel(0),
+    m_currentPane(nullptr),
+    m_currentLayer(nullptr),
+    m_currentDataset(nullptr),
+    m_currentDerivedModel(nullptr),
     m_currentDerivedModelId(-1),
-    m_currentPlayParameters(0),
-    m_currentTransformSource(0),
+    m_currentPlayParameters(nullptr),
+    m_currentTransformSource(nullptr),
     m_currentTransformChannel(0),
     m_currentTransformIsNewStyle(true),
     m_datasetSeparator(" "),
@@ -297,7 +297,7 @@ SVFileReader::endElement(const QString &, const QString &,
             }
         }
 
-        m_currentDataset = 0;
+        m_currentDataset = nullptr;
 
     } else if (name == "data") {
 
@@ -341,9 +341,9 @@ SVFileReader::endElement(const QString &, const QString &,
         }
 
         m_addedModels.insert(m_currentDerivedModel);
-        m_currentDerivedModel = 0;
+        m_currentDerivedModel = nullptr;
         m_currentDerivedModelId = -1;
-        m_currentTransformSource = 0;
+        m_currentTransformSource = nullptr;
         m_currentTransform = Transform();
         m_currentTransformChannel = -1;
 
@@ -356,7 +356,7 @@ SVFileReader::endElement(const QString &, const QString &,
     } else if (name == "selections") {
         m_inSelections = false;
     } else if (name == "playparameters") {
-        m_currentPlayParameters = 0;
+        m_currentPlayParameters = nullptr;
     }
 
     return true;
@@ -509,7 +509,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     if (type == "wavefile") {
         
-        WaveFileModel *model = 0;
+        WaveFileModel *model = nullptr;
         FileFinder *ff = FileFinder::getInstance();
         QString originalPath = attributes.value("file");
         QString path = ff->find(FileFinder::AudioFile,
@@ -544,7 +544,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             model = new ReadOnlyWaveFileModel(file, rate);
             if (!model->isOK()) {
                 delete model;
-                model = 0;
+                model = nullptr;
             }
         }
 
@@ -760,7 +760,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         READ_MANDATORY(int, aligned, toInt);
         READ_MANDATORY(int, path, toInt);
 
-        Model *refModel = 0, *alignedModel = 0, *pathModel = 0;
+        Model *refModel = nullptr, *alignedModel = nullptr, *pathModel = nullptr;
 
         if (m_models.find(reference) != m_models.end()) {
             refModel = m_models[reference];
@@ -788,7 +788,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         if (refModel && alignedModel && pathModel) {
             AlignmentModel *model = new AlignmentModel
-                (refModel, alignedModel, 0, 0);
+                (refModel, alignedModel, nullptr, nullptr);
             PathModel *pm = dynamic_cast<PathModel *>(pathModel);
             if (!pm) {
                 SVCERR << "WARNING: SV-XML: Model id " << path
@@ -817,7 +817,7 @@ bool
 SVFileReader::readView(const QXmlAttributes &attributes)
 {
     QString type = attributes.value("type");
-    m_currentPane = 0;
+    m_currentPane = nullptr;
     
     if (type != "pane") {
         SVCERR << "WARNING: SV-XML: Unexpected view type \""
@@ -895,7 +895,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
         return false;
     }
 
-    Layer *layer = 0;
+    Layer *layer = nullptr;
     bool isNewLayer = false;
 
     // Layers are expected to be defined in layer elements in the data
@@ -977,7 +977,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
                     // Don't add a layer with an unknown model id
                     // unless it explicitly supports this state
                     m_document->deleteLayer(layer);
-                    m_layers[id] = layer = 0;
+                    m_layers[id] = layer = nullptr;
                     return false;
                 }
             }
@@ -1006,7 +1006,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
     }
 
     m_currentLayer = layer;
-    m_inLayer = (layer != 0);
+    m_inLayer = (layer != nullptr);
 
     return true;
 }
@@ -1026,7 +1026,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     
     int modelId = m_awaitingDatasets[id];
     
-    Model *model = 0;
+    Model *model = nullptr;
     if (haveModel(modelId)) {
         model = m_models[modelId];
     } else {
@@ -1062,7 +1062,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 
     if (!good) {
         SVCERR << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
-        m_currentDataset = 0;
+        m_currentDataset = nullptr;
         return false;
     }
 
@@ -1297,7 +1297,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
         m_currentDerivedModel = m_models[modelId];
     } else {
         // we'll regenerate the model when the derivation element ends
-        m_currentDerivedModel = 0;
+        m_currentDerivedModel = nullptr;
     }
     
     m_currentDerivedModelId = modelId;
@@ -1376,7 +1376,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
 bool
 SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 {
-    m_currentPlayParameters = 0;
+    m_currentPlayParameters = nullptr;
 
     int modelId = 0;
     bool modelOk = false;
@@ -1554,7 +1554,7 @@ public:
         m_inData(false),
         m_type(SVFileReader::UnknownFileType)
     { }
-    virtual ~SVFileIdentifier() { }
+    ~SVFileIdentifier() override { }
 
     void parse(QXmlInputSource &source) {
         QXmlSimpleReader reader;
@@ -1565,10 +1565,10 @@ public:
 
     SVFileReader::FileType getType() const { return m_type; }
 
-    virtual bool startElement(const QString &,
+    bool startElement(const QString &,
                               const QString &,
                               const QString &qName,
-                              const QXmlAttributes& atts)
+                              const QXmlAttributes& atts) override
     {
         QString name = qName.toLower();
 
@@ -1601,9 +1601,9 @@ public:
         return true;
     }
 
-    virtual bool endElement(const QString &,
+    bool endElement(const QString &,
                             const QString &,
-                            const QString &qName)
+                            const QString &qName) override
     {
         QString name = qName.toLower();
 

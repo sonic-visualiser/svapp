@@ -30,7 +30,7 @@
 
 #include <typeinfo>
 
-static QWidget *parentWidget = 0;
+static QWidget *parentWidget = nullptr;
 
 void
 TransformUserConfigurator::setParentWidget(QWidget *w)
@@ -226,7 +226,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     delete dialog;
 
     if (effect && source) {
-        source->setAuditioningEffect(0);
+        source->setAuditioningEffect(nullptr);
     }
 
     return ok;

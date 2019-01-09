@@ -50,8 +50,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_viewManager(manager),
     m_audioGenerator(new AudioGenerator()),
     m_clientName(clientName.toUtf8().data()),
-    m_readBuffers(0),
-    m_writeBuffers(0),
+    m_readBuffers(nullptr),
+    m_writeBuffers(nullptr),
     m_readBufferFill(0),
     m_writeBufferFill(0),
     m_bufferScavenger(1),
@@ -61,7 +61,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_deviceSampleRate(0),
     m_deviceChannelCount(0),
     m_playLatency(0),
-    m_target(0),
+    m_target(nullptr),
     m_lastRetrievalTimestamp(0.0),
     m_lastRetrievedBlockSize(0),
     m_trustworthyTimestamps(true),
@@ -73,19 +73,19 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_levelsSet(false),
-    m_auditioningPlugin(0),
+    m_auditioningPlugin(nullptr),
     m_auditioningPluginBypassed(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
-    m_timeStretcher(0),
-    m_monoStretcher(0),
+    m_timeStretcher(nullptr),
+    m_monoStretcher(nullptr),
     m_stretchRatio(1.0),
     m_stretchMono(false),
     m_stretcherInputCount(0),
-    m_stretcherInputs(0),
-    m_stretcherInputSizes(0),
-    m_fillThread(0),
-    m_resamplerWrapper(0)
+    m_stretcherInputs(nullptr),
+    m_stretcherInputSizes(nullptr),
+    m_fillThread(nullptr),
+    m_resamplerWrapper(nullptr)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -258,8 +258,8 @@ AudioCallbackPlaySource::addModel(Model *model)
 
         delete m_timeStretcher;
         delete m_monoStretcher;
-        m_timeStretcher = 0;
-        m_monoStretcher = 0;
+        m_timeStretcher = nullptr;
+        m_monoStretcher = nullptr;
         
         if (m_stretchRatio != 1.f) {
             setTimeStretch(m_stretchRatio);
@@ -612,7 +612,7 @@ AudioCallbackPlaySource::audioProcessingOverload()
 void
 AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
-    if (target == 0) {
+    if (target == nullptr) {
         // reset target-related facts and figures
         m_deviceSampleRate = 0;
         m_deviceChannelCount = 0;
@@ -1400,7 +1400,7 @@ AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float *const *
 bool
 AudioCallbackPlaySource::fillBuffers()
 {
-    static float *tmp = 0;
+    static float *tmp = nullptr;
     static sv_frame_t tmpSize = 0;
 
     sv_frame_t space = 0;
@@ -1439,7 +1439,7 @@ AudioCallbackPlaySource::fillBuffers()
 
     int channels = getTargetChannelCount();
 
-    static float **bufferPtrs = 0;
+    static float **bufferPtrs = nullptr;
     static int bufferPtrCount = 0;
 
     if (bufferPtrCount < channels) {
@@ -1539,7 +1539,7 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
     }
 #endif
     
-    static float **chunkBufferPtrs = 0;
+    static float **chunkBufferPtrs = nullptr;
     static int chunkBufferPtrCount = 0;
 
     if (chunkBufferPtrCount < channels) {

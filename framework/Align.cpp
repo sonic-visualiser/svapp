@@ -178,7 +178,7 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
         return false; // but this should have been tested already
     }
 
-    while (!reference->isReady(0) || !rm->isReady(0)) {
+    while (!reference->isReady(nullptr) || !rm->isReady(nullptr)) {
         qApp->processEvents();
     }
     
@@ -203,7 +203,7 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 
     m_error = "";
     
-    AlignmentModel *alignmentModel = new AlignmentModel(reference, other, 0, 0);
+    AlignmentModel *alignmentModel = new AlignmentModel(reference, other, nullptr, nullptr);
     rm->setAlignment(alignmentModel);
 
     QProcess *process = new QProcess;
@@ -223,7 +223,7 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
              << endl;
         m_error = "Alignment program could not be started";
         m_processModels.erase(process);
-        rm->setAlignment(0); // deletes alignmentModel as well
+        rm->setAlignment(nullptr); // deletes alignmentModel as well
         delete process;
     }
 
