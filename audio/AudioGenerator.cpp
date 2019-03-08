@@ -26,7 +26,7 @@
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
-#include "data/model/NoteData.h"
+#include "base/NoteData.h"
 
 #include "ClipMixer.h"
 #include "ContinuousSynth.h"
