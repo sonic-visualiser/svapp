@@ -31,7 +31,6 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/RegionModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
@@ -713,13 +712,16 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     model->setObjectName(name);
                     m_models[id] = model;
                 } else if (attributes.value("subtype") == "flexinote") {
-                    FlexiNoteModel *model;
+                    NoteModel *model;
                     if (haveMinMax) {
-                        model = new FlexiNoteModel
-                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                        model = new NoteModel
+                            (sampleRate, resolution, minimum, maximum,
+                             notifyOnAdd,
+                             NoteModel::FLEXI_NOTE);
                     } else {
-                        model = new FlexiNoteModel
-                            (sampleRate, resolution, notifyOnAdd);
+                        model = new NoteModel
+                            (sampleRate, resolution, notifyOnAdd,
+                             NoteModel::FLEXI_NOTE);
                     }
                     model->setValueQuantization(valueQuantization);
                     model->setScaleUnits(units);
@@ -1051,7 +1053,6 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 
     case 3:
         if (dynamic_cast<NoteModel *>(model)) good = true;
-        else if (dynamic_cast<FlexiNoteModel *>(model)) good = true;
         else if (dynamic_cast<RegionModel *>(model)) good = true;
         else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
             m_datasetSeparator = attributes.value("separator");
@@ -1115,25 +1116,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
             level = 1.f;
             ok = true;
         }
-        nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
-        return ok;
-    }
-
-    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
-
-    if (fnm) {
-//        SVCERR << "Current dataset is a flexinote model" << endl;
-        float value = 0.0;
-        value = attributes.value("value").trimmed().toFloat(&ok);
-        int duration = 0;
-        duration = attributes.value("duration").trimmed().toInt(&ok);
-        QString label = attributes.value("label");
-        float level = attributes.value("level").trimmed().toFloat(&ok);
-        if (!ok) { // level is optional
-            level = 1.f;
-            ok = true;
-        }
-        fnm->addPoint(FlexiNoteModel::Point(frame, value, duration, level, label));
+        nm->add(Event(frame, value, duration, level, label));
         return ok;
     }
 

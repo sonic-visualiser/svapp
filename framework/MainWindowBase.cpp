@@ -22,7 +22,6 @@
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/Labeller.h"
 #include "data/model/TabularModel.h"
 #include "view/ViewManager.h"
@@ -1249,37 +1248,16 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 
     NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
     if (nm) {
-        NoteModel::Point point(alignedStart,
-                               nm->getValueMinimum(),
-                               alignedDuration,
-                               1.f,
-                               "");
-        NoteModel::EditCommand *command =
-            new NoteModel::EditCommand(nm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
+        Event  point(alignedStart,
+                     nm->getValueMinimum(),
+                     alignedDuration,
+                     1.f,
+                     "");
+        NoteModel::EditCommand *command = new NoteModel::EditCommand(nm, name);
+        command->add(point);
         c = command->finish();
     }
 
-    if (c) {
-        CommandHistory::getInstance()->addCommand(c, false);
-        return;
-    }
-
-    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
-    if (fnm) {
-        FlexiNoteModel::Point point(alignedStart,
-                                    fnm->getValueMinimum(),
-                                    alignedDuration,
-                                    1.f,
-                                    "");
-        FlexiNoteModel::EditCommand *command =
-            new FlexiNoteModel::EditCommand(fnm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
-        c = command->finish();
-    }
-    
     if (c) {
         CommandHistory::getInstance()->addCommand(c, false);
         return;

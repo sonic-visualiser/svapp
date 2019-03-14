@@ -21,7 +21,6 @@
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/DenseThreeDimensionalModel.h"
 #include "data/model/DenseTimeValueModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/AggregateWaveModel.h"
 
 #include "layer/Layer.h"

@@ -22,7 +22,6 @@
 #include "base/Exceptions.h"
 
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
@@ -185,8 +184,7 @@ AudioGenerator::usesClipMixer(const Model *model)
 {
     bool clip = 
         (qobject_cast<const SparseOneDimensionalModel *>(model) ||
-         qobject_cast<const NoteModel *>(model) ||
-         qobject_cast<const FlexiNoteModel *>(model));
+         qobject_cast<const NoteModel *>(model));
     return clip;
 }
 
@@ -196,9 +194,7 @@ AudioGenerator::wantsQuieterClips(const Model *model)
     // basically, anything that usually has sustain (like notes) or
     // often has multiple sounds at once (like notes) wants to use a
     // quieter level than simple click tracks
-    bool does = 
-        (qobject_cast<const NoteModel *>(model) ||
-         qobject_cast<const FlexiNoteModel *>(model));
+    bool does = (qobject_cast<const NoteModel *>(model));
     return does;
 }
 
@@ -559,6 +555,8 @@ AudioGenerator::mixClipModel(Model *model,
 
     float **bufferIndexes = new float *[m_targetChannelCount];
 
+    //!!! + for first block, prime with notes already active
+    
     for (int i = 0; i < blocks; ++i) {
 
         sv_frame_t reqStart = startFrame + i * m_processingBlockSize;
@@ -566,8 +564,8 @@ AudioGenerator::mixClipModel(Model *model,
         NoteList notes;
         NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
         if (exportable) {
-            notes = exportable->getNotesWithin(reqStart,
-                                               reqStart + m_processingBlockSize);
+            notes = exportable->getNotesStartingWithin(reqStart,
+                                                       m_processingBlockSize);
         }
 
         std::vector<ClipMixer::NoteStart> starts;
