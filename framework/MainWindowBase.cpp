@@ -1253,7 +1253,7 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
                      alignedDuration,
                      1.f,
                      "");
-        NoteModel::EditCommand *command = new NoteModel::EditCommand(nm, name);
+        ChangeEventsCommand *command = new ChangeEventsCommand(nm, name);
         command->add(point);
         c = command->finish();
     }
