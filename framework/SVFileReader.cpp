@@ -1129,7 +1129,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         int duration = 0;
         duration = attributes.value("duration").trimmed().toInt(&ok);
         QString label = attributes.value("label");
-        rm->addPoint(RegionModel::Point(frame, value, duration, label));
+        rm->add(Event(frame, value, duration, label));
         return ok;
     }
 

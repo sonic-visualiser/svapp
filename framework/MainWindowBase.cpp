@@ -1230,14 +1230,12 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 
     RegionModel *rm = dynamic_cast<RegionModel *>(layer->getModel());
     if (rm) {
-        RegionModel::Point point(alignedStart,
-                                 rm->getValueMaximum() + 1,
-                                 alignedDuration,
-                                 "");
-        RegionModel::EditCommand *command =
-            new RegionModel::EditCommand(rm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
+        Event point(alignedStart,
+                    rm->getValueMaximum() + 1,
+                    alignedDuration,
+                    "");
+        ChangeEventsCommand *command = new ChangeEventsCommand(rm, name);
+        command->add(point);
         c = command->finish();
     }
 
@@ -1248,11 +1246,11 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 
     NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
     if (nm) {
-        Event  point(alignedStart,
-                     nm->getValueMinimum(),
-                     alignedDuration,
-                     1.f,
-                     "");
+        Event point(alignedStart,
+                    nm->getValueMinimum(),
+                    alignedDuration,
+                    1.f,
+                    "");
         ChangeEventsCommand *command = new ChangeEventsCommand(nm, name);
         command->add(point);
         c = command->finish();
