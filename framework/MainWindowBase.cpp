@@ -1162,14 +1162,14 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
+                if (m_labeller->actingOnPrevEvent() && havePrevPoint) {
                     command->deletePoint(prevPoint);
                 }
-
+/*!!! to be updated after we have switched SODM to new API 
                 m_labeller->label<SparseOneDimensionalModel::Point>
                     (point, havePrevPoint ? &prevPoint : nullptr);
-
-                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
+*/
+                if (m_labeller->actingOnPrevEvent() && havePrevPoint) {
                     command->addPoint(prevPoint);
                 }
             }
@@ -1282,9 +1282,10 @@ MainWindowBase::renumberInstants()
 
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
-
+/*!!! to be updated after SODM API update
     Command *c = labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 void
@@ -1308,9 +1309,12 @@ MainWindowBase::subdivideInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
+    (void)n;
+/*!!! to be updated after SODM API update
     Command *c = labeller.subdivide<SparseOneDimensionalModel::Point>
         (*sodm, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 void
@@ -1334,9 +1338,12 @@ MainWindowBase::winnowInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
+    (void)n;
+/*!!! to be updated after SODM API update
     Command *c = labeller.winnow<SparseOneDimensionalModel::Point>
         (*sodm, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 MainWindowBase::FileOpenStatus

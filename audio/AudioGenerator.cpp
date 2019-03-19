@@ -712,36 +712,31 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
             bufferIndexes[c] = buffer[c] + i * m_processingBlockSize;
         }
 
-        SparseTimeValueModel::PointList points = 
-            stvm->getPoints(reqStart, reqStart + m_processingBlockSize);
+        EventVector points = 
+            stvm->getEventsStartingWithin(reqStart, m_processingBlockSize);
 
         // by default, repeat last frequency
         float f0 = 0.f;
 
-        // go straight to the last freq that is genuinely in this range
-        for (SparseTimeValueModel::PointList::const_iterator itr = points.end();
-             itr != points.begin(); ) {
-            --itr;
-            if (itr->frame >= reqStart &&
-                itr->frame < reqStart + m_processingBlockSize) {
-                f0 = itr->value;
-                break;
-            }
+        // go straight to the last freq in this range
+        if (!points.empty()) {
+            f0 = points.rbegin()->getValue();
         }
 
-        // if we found no such frequency and the next point is further
+        // if there is no such frequency and the next point is further
         // away than twice the model resolution, go silent (same
         // criterion TimeValueLayer uses for ending a discrete curve
         // segment)
+        /*!!! todo: restore
         if (f0 == 0.f) {
-            SparseTimeValueModel::PointList nextPoints = 
+            EventVector nextPoints = 
                 stvm->getNextPoints(reqStart + m_processingBlockSize);
             if (nextPoints.empty() ||
                 nextPoints.begin()->frame > reqStart + 2 * stvm->getResolution()) {
                 f0 = -1.f;
             }
         }
-
+        */
 //        cerr << "f0 = " << f0 << endl;
 
         synth->mix(bufferIndexes,

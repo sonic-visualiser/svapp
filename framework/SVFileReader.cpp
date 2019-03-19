@@ -1098,7 +1098,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
-        stvm->addPoint(SparseTimeValueModel::Point(frame, value, label));
+        stvm->add(Event(frame, value, label));
         return ok;
     }
         

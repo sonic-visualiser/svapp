@@ -136,7 +136,7 @@ Align::alignModelViaTransform(Model *ref, Model *other)
         (transformOutput);
 
     if (!path) {
-        cerr << "Align::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
+        SVCERR << "Align::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
         delete transformOutput;
         delete aggregateModel;
         m_error = message;
@@ -189,7 +189,7 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
     ReadOnlyWaveFileModel *roref = qobject_cast<ReadOnlyWaveFileModel *>(reference);
     ReadOnlyWaveFileModel *rorm = qobject_cast<ReadOnlyWaveFileModel *>(rm);
     if (!roref || !rorm) {
-        cerr << "ERROR: Align::alignModelViaProgram: Can't align non-read-only models via program (no local filename available)" << endl;
+        SVCERR << "ERROR: Align::alignModelViaProgram: Can't align non-read-only models via program (no local filename available)" << endl;
         return false;
     }
     
@@ -219,8 +219,8 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
     bool success = process->waitForStarted();
 
     if (!success) {
-        cerr << "ERROR: Align::alignModelViaProgram: Program did not start"
-             << endl;
+        SVCERR << "ERROR: Align::alignModelViaProgram: Program did not start"
+               << endl;
         m_error = "Alignment program could not be started";
         m_processModels.erase(process);
         rm->setAlignment(nullptr); // deletes alignmentModel as well
@@ -233,13 +233,13 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 void
 Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
 {
-    cerr << "Align::alignmentProgramFinished" << endl;
+    SVCERR << "Align::alignmentProgramFinished" << endl;
     
     QProcess *process = qobject_cast<QProcess *>(sender());
 
     if (m_processModels.find(process) == m_processModels.end()) {
-        cerr << "ERROR: Align::alignmentProgramFinished: Process " << process
-             << " not found in process model map!" << endl;
+        SVCERR << "ERROR: Align::alignmentProgramFinished: Process " << process
+               << " not found in process model map!" << endl;
         return;
     }
 
@@ -265,8 +265,8 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
 
         CSVFileReader reader(process, format, alignmentModel->getSampleRate());
         if (!reader.isOK()) {
-            cerr << "ERROR: Align::alignmentProgramFinished: Failed to parse output"
-                 << endl;
+            SVCERR << "ERROR: Align::alignmentProgramFinished: Failed to parse output"
+                   << endl;
             m_error = QString("Failed to parse output of program: %1")
                 .arg(reader.getError());
             goto done;
@@ -276,30 +276,30 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
 
         SparseTimeValueModel *path = qobject_cast<SparseTimeValueModel *>(csvOutput);
         if (!path) {
-            cerr << "ERROR: Align::alignmentProgramFinished: Output did not convert to sparse time-value model"
-                 << endl;
+            SVCERR << "ERROR: Align::alignmentProgramFinished: Output did not convert to sparse time-value model"
+                   << endl;
             m_error = QString("Output of program did not produce sparse time-value model");
             goto done;
         }
 
-        if (path->getPoints().empty()) {
-            cerr << "ERROR: Align::alignmentProgramFinished: Output contained no mappings"
-                 << endl;
+        if (path->isEmpty()) {
+            SVCERR << "ERROR: Align::alignmentProgramFinished: Output contained no mappings"
+                   << endl;
             m_error = QString("Output of alignment program contained no mappings");
             goto done;
         }
-
-        cerr << "Align::alignmentProgramFinished: Setting alignment path ("
-             << path->getPoints().size() << " point(s))" << endl;
-        
+/*
+        SVCERR << "Align::alignmentProgramFinished: Setting alignment path ("
+             << path->getAllEvents().size() << " point(s))" << endl;
+*/      
         alignmentModel->setPathFrom(path);
 
         emit alignmentComplete(alignmentModel);
         
     } else {
-        cerr << "ERROR: Align::alignmentProgramFinished: Aligner program "
-             << "failed: exit code " << exitCode << ", status " << status
-             << endl;
+        SVCERR << "ERROR: Align::alignmentProgramFinished: Aligner program "
+               << "failed: exit code " << exitCode << ", status " << status
+               << endl;
         m_error = "Aligner process returned non-zero exit status";
     }
 
