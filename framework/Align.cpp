@@ -288,10 +288,10 @@ Align::alignmentProgramFinished(int exitCode, QProcess::ExitStatus status)
             m_error = QString("Output of alignment program contained no mappings");
             goto done;
         }
-/*
+
         SVCERR << "Align::alignmentProgramFinished: Setting alignment path ("
-             << path->getAllEvents().size() << " point(s))" << endl;
-*/      
+             << path->getEventCount() << " point(s))" << endl;
+
         alignmentModel->setPathFrom(path);
 
         emit alignmentComplete(alignmentModel);

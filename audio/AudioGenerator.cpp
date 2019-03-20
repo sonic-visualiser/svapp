@@ -727,16 +727,17 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
         // away than twice the model resolution, go silent (same
         // criterion TimeValueLayer uses for ending a discrete curve
         // segment)
-        /*!!! todo: restore
         if (f0 == 0.f) {
-            EventVector nextPoints = 
-                stvm->getNextPoints(reqStart + m_processingBlockSize);
-            if (nextPoints.empty() ||
-                nextPoints.begin()->frame > reqStart + 2 * stvm->getResolution()) {
+            Event nextP;
+            if (!stvm->getNearestEventMatching(reqStart + m_processingBlockSize,
+                                               [](Event) { return true; },
+                                               EventSeries::Forward,
+                                               nextP) ||
+                nextP.getFrame() > reqStart + 2 * stvm->getResolution()) {
                 f0 = -1.f;
             }
         }
-        */
+
 //        cerr << "f0 = " << f0 << endl;
 
         synth->mix(bufferIndexes,
