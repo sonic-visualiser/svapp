@@ -1086,7 +1086,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     if (sodm) {
 //        SVCERR << "Current dataset is a sparse one dimensional model" << endl;
         QString label = attributes.value("label");
-        sodm->addPoint(SparseOneDimensionalModel::Point(frame, label));
+        sodm->add(Event(frame, label));
         return true;
     }
 

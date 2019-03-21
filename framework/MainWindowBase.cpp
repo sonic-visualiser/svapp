@@ -1135,46 +1135,44 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
     if (layer) {
     
         Model *model = layer->getModel();
-        SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-            (model);
+        SparseOneDimensionalModel *sodm =
+            dynamic_cast<SparseOneDimensionalModel *>(model);
 
         if (sodm) {
-            SparseOneDimensionalModel::Point point(frame, "");
-
-            SparseOneDimensionalModel::Point prevPoint(0);
+            Event point(frame, "");
+            Event prevPoint(0);
             bool havePrevPoint = false;
 
-            SparseOneDimensionalModel::EditCommand *command =
-                new SparseOneDimensionalModel::EditCommand(sodm, tr("Add Point"));
+            ChangeEventsCommand *command =
+                new ChangeEventsCommand(sodm, tr("Add Point"));
 
             if (m_labeller) {
 
                 if (m_labeller->requiresPrevPoint()) {
-
-                    SparseOneDimensionalModel::PointList prevPoints =
-                        sodm->getPreviousPoints(frame);
-
-                    if (!prevPoints.empty()) {
-                        prevPoint = *prevPoints.begin();
+                    
+                    if (sodm->getNearestEventMatching
+                        (frame,
+                         [](Event) { return true; },
+                         EventSeries::Backward,
+                         prevPoint)) {
                         havePrevPoint = true;
                     }
                 }
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (m_labeller->actingOnPrevEvent() && havePrevPoint) {
-                    command->deletePoint(prevPoint);
-                }
-/*!!! to be updated after we have switched SODM to new API 
-                m_labeller->label<SparseOneDimensionalModel::Point>
+                Labeller::Relabelling relabelling = m_labeller->label
                     (point, havePrevPoint ? &prevPoint : nullptr);
-*/
-                if (m_labeller->actingOnPrevEvent() && havePrevPoint) {
-                    command->addPoint(prevPoint);
+
+                if (relabelling.first == Labeller::AppliesToPreviousEvent) {
+                    command->remove(prevPoint);
+                    command->add(relabelling.second);
+                } else {
+                    point = relabelling.second;
                 }
             }
             
-            command->addPoint(point);
+            command->add(point);
 
             command->setName(tr("Add Point at %1 s")
                              .arg(RealTime::frame2RealTime
