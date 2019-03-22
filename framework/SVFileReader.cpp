@@ -1151,7 +1151,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //        SVCERR << "Current dataset is a path model" << endl;
         int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
 //        SVDEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
-        pm->addPoint(PathModel::Point(frame, mapframe));
+        pm->add(PathPoint(frame, mapframe));
         return ok;
     }
 
@@ -1162,7 +1162,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         QString image = attributes.value("image");
         QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
-        im->addPoint(ImageModel::Point(frame, image, label));
+        im->add(Event(frame).withURI(image).withLabel(label));
         return ok;
     }
 
