@@ -1141,7 +1141,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         height = attributes.value("height").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << endl;
-        tm->addPoint(TextModel::Point(frame, height, label));
+        tm->add(Event(frame, height, label));
         return ok;
     }
 
