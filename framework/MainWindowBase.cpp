@@ -71,6 +71,7 @@
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
+#include "OSCScript.h"
 
 #include "system/System.h"
 
@@ -148,6 +149,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_audioIO(nullptr),
     m_oscQueue(nullptr),
     m_oscQueueStarter(nullptr),
+    m_oscScript(nullptr),
     m_midiInput(nullptr),
     m_recentFiles("RecentFiles", 20),
     m_recentTransforms("RecentTransforms", 20),
@@ -326,6 +328,17 @@ MainWindowBase::~MainWindowBase()
     
     delete m_viewManager;
     delete m_midiInput;
+
+    if (m_oscScript) {
+        disconnect(m_oscScript, nullptr, nullptr, nullptr);
+        m_oscScript->abandon();
+        m_oscScript->wait(1000);
+        if (m_oscScript->isRunning()) {
+            m_oscScript->terminate();
+            m_oscScript->wait(1000);
+        }
+        delete m_oscScript;
+    }
 
     if (m_oscQueueStarter) {
         disconnect(m_oscQueueStarter, nullptr, nullptr, nullptr);
@@ -516,7 +529,37 @@ MainWindowBase::oscReady()
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
         SVCERR << "Finished setting up OSC interface" << endl;
+
+        if (m_oscScriptFile != QString()) {
+            startOSCScript();
+        }
     }
+}
+
+void
+MainWindowBase::startOSCScript()
+{
+    m_oscScript = new OSCScript(m_oscScriptFile, m_oscQueue);
+    connect(m_oscScript, SIGNAL(finished()),
+            this, SLOT(oscScriptFinished()));
+    m_oscScriptFile = QString();
+    m_oscScript->start();
+}
+
+void
+MainWindowBase::cueOSCScript(QString fileName)
+{
+    m_oscScriptFile = fileName;
+    if (m_oscQueue && m_oscQueue->isOK()) {
+        startOSCScript();
+    }
+}
+
+void
+MainWindowBase::oscScriptFinished()
+{
+    delete m_oscScript;
+    m_oscScript = 0;
 }
 
 QString
