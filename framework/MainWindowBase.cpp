@@ -513,9 +513,9 @@ MainWindowBase::resizeConstrained(QSize size)
 }
 
 void
-MainWindowBase::startOSCQueue()
+MainWindowBase::startOSCQueue(bool withNetworkPort)
 {
-    m_oscQueueStarter = new OSCQueueStarter(this);
+    m_oscQueueStarter = new OSCQueueStarter(this, withNetworkPort);
     connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
     m_oscQueueStarter->start();
 }
@@ -528,7 +528,12 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        SVCERR << "Finished setting up OSC interface" << endl;
+
+        if (m_oscQueue->hasPort()) {
+            SVDEBUG << "Finished setting up OSC interface" << endl;
+        } else {
+            SVDEBUG << "Finished setting up internal-only OSC queue" << endl;
+        }
 
         if (m_oscScriptFile != QString()) {
             startOSCScript();

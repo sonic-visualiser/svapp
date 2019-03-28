@@ -38,22 +38,31 @@ public:
     }
 
     void run() override {
-
-        QFile f(m_filename);
-        if (!f.open(QFile::ReadOnly | QFile::Text)) {
-            SVCERR << "OSCScript: Failed to open script file \""
-                   << m_filename << "\" for reading" << endl;
-            throw std::runtime_error("OSC script file not found");
-        }
-
+            
         if (!m_queue) {
             SVCERR << "OSCScript: No OSC queue available" << endl;
             throw std::runtime_error("OSC queue not running");
         }
+
+        QFile f;
+        QString reportedFilename;
+
+        if (m_filename == "-") {
+            f.open(stdin, QFile::ReadOnly | QFile::Text);
+            reportedFilename = "<stdin>";
+        } else {
+            f.setFileName(m_filename);
+            if (!f.open(QFile::ReadOnly | QFile::Text)) {
+                SVCERR << "OSCScript: Failed to open script file \""
+                       << m_filename << "\" for reading" << endl;
+                throw std::runtime_error("OSC script file not found");
+            }
+            reportedFilename = m_filename;
+        }
         
-        int lineno = 0;
         QTextStream str(&f);
-        
+        int lineno = 0;
+
         while (!str.atEnd() && !m_abandoning) {
 
             ++lineno;
@@ -68,21 +77,24 @@ public:
                 bool ok = false;
                 float pause = line.toFloat(&ok);
                 if (ok) {
-                    SVCERR << "OSCScript: " << m_filename << ":" << lineno
+                    SVCERR << "OSCScript: "
+                           << reportedFilename << ":" << lineno
                            << ": pausing for " << pause << " sec" << endl;
                     msleep(unsigned(round(pause * 1000.0f)));
                     continue;
                 } else {
-                    SVCERR << "OSCScript: " << m_filename << ":" << lineno
-                           << ": error: failed to parse sleep time, giving up"
+                    SVCERR << "OSCScript: "
+                           << reportedFilename << ":" << lineno
+                           << ": warning: failed to parse sleep time, ignoring"
                            << endl;
-                    throw std::runtime_error("OSC script parse error");
+                    continue;
                 }
 
             } else if (line[0] == '/' && line.size() > 1) {
                 QStringList parts = StringBits::splitQuoted(line, ' ');
                 if (parts.empty()) {
-                    SVCERR << "OSCScript: " << m_filename << ":" << lineno
+                    SVCERR << "OSCScript: "
+                           << reportedFilename << ":" << lineno
                            << ": warning: empty command spec, ignoring"
                            << endl;
                     continue;
@@ -92,18 +104,17 @@ public:
                 for (int i = 1; i < parts.size(); ++i) {
                     message.addArg(parts[i]);
                 }
-                SVCERR << "OSCScript: " << m_filename << ":" << lineno
+                SVCERR << "OSCScript: " << reportedFilename << ":" << lineno
                        << ": invoking: \"" << parts[0] << "\"" << endl;
                 m_queue->postMessage(message);
 
             } else {
-                SVCERR << "OSCScript: " << m_filename << ":" << lineno
-                       << ": error: message expected" << endl;
-                throw std::runtime_error("OSC script parse error");
+                SVCERR << "OSCScript: " << reportedFilename << ":" << lineno
+                       << ": warning: message expected, ignoring" << endl;
             }
         }
 
-        SVCERR << "OSCScript: " << m_filename << ": finished" << endl;
+        SVCERR << "OSCScript: " << reportedFilename << ": finished" << endl;
     }
 
     void abandon() {

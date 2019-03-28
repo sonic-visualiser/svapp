@@ -362,13 +362,18 @@ protected:
     class OSCQueueStarter : public QThread
     {
     public:
-        OSCQueueStarter(MainWindowBase *mwb) : QThread(mwb), m_mwb(mwb) { }
+        OSCQueueStarter(MainWindowBase *mwb, bool withNetworkPort) :
+            QThread(mwb), m_mwb(mwb), m_withPort(withNetworkPort) { }
+
         void run() override {
-            OSCQueue *queue = new OSCQueue(); // can take a long time
+            // NB creating the queue object can take a long time
+            OSCQueue *queue = new OSCQueue(m_withPort);
             m_mwb->m_oscQueue = queue;
         }
+        
     private:
         MainWindowBase *m_mwb;
+        bool m_withPort;
     };
 
     OSCQueue                *m_oscQueue;
@@ -376,7 +381,7 @@ protected:
     OSCScript               *m_oscScript;
     QString                  m_oscScriptFile;
 
-    void startOSCQueue();
+    void startOSCQueue(bool withNetworkPort);
     void startOSCScript();
 
     MIDIInput               *m_midiInput;
