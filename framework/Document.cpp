@@ -1280,7 +1280,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
             playParameters->toXml
                 (out, indent + "  ",
                  QString("model=\"%1\"")
-                 .arg(XmlExportable::getObjectExportId(m_mainModel)));
+                 .arg(m_mainModel->getExportId()));
         }
     }
 
@@ -1411,7 +1411,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
                 playParameters->toXml
                     (out, indent + "  ",
                      QString("model=\"%1\"")
-                     .arg(XmlExportable::getObjectExportId(model)));
+                     .arg(model->getExportId()));
             }
         }
     }
@@ -1446,7 +1446,7 @@ Document::writePlaceholderMainModel(QTextStream &out, QString indent) const
 {
     out << indent;
     out << QString("<model id=\"%1\" name=\"placeholder\" sampleRate=\"%2\" type=\"wavefile\" file=\":samples/silent.wav\" mainModel=\"true\"/>\n")
-        .arg(getObjectExportId(m_mainModel))
+        .arg(m_mainModel->getExportId())
         .arg(m_mainModel->getSampleRate());
 }
 
@@ -1485,8 +1485,8 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
     //    out << indent
     //        << QString("<derivation type=\"transform\" source=\"%1\" "
     //                   "model=\"%2\" channel=\"%3\">\n")
-    //        .arg(XmlExportable::getObjectExportId(rec.source))
-    //        .arg(XmlExportable::getObjectExportId(targetModel))
+    //        .arg(rec.source->getExportId())
+    //        .arg(targetModel->getExportId())
     //        .arg(rec.channel);
     //
     //    transform.toXml(out, indent + "  ");
@@ -1510,8 +1510,8 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
                    "model=\"%2\" channel=\"%3\" domain=\"%4\" "
                    "stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" "
                    "transform=\"%9\">\n")
-        .arg(XmlExportable::getObjectExportId(rec.source))
-        .arg(XmlExportable::getObjectExportId(targetModel))
+        .arg(rec.source->getExportId())
+        .arg(targetModel->getExportId())
         .arg(rec.channel)
         .arg(TransformFactory::getInstance()->getTransformInputDomain
              (transform.getIdentifier()))
