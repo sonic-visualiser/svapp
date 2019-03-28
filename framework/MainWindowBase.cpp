@@ -54,10 +54,12 @@
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
 #include "data/fileio/MIDIFileWriter.h"
+#include "data/fileio/CSVFileWriter.h"
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
+#include "rdf/RDFExporter.h"
 
 #include "base/RecentFiles.h"
 
@@ -2763,6 +2765,79 @@ MainWindowBase::saveSessionTemplate(QString path)
                               .arg(path).arg(f.what()));
         return false;
     }
+}
+
+bool
+MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".svl";
+
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    Model *model = layer->getModel();
+
+    if (suffix == "xml" || suffix == "svl") {
+
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            error = tr("Failed to open file %1 for writing").arg(path);
+        } else {
+            QTextStream out(&file);
+            out.setCodec(QTextCodec::codecForName("UTF-8"));
+            out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                << "<!DOCTYPE sonic-visualiser>\n"
+                << "<sv>\n"
+                << "  <data>\n";
+
+            model->toXml(out, "    ");
+
+            out << "  </data>\n"
+                << "  <display>\n";
+
+            layer->toXml(out, "    ");
+
+            out << "  </display>\n"
+                << "</sv>\n";
+        }
+
+    } else if (suffix == "mid" || suffix == "midi") {
+
+        NoteModel *nm = dynamic_cast<NoteModel *>(model);
+
+        if (!nm) {
+            error = tr("Can't export non-note layers to MIDI");
+        } else {
+            MIDIFileWriter writer(path, nm, nm->getSampleRate());
+            writer.write();
+            if (!writer.isOK()) {
+                error = writer.getError();
+            }
+        }
+
+    } else if (suffix == "ttl" || suffix == "n3") {
+
+        if (!RDFExporter::canExportModel(model)) {
+            error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
+        } else {
+            RDFExporter exporter(path, model);
+            exporter.write();
+            if (!exporter.isOK()) {
+                error = exporter.getError();
+            }
+        }
+
+    } else {
+
+        CSVFileWriter writer(path, model,
+                             ((suffix == "csv") ? "," : "\t"));
+        writer.write();
+
+        if (!writer.isOK()) {
+            error = writer.getError();
+        }
+    }
+
+    return (error == "");
 }
 
 void

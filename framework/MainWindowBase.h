@@ -139,6 +139,8 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
+    virtual bool exportLayerTo(Layer *layer, QString path, QString &error);
+
     void cueOSCScript(QString filename);
     
     /// Implementation of FrameTimer interface method
