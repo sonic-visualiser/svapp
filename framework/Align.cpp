@@ -203,7 +203,8 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 
     m_error = "";
     
-    AlignmentModel *alignmentModel = new AlignmentModel(reference, other, nullptr, nullptr);
+    AlignmentModel *alignmentModel =
+        new AlignmentModel(reference, other, nullptr, nullptr);
     rm->setAlignment(alignmentModel);
 
     QProcess *process = new QProcess;

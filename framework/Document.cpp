@@ -705,6 +705,7 @@ Document::addAggregateModel(AggregateWaveModel *model)
     connect(model, SIGNAL(modelInvalidated()),
             this, SLOT(aggregateModelInvalidated()));
     m_aggregateModels.insert(model);
+    SVDEBUG << "Document::addAggregateModel(" << model << ")" << endl;
 }
 
 void
@@ -712,6 +713,7 @@ Document::aggregateModelInvalidated()
 {
     QObject *s = sender();
     AggregateWaveModel *aggregate = qobject_cast<AggregateWaveModel *>(s);
+    SVDEBUG << "Document::aggregateModelInvalidated(" << aggregate << ")" << endl;
     if (aggregate) releaseModel(aggregate);
 }
 

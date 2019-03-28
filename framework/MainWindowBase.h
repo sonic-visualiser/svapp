@@ -34,6 +34,7 @@
 #include "data/fileio/FileFinder.h"
 #include "data/fileio/FileSource.h"
 #include "data/osc/OSCQueue.h"
+#include "data/osc/OSCMessageCallback.h"
 #include <map>
 
 class Document;
@@ -58,6 +59,7 @@ class PreferencesDialog;
 class QTreeView;
 class QPushButton;
 class OSCMessage;
+class OSCScript;
 class MIDIInput;
 class KeyReference;
 class Labeller;
@@ -81,7 +83,9 @@ namespace breakfastquay {
  * to use different subclasses retaining the same general structure.
  */
 
-class MainWindowBase : public QMainWindow, public FrameTimer
+class MainWindowBase : public QMainWindow,
+                       public FrameTimer,
+                       public OSCMessageCallback
 {
     Q_OBJECT
 
@@ -135,6 +139,8 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
+    void cueOSCScript(QString filename);
+    
     /// Implementation of FrameTimer interface method
     sv_frame_t getFrame() const override;
 
@@ -320,7 +326,7 @@ protected slots:
 
     virtual void oscReady();
     virtual void pollOSC();
-    virtual void handleOSCMessage(const OSCMessage &) = 0;
+    virtual void oscScriptFinished();
 
     virtual void contextHelpChanged(const QString &);
     virtual void inProgressSelectionChanged();
@@ -367,7 +373,11 @@ protected:
 
     OSCQueue                *m_oscQueue;
     OSCQueueStarter         *m_oscQueueStarter;
+    OSCScript               *m_oscScript;
+    QString                  m_oscScriptFile;
+
     void startOSCQueue();
+    void startOSCScript();
 
     MIDIInput               *m_midiInput;
 
