@@ -370,6 +370,7 @@ protected:
         // be confusing to have Input objects hanging around with NULL
         // models in them.
 
+        Model *model;
         const Model *source;
         int channel;
         Transform transform;
@@ -379,8 +380,41 @@ protected:
         int refcount;
     };
 
-    typedef std::map<Model *, ModelRecord> ModelMap;
-    ModelMap m_models;
+    // This used to be a map<Model *, ModelRecord>, but a vector
+    // ensures that models are consistently recorded in order of
+    // creation rather than at the whim of heap allocation, and that's
+    // useful for automated testing. We don't expect ever to have so
+    // many models that there is any significant overhead there.
+    typedef std::vector<ModelRecord> ModelList;
+    ModelList m_models;
+
+    ModelList::iterator findModelInList(Model *m) {
+        for (ModelList::iterator i = m_models.begin();
+             i != m_models.end(); ++i) {
+            if (i->model == m) {
+                return i;
+            }
+        }
+        return m_models.end();
+    }
+    
+    void deleteModelFromList(Model *m) {
+        ModelList keep;
+        bool found = false;
+        for (const ModelRecord &rec: m_models) {
+            if (rec.model == m) {
+                found = true;
+                m->aboutToDelete();
+                emit modelAboutToBeDeleted(m);
+            } else {
+                keep.push_back(rec);
+            }
+        }
+        m_models = keep;
+        if (found) {
+            delete m;
+        }
+    }
 
     /**
      * Add an extra derived model (returned at the end of processing a
