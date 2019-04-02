@@ -126,7 +126,7 @@ Document::createLayer(LayerFactory::LayerType type)
 
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
-    m_layers.insert(newLayer);
+    m_layers.push_back(newLayer);
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::createLayer: Added layer of type " << type
@@ -172,7 +172,7 @@ Document::createImportedLayer(Model *model)
     //!!! and all channels
     setChannel(newLayer, -1);
 
-    m_layers.insert(newLayer);
+    m_layers.push_back(newLayer);
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::createImportedLayer: Added layer of type " << type
@@ -439,9 +439,8 @@ Document::setMainModel(WaveFileModel *model)
     SVDEBUG << "Old main model: " << oldMainModel << endl;
 #endif
 
-    for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
+    for (Layer *layer: m_layers) {
 
-        Layer *layer = *i;
         Model *model = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
@@ -880,15 +879,21 @@ Document::deleteLayer(Layer *layer, bool force)
         }
     }
 
-    if (m_layers.find(layer) == m_layers.end()) {
+    bool found = false;
+    for (auto itr = m_layers.begin(); itr != m_layers.end(); ++itr) {
+        if (*itr == layer) {
+            found = true;
+            m_layers.erase(itr);
+            break;
+        }
+    }
+    if (!found) {
         SVDEBUG << "Document::deleteLayer: Layer "
                   << layer << " (" << typeid(layer).name() <<
                   ") does not exist, or has already been deleted "
                   << "(this may not be as serious as it sounds)" << endl;
         return;
     }
-
-    m_layers.erase(layer);
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::deleteLayer: Removing, now have "
@@ -1030,7 +1035,7 @@ Document::getUniqueLayerName(QString candidate)
         
         bool duplicate = false;
 
-        for (LayerSet::iterator i = m_layers.begin(); i != m_layers.end(); ++i) {
+        for (auto i = m_layers.begin(); i != m_layers.end(); ++i) {
             if ((*i)->objectName() == adjusted) {
                 duplicate = true;
                 break;
@@ -1459,9 +1464,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
         alignment->toXml(out, indent + "  ");
     }
 
-    for (LayerSet::const_iterator i = m_layers.begin();
-         i != m_layers.end(); ++i) {
-
+    for (auto i = m_layers.begin(); i != m_layers.end(); ++i) {
         (*i)->toXml(out, indent + "  ");
     }
 

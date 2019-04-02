@@ -481,8 +481,8 @@ protected:
      * And these are the layers.  We also control the lifespans of
      * these (usually through the commands used to add and remove them).
      */
-    typedef std::set<Layer *> LayerSet;
-    LayerSet m_layers;
+    typedef std::vector<Layer *> LayerList;
+    LayerList m_layers;
 
     bool m_autoAlignment;
     Align *m_align;
