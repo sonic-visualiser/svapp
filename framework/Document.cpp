@@ -434,7 +434,7 @@ Document::setMainModel(WaveFileModel *model)
     SVDEBUG << "Models now: ";
     for (const auto &r: m_models) {
         SVDEBUG << r.model << " ";
-    } 
+    }
     SVDEBUG << endl;
     SVDEBUG << "Old main model: " << oldMainModel << endl;
 #endif
@@ -791,6 +791,12 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
         return;
     }
 
+#ifdef DEBUG_DOCUMENT
+    SVDEBUG << "Document::releaseModel(" << model << ", type "
+            << model->getTypeName() << ", name \""
+            << model->objectName() << "\")" << endl;
+#endif
+    
     if (model == m_mainModel) {
         return;
     }
@@ -804,12 +810,17 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
             SVCERR << "WARNING: Document::releaseModel: model " << model
                    << " reference count is zero already!" << endl;
         } else {
+#ifdef DEBUG_DOCUMENT
+            SVDEBUG << "Lowering refcount from " << mitr->refcount << endl;
+#endif
             if (--mitr->refcount == 0) {
                 toDelete = true;
             }
         }
     } else if (m_aggregateModels.find(model) != m_aggregateModels.end()) {
+#ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::releaseModel: is an aggregate model" << endl;
+#endif
         toDelete = true;
     } else { 
         SVCERR << "WARNING: Document::releaseModel: Unfound model "
@@ -889,14 +900,14 @@ Document::deleteLayer(Layer *layer, bool force)
     }
     if (!found) {
         SVDEBUG << "Document::deleteLayer: Layer "
-                  << layer << " (" << typeid(layer).name() <<
+                  << layer << " (typeid " << typeid(layer).name() <<
                   ") does not exist, or has already been deleted "
                   << "(this may not be as serious as it sounds)" << endl;
         return;
     }
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::deleteLayer: Removing, now have "
+    SVDEBUG << "Document::deleteLayer: Removing (and about to release model), now have "
               << m_layers.size() << " layers" << endl;
 #endif
 
@@ -1115,11 +1126,11 @@ Document::alignModel(Model *model)
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
         SVDEBUG << "Document::alignModel(" << model << "): is main model, setting appropriately" << endl;
-        rm->setAlignment(new AlignmentModel(model, model, nullptr, nullptr));
+        rm->setAlignment(new AlignmentModel(model, model, nullptr));
         return;
     }
 
-    if (!m_align->alignModel(m_mainModel, rm)) {
+    if (!m_align->alignModel(this, m_mainModel, rm)) {
         SVCERR << "Alignment failed: " << m_align->getError() << endl;
         emit alignmentFailed(m_align->getError());
     }
