@@ -23,6 +23,7 @@
 
 class Model;
 class AlignmentModel;
+class Document;
 
 class Align : public QObject
 {
@@ -47,10 +48,18 @@ public:
      * Align object will simply share the process or document
      * lifespan.
      */
-    bool alignModel(Model *reference, Model *other); // via user preference
+    bool alignModel(Document *doc,
+                    Model *reference,
+                    Model *other); // via user preference
     
-    bool alignModelViaTransform(Model *reference, Model *other);
-    bool alignModelViaProgram(Model *reference, Model *other, QString program);
+    bool alignModelViaTransform(Document *doc,
+                                Model *reference,
+                                Model *other);
+
+    bool alignModelViaProgram(Document *doc,
+                              Model *reference,
+                              Model *other,
+                              QString program);
 
     /**
      * Return true if the alignment facility is available (relevant

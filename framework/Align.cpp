@@ -14,6 +14,7 @@
 */
 
 #include "Align.h"
+#include "Document.h"
 
 #include "data/model/WaveFileModel.h"
 #include "data/model/ReadOnlyWaveFileModel.h"
@@ -33,7 +34,7 @@
 #include <QApplication>
 
 bool
-Align::alignModel(Model *ref, Model *other)
+Align::alignModel(Document *doc, Model *ref, Model *other)
 {
     QSettings settings;
     settings.beginGroup("Preferences");
@@ -42,9 +43,9 @@ Align::alignModel(Model *ref, Model *other)
     settings.endGroup();
 
     if (useProgram && (program != "")) {
-        return alignModelViaProgram(ref, other, program);
+        return alignModelViaProgram(doc, ref, other, program);
     } else {
-        return alignModelViaTransform(ref, other);
+        return alignModelViaTransform(doc, ref, other);
     }
 }
 
@@ -69,7 +70,7 @@ Align::canAlign()
 }
 
 bool
-Align::alignModelViaTransform(Model *ref, Model *other)
+Align::alignModelViaTransform(Document *doc, Model *ref, Model *other)
 {
     RangeSummarisableTimeValueModel *reference = qobject_cast
         <RangeSummarisableTimeValueModel *>(ref);
@@ -106,7 +107,9 @@ Align::alignModelViaTransform(Model *ref, Model *other)
     components.push_back(AggregateWaveModel::ModelChannelSpec
                          (rm, -1));
 
-    Model *aggregateModel = new AggregateWaveModel(components);
+    AggregateWaveModel *aggregateModel = new AggregateWaveModel(components);
+    doc->addAggregateModel(aggregateModel);
+    
     ModelTransformer::Input aggregate(aggregateModel);
 
     TransformId id = getAlignmentTransformName();
@@ -146,7 +149,7 @@ Align::alignModelViaTransform(Model *ref, Model *other)
     path->setCompletion(0);
 
     AlignmentModel *alignmentModel = new AlignmentModel
-        (reference, other, aggregateModel, path);
+        (reference, other, path);
 
     connect(alignmentModel, SIGNAL(completionChanged()),
             this, SLOT(alignmentCompletionChanged()));
@@ -169,7 +172,7 @@ Align::alignmentCompletionChanged()
 }
 
 bool
-Align::alignModelViaProgram(Model *ref, Model *other, QString program)
+Align::alignModelViaProgram(Document *, Model *ref, Model *other, QString program)
 {
     WaveFileModel *reference = qobject_cast<WaveFileModel *>(ref);
     WaveFileModel *rm = qobject_cast<WaveFileModel *>(other);
@@ -203,7 +206,8 @@ Align::alignModelViaProgram(Model *ref, Model *other, QString program)
 
     m_error = "";
     
-    AlignmentModel *alignmentModel = new AlignmentModel(reference, other, nullptr, nullptr);
+    AlignmentModel *alignmentModel =
+        new AlignmentModel(reference, other, nullptr);
     rm->setAlignment(alignmentModel);
 
     QProcess *process = new QProcess;

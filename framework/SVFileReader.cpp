@@ -788,7 +788,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         if (refModel && alignedModel && pathModel) {
             AlignmentModel *model = new AlignmentModel
-                (refModel, alignedModel, nullptr, nullptr);
+                (refModel, alignedModel, nullptr);
             PathModel *pm = dynamic_cast<PathModel *>(pathModel);
             if (!pm) {
                 SVCERR << "WARNING: SV-XML: Model id " << path
