@@ -579,6 +579,8 @@ Document::setMainModel(WaveFileModel *model)
     if (m_autoAlignment) {
         SVDEBUG << "Document::setMainModel: auto-alignment is on, aligning model if possible" << endl;
         alignModel(m_mainModel);
+    } else {
+        SVDEBUG << "Document::setMainModel: auto-alignment is off" << endl;
     }
 
     emit mainModelChanged(m_mainModel);
@@ -1101,7 +1103,7 @@ Document::canAlign()
 void
 Document::alignModel(Model *model)
 {
-    SVDEBUG << "Document::alignModel(" << model << ")" << endl;
+    SVDEBUG << "Document::alignModel(" << model << ") (main model is " << m_mainModel << ")" << endl;
 
     if (!m_mainModel) {
         SVDEBUG << "(no main model to align to)" << endl;
@@ -1111,7 +1113,7 @@ Document::alignModel(Model *model)
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
     if (!rm) {
-        SVDEBUG << "(main model is not alignable-to)" << endl;
+        SVDEBUG << "(model " << rm << " is not an alignable sort)" << endl;
         return;
     }
 
@@ -1125,11 +1127,18 @@ Document::alignModel(Model *model)
         // it possible to distinguish between the reference and any
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
-        SVDEBUG << "Document::alignModel(" << model << "): is main model, setting appropriately" << endl;
+        SVDEBUG << "Document::alignModel(" << model << "): is main model, setting alignment to itself appropriately" << endl;
         rm->setAlignment(new AlignmentModel(model, model, nullptr));
         return;
     }
 
+    SVDEBUG << "Document::alignModel: aligning..." << endl;
+    if (rm->getAlignmentReference() != nullptr) {
+        SVDEBUG << "(Note: model " << rm << " is currently aligned to model "
+                << rm->getAlignmentReference() << "; this will replace that)"
+                << endl;
+    }
+    
     if (!m_align->alignModel(this, m_mainModel, rm)) {
         SVCERR << "Alignment failed: " << m_align->getError() << endl;
         emit alignmentFailed(m_align->getError());

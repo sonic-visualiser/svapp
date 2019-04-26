@@ -2680,6 +2680,8 @@ MainWindowBase::createDocument()
     connect(m_document, SIGNAL(alignmentFailed(QString)),
             this, SLOT(alignmentFailed(QString)));
 
+    m_document->setAutoAlignment(m_viewManager->getAlignMode());
+
     emit replacedDocument();
 }
 
