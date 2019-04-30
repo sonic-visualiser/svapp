@@ -12,7 +12,9 @@ SVAPP_HEADERS += \
            framework/OSCScript.h \
            framework/SVFileReader.h \
            framework/TransformUserConfigurator.h \
-           framework/VersionTester.h
+           framework/VersionTester.h \
+           style/AppEventFilter.h \
+           style/ThornStyle.h
 
 SVAPP_SOURCES += \
            audio/AudioCallbackPlaySource.cpp \
@@ -26,4 +28,6 @@ SVAPP_SOURCES += \
            framework/MainWindowBase.cpp \
            framework/SVFileReader.cpp \
            framework/TransformUserConfigurator.cpp \
-           framework/VersionTester.cpp
+           framework/VersionTester.cpp \
+           style/AppEventFilter.cpp \
+           style/ThornStyle.cpp
