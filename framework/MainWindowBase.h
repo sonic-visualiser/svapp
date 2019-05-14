@@ -308,6 +308,7 @@ protected slots:
 
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
+    virtual void updateWindowTitle();
 
     virtual void modelGenerationFailed(QString, QString) = 0;
     virtual void modelGenerationWarning(QString, QString) = 0;
@@ -345,15 +346,23 @@ protected slots:
     virtual void menuActionMapperInvoked(QObject *);
 
 protected:
-    QString                  m_sessionFile;
-    QString                  m_audioFile;
-    Document                *m_document;
+    QString m_sessionFile;
+    QString m_audioFile;
+    Document *m_document;
 
-    PaneStack               *m_paneStack;
-    ViewManager             *m_viewManager;
-    Layer                   *m_timeRulerLayer;
+    // This is used in the window title. It's the upstream location
+    // (maybe a URL) the user provided as source of the main model. It
+    // should be set in cases where there is no current session file
+    // and m_sessionFile is empty, or where a new main model has been
+    // imported into an existing session. It should be used only for
+    // user presentation, never parsed - treat it as an opaque label
+    QString m_originalLocation;
 
-    SoundOptions             m_soundOptions;
+    PaneStack *m_paneStack;
+    ViewManager *m_viewManager;
+    Layer *m_timeRulerLayer;
+
+    SoundOptions m_soundOptions;
 
     AudioCallbackPlaySource *m_playSource;
     AudioCallbackRecordTarget *m_recordTarget;

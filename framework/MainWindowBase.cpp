@@ -748,16 +748,46 @@ MainWindowBase::updateMenuStates()
 }
 
 void
+MainWindowBase::updateWindowTitle()
+{
+    QString title;
+
+    if (m_sessionFile != "") {
+        if (m_originalLocation != "" &&
+            m_originalLocation != m_sessionFile) { // session + location
+            title = tr("%1: %2 [%3]")
+                .arg(QApplication::applicationName())
+                .arg(QFileInfo(m_sessionFile).fileName())
+                .arg(m_originalLocation);
+        } else { // session only
+            title = tr("%1: %2")
+                .arg(QApplication::applicationName())
+                .arg(QFileInfo(m_sessionFile).fileName());
+        }
+    } else {
+        if (m_originalLocation != "") { // location only
+            title = tr("%1: %2")
+                .arg(QApplication::applicationName())
+                .arg(m_originalLocation);
+        } else { // neither
+            title = QApplication::applicationName();
+        }
+    }
+    
+    if (m_documentModified) {
+        title = tr("%1 (modified)").arg(title);
+    }
+
+    setWindowTitle(title);
+}
+
+void
 MainWindowBase::documentModified()
 {
 //    SVDEBUG << "MainWindowBase::documentModified" << endl;
 
-    if (!m_documentModified) {
-        //!!! this in subclass implementation?
-        setWindowTitle(tr("%1 (modified)").arg(windowTitle()));
-    }
-
     m_documentModified = true;
+    updateWindowTitle();
     updateMenuStates();
 }
 
@@ -766,14 +796,8 @@ MainWindowBase::documentRestored()
 {
 //    SVDEBUG << "MainWindowBase::documentRestored" << endl;
 
-    if (m_documentModified) {
-        //!!! this in subclass implementation?
-        QString wt(windowTitle());
-        wt.replace(tr(" (modified)"), "");
-        setWindowTitle(wt);
-    }
-
     m_documentModified = false;
+    updateWindowTitle();
     updateMenuStates();
 }
 
@@ -1663,7 +1687,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
     }
 
     emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
-
+    
     if (mode == ReplaceMainModel) {
 
         Model *prevMain = getMainModel();
@@ -1679,22 +1703,15 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
 
         setupMenus();
 
+        m_originalLocation = source.getLocation();
+
         if (loadedTemplate || (m_sessionFile == "")) {
-            //!!! shouldn't be dealing directly with title from here -- call a method
-            setWindowTitle(tr("%1: %2")
-                           .arg(QApplication::applicationName())
-                           .arg(source.getLocation()));
             CommandHistory::getInstance()->clear();
             CommandHistory::getInstance()->documentSaved();
             m_documentModified = false;
         } else {
-            setWindowTitle(tr("%1: %2 [%3]")
-                           .arg(QApplication::applicationName())
-                           .arg(QFileInfo(m_sessionFile).fileName())
-                           .arg(source.getLocation()));
             if (m_documentModified) {
                 m_documentModified = false;
-                documentModified(); // so as to restore "(modified)" window title
             }
         }
 
@@ -1702,6 +1719,8 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
             m_audioFile = source.getLocalFilename();
         }
 
+        updateWindowTitle();
+        
     } else if (mode == CreateAdditionalModel) {
 
         SVCERR << "Mode is CreateAdditionalModel" << endl;
@@ -2164,10 +2183,6 @@ MainWindowBase::openSession(FileSource source)
 
         emit activity(tr("Import session file \"%1\"").arg(source.getLocation()));
 
-        setWindowTitle(tr("%1: %2")
-                       .arg(QApplication::applicationName())
-                       .arg(source.getLocation()));
-
         if (!source.isRemote() && !m_document->isIncomplete()) {
             // Setting the session file path enables the Save (as
             // opposed to Save As...) option. We can't do this if we
@@ -2184,6 +2199,7 @@ MainWindowBase::openSession(FileSource source)
                  QMessageBox::Ok);
         }
 
+        updateWindowTitle();
         setupMenus();
         findTimeRulerLayer();
 
@@ -2200,12 +2216,13 @@ MainWindowBase::openSession(FileSource source)
                                        source.getLocalFilename());
         }
 
+        m_originalLocation = source.getLocation();
+        
         emit sessionLoaded();
 
-    } else {
-        setWindowTitle(QApplication::applicationName());
+        updateWindowTitle();
     }
-
+    
     return ok ? FileOpenSucceeded : FileOpenFailed;
 }
 
@@ -2271,8 +2288,6 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
     bool ok = (error == "");
 
-    setWindowTitle(QApplication::applicationName());
-
     if (ok) {
 
         emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
@@ -2287,6 +2302,8 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
         emit sessionLoaded();
     }
+
+    updateWindowTitle();
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
 }
@@ -2310,13 +2327,11 @@ MainWindowBase::openSessionFromRDF(FileSource source)
 
     setupMenus();
     findTimeRulerLayer();
-    
-    setWindowTitle(tr("%1: %2")
-                   .arg(QApplication::applicationName())
-                   .arg(source.getLocation()));
+
     CommandHistory::getInstance()->clear();
     CommandHistory::getInstance()->documentSaved();
     m_documentModified = false;
+    updateWindowTitle();
 
     emit sessionLoaded();
 
@@ -3287,24 +3302,15 @@ MainWindowBase::record()
         setupMenus();
         findTimeRulerLayer();
 
+        m_originalLocation = model->getLocation();
+        
         if (loadedTemplate || (m_sessionFile == "")) {
-            //!!! shouldn't be dealing directly with title from here -- call a method
-            setWindowTitle(tr("%1: %2")
-                           .arg(QApplication::applicationName())
-                           .arg(model->getLocation()));
             CommandHistory::getInstance()->clear();
             CommandHistory::getInstance()->documentSaved();
-            m_documentModified = false;
-        } else {
-            setWindowTitle(tr("%1: %2 [%3]")
-                           .arg(QApplication::applicationName())
-                           .arg(QFileInfo(m_sessionFile).fileName())
-                           .arg(model->getLocation()));
-            if (m_documentModified) {
-                m_documentModified = false;
-                documentModified(); // so as to restore "(modified)" window title
-            }
         }
+
+        m_documentModified = false;
+        updateWindowTitle();
 
     } else {
 
