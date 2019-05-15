@@ -1138,10 +1138,11 @@ Document::alignModel(Model *model)
                 << rm->getAlignmentReference() << "; this will replace that)"
                 << endl;
     }
-    
-    if (!m_align->alignModel(this, m_mainModel, rm)) {
-        SVCERR << "Alignment failed: " << m_align->getError() << endl;
-        emit alignmentFailed(m_align->getError());
+
+    QString err;
+    if (!m_align->alignModel(this, m_mainModel, rm, err)) {
+        SVCERR << "Alignment failed: " << err << endl;
+        emit alignmentFailed(err);
     }
 }
 
