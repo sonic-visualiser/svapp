@@ -106,10 +106,18 @@ private:
                                        float tuningFrequency = 0.f);
 
     QMutex m_mutex;
+
+    struct TuningDiffRec {
+        AggregateWaveModel *input;
+        AlignmentModel *alignment;
+        SparseTimeValueModel *preparatory;
+    };
+
+    // tuning-difference output model -> data needed for subsequent alignment
+    std::map<SparseTimeValueModel *, TuningDiffRec> m_pendingTuningDiffs;
+
+    // external alignment subprocess -> model into which to stuff the results
     std::map<QProcess *, AlignmentModel *> m_pendingProcesses;
-    std::map<SparseTimeValueModel *,
-             std::pair<AggregateWaveModel *,
-                       AlignmentModel *>> m_pendingTuningDiffs;
 };
 
 #endif

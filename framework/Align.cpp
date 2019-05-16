@@ -68,12 +68,12 @@ Align::getTuningDifferenceTransformName()
     bool performPitchCompensation =
         settings.value("align-pitch-aware", false).toBool();
     QString id = "";
-//!!!    if (performPitchCompensation) {
+    if (performPitchCompensation) {
         id = settings.value
             ("tuning-difference-transform-id",
              "vamp:tuning-difference:tuning-difference:tuningfreq")
             .toString();
-//    }
+    }
     settings.endGroup();
     return id;
 }
@@ -145,9 +145,6 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
     AlignmentModel *alignmentModel =
         new AlignmentModel(reference, other, nullptr);
 
-    connect(alignmentModel, SIGNAL(completionChanged()),
-            this, SLOT(alignmentCompletionChanged()));
-
     TransformId tdId = getTuningDifferenceTransformName();
 
     if (tdId == "") {
@@ -170,6 +167,9 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
         Transform transform = tf->getDefaultTransformFor
             (tdId, aggregateModel->getSampleRate());
 
+        transform.setParameter("maxduration", 50);
+        transform.setParameter("maxrange", 5);
+    
         SVDEBUG << "Align::alignModel: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
         ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
@@ -192,12 +192,73 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
         connect(tdout, SIGNAL(completionChanged()),
                 this, SLOT(tuningDifferenceCompletionChanged()));
 
-        m_pendingTuningDiffs[tdout] =
-            std::pair<AggregateWaveModel *, AlignmentModel *>
-            (aggregateModel, alignmentModel);
+        TuningDiffRec rec;
+        rec.input = aggregateModel;
+        rec.alignment = alignmentModel;
+
+        // This model exists only so that the AlignmentModel can get a
+        // completion value from somewhere while the tuning difference
+        // calculation is going on
+        rec.preparatory = new SparseTimeValueModel
+            (aggregateModel->getSampleRate(), 1);;
+        rec.preparatory->setCompletion(0);
+        alignmentModel->setPathFrom(rec.preparatory);
+        
+        m_pendingTuningDiffs[tdout] = rec;
     }
 
     return true;
+}
+
+void
+Align::tuningDifferenceCompletionChanged()
+{
+    QMutexLocker locker (&m_mutex);
+    
+    SparseTimeValueModel *td = qobject_cast<SparseTimeValueModel *>(sender());
+    if (!td) return;
+
+    if (m_pendingTuningDiffs.find(td) == m_pendingTuningDiffs.end()) {
+        SVCERR << "ERROR: Align::tuningDifferenceCompletionChanged: Model "
+               << td << " not found in pending tuning diff map!" << endl;
+        return;
+    }
+
+    TuningDiffRec rec = m_pendingTuningDiffs[td];
+
+    int completion = 0;
+    bool done = td->isReady(&completion);
+
+    SVCERR << "Align::tuningDifferenceCompletionChanged: done = " << done << ", completion = " << completion << endl;
+
+    if (!done) {
+        // This will be the completion the alignment model reports,
+        // before the alignment actually begins. It goes up from 0 to
+        // 99 (not 100!) and then back to 0 again when we start
+        // calculating the actual path in the following phase
+        int clamped = (completion == 100 ? 99 : completion);
+        SVCERR << "Align::tuningDifferenceCompletionChanged: setting rec.preparatory completion to " << clamped << endl;
+        rec.preparatory->setCompletion(clamped);
+        return;
+    }
+
+    float tuningFrequency = 440.f;
+    
+    if (!td->isEmpty()) {
+        tuningFrequency = td->getAllEvents()[0].getValue();
+        SVCERR << "Align::tuningDifferenceCompletionChanged: Reported tuning frequency = " << tuningFrequency << endl;
+    } else {
+        SVCERR << "Align::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
+    }    
+
+    m_pendingTuningDiffs.erase(td);
+    td->aboutToDelete();
+    delete td;
+
+    rec.alignment->setPathFrom(nullptr);
+    
+    beginTransformDrivenAlignment
+        (rec.input, rec.alignment, tuningFrequency);
 }
 
 bool
@@ -254,42 +315,6 @@ Align::beginTransformDrivenAlignment(AggregateWaveModel *aggregateModel,
             this, SLOT(alignmentCompletionChanged()));
 
     return true;
-}
-
-void
-Align::tuningDifferenceCompletionChanged()
-{
-    QMutexLocker locker (&m_mutex);
-    
-    SparseTimeValueModel *td = qobject_cast<SparseTimeValueModel *>(sender());
-    if (!td) return;
-    if (!td->isReady()) return;
-    
-    disconnect(td, SIGNAL(completionChanged()),
-               this, SLOT(alignmentCompletionChanged()));
-
-    if (m_pendingTuningDiffs.find(td) == m_pendingTuningDiffs.end()) {
-        SVCERR << "ERROR: Align::tuningDifferenceCompletionChanged: Model "
-               << td << " not found in pending tuning diff map!" << endl;
-        return;
-    }
-
-    std::pair<AggregateWaveModel *, AlignmentModel *> models =
-        m_pendingTuningDiffs[td];
-
-    float tuningFrequency = 440.f;
-    
-    if (!td->isEmpty()) {
-        tuningFrequency = td->getAllEvents()[0].getValue();
-        SVCERR << "Align::tuningDifferenceCompletionChanged: Reported tuning frequency = " << tuningFrequency << endl;
-    } else {
-        SVCERR << "Align::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
-    }    
-
-    m_pendingTuningDiffs.erase(td);
-    
-    beginTransformDrivenAlignment
-        (models.first, models.second, tuningFrequency);
 }
 
 void
