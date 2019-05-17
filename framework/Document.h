@@ -294,6 +294,12 @@ public:
     void alignModels();
 
     /**
+     * Re-generate alignments for all appropriate models against the
+     * main model.  Existing alignments will be re-calculated.
+     */
+    void realignModels();
+
+    /**
      * Return true if any external files (most obviously audio) failed
      * to be found on load, so that the document is incomplete
      * compared to its saved description.
@@ -338,11 +344,11 @@ protected:
 
     /**
      * If model is suitable for alignment, align it against the main
-     * model and store the alignment in the model.  (If the model has
-     * an alignment already for the current main model, leave it
-     * unchanged.)
+     * model and store the alignment in the model. If the model has an
+     * alignment already for the current main model, leave it
+     * unchanged unless forceRecalculate is true.
      */
-    void alignModel(Model *);
+    void alignModel(Model *, bool forceRecalculate = false);
 
     /*
      * Every model that is in use by a layer in the document must be

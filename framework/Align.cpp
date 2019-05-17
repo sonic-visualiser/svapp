@@ -103,24 +103,24 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
     if (!reference || !rm) return false; // but this should have been tested already
    
     // This involves creating either three or four new models:
-
+    //
     // 1. an AggregateWaveModel to provide the mixdowns of the main
     // model and the new model in its two channels, as input to the
     // MATCH plugin
-
+    //
     // 2a. a SparseTimeValueModel which will be automatically created
     // by FeatureExtractionModelTransformer when running the
     // TuningDifference plugin to receive the relative tuning of the
     // second model (if pitch-aware alignment is enabled in the
     // preferences)
-    
+    //
     // 2b. a SparseTimeValueModel which will be automatically created
     // by FeatureExtractionPluginTransformer when running the MATCH
     // plugin to perform alignment (so containing the alignment path)
-
+    //
     // 3. an AlignmentModel, which stores the path model and carries
     // out alignment lookups on it.
-
+    //
     // The AggregateWaveModel [1] is registered with the document,
     // which deletes it when it is invalidated (when one of its
     // components is deleted). The SparseTimeValueModel [2a] is reused
@@ -130,6 +130,11 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
     // is attached to the new model we are aligning, which also takes
     // ownership of it. The only one of these models that we need to
     // delete here is the SparseTimeValueModel [2a].
+    //
+    // (We also create a sneaky additional SparseTimeValueModel
+    // temporarily so we can attach completion information to it -
+    // this is quite unnecessary from the perspective of simply
+    // producing the results.)
 
     AggregateWaveModel::ChannelSpecList components;
 

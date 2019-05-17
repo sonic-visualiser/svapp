@@ -867,17 +867,13 @@ Document::deleteLayer(Layer *layer, bool force)
     if (m_layerViewMap.find(layer) != m_layerViewMap.end() &&
         m_layerViewMap[layer].size() > 0) {
 
-        SVCERR << "WARNING: Document::deleteLayer: Layer "
-                  << layer << " [" << layer->objectName() << "]"
-                  << " is still used in " << m_layerViewMap[layer].size()
-                  << " views!" << endl;
-
         if (force) {
 
-#ifdef DEBUG_DOCUMENT
-            SVCERR << "(force flag set -- deleting from all views)" << endl;
-#endif
-
+            SVDEBUG << "NOTE: Document::deleteLayer: Layer "
+                    << layer << " [" << layer->objectName() << "]"
+                    << " is still used in " << m_layerViewMap[layer].size()
+                    << " views. Force flag set, so removing from them" << endl;
+            
             for (std::set<View *>::iterator j = m_layerViewMap[layer].begin();
                  j != m_layerViewMap[layer].end(); ++j) {
                 // don't use removeLayerFromView, as it issues a command
@@ -888,6 +884,12 @@ Document::deleteLayer(Layer *layer, bool force)
             m_layerViewMap.erase(layer);
 
         } else {
+
+            SVCERR << "WARNING: Document::deleteLayer: Layer "
+                   << layer << " [" << layer->objectName() << "]"
+                   << " is still used in " << m_layerViewMap[layer].size()
+                   << " views! Force flag is not set, so not deleting" << endl;
+            
             return;
         }
     }
@@ -1101,14 +1103,10 @@ Document::canAlign()
 }
 
 void
-Document::alignModel(Model *model)
+Document::alignModel(Model *model, bool forceRecalculate)
 {
-    SVDEBUG << "Document::alignModel(" << model << ") (main model is " << m_mainModel << ")" << endl;
-
-    if (!m_mainModel) {
-        SVDEBUG << "(no main model to align to)" << endl;
-        return;
-    }
+    SVDEBUG << "Document::alignModel(" << model << ", " << forceRecalculate
+            << ") (main model is " << m_mainModel << ")" << endl;
 
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
@@ -1117,9 +1115,25 @@ Document::alignModel(Model *model)
         return;
     }
 
-    if (rm->getAlignmentReference() == m_mainModel) {
-        SVDEBUG << "(model " << rm << " is already aligned to main model " << m_mainModel << ")" << endl;
+    if (!m_mainModel) {
+        SVDEBUG << "(no main model to align to)" << endl;
+        if (forceRecalculate && rm->getAlignment()) {
+            SVDEBUG << "(but model is aligned, and forceRecalculate is true, "
+                    << "so resetting alignment to nil)" << endl;
+            rm->setAlignment(nullptr);
+        }
         return;
+    }
+
+    if (rm->getAlignmentReference() == m_mainModel) {
+        SVDEBUG << "(model " << rm << " is already aligned to main model "
+                << m_mainModel << ")" << endl;
+        if (!forceRecalculate) {
+            return;
+        } else {
+            SVDEBUG << "(but forceRecalculate is true, so realigning anyway)"
+                    << endl;
+        }
     }
     
     if (model == m_mainModel) {
@@ -1127,7 +1141,8 @@ Document::alignModel(Model *model)
         // it possible to distinguish between the reference and any
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
-        SVDEBUG << "Document::alignModel(" << model << "): is main model, setting alignment to itself appropriately" << endl;
+        SVDEBUG << "Document::alignModel(" << model
+                << "): is main model, setting alignment to itself" << endl;
         rm->setAlignment(new AlignmentModel(model, model, nullptr));
         return;
     }
@@ -1151,6 +1166,15 @@ Document::alignModels()
 {
     for (const ModelRecord &rec: m_models) {
         alignModel(rec.model);
+    }
+    alignModel(m_mainModel);
+}
+
+void
+Document::realignModels()
+{
+    for (const ModelRecord &rec: m_models) {
+        alignModel(rec.model, true);
     }
     alignModel(m_mainModel);
 }
