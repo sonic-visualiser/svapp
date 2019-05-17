@@ -234,7 +234,7 @@ Align::tuningDifferenceCompletionChanged()
     int completion = 0;
     bool done = td->isReady(&completion);
 
-    SVCERR << "Align::tuningDifferenceCompletionChanged: done = " << done << ", completion = " << completion << endl;
+//    SVCERR << "Align::tuningDifferenceCompletionChanged: done = " << done << ", completion = " << completion << endl;
 
     if (!done) {
         // This will be the completion the alignment model reports,
@@ -242,7 +242,7 @@ Align::tuningDifferenceCompletionChanged()
         // 99 (not 100!) and then back to 0 again when we start
         // calculating the actual path in the following phase
         int clamped = (completion == 100 ? 99 : completion);
-        SVCERR << "Align::tuningDifferenceCompletionChanged: setting rec.preparatory completion to " << clamped << endl;
+//        SVCERR << "Align::tuningDifferenceCompletionChanged: setting rec.preparatory completion to " << clamped << endl;
         rec.preparatory->setCompletion(clamped);
         return;
     }
