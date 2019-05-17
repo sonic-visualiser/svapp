@@ -9,6 +9,7 @@ SVAPP_HEADERS += \
            framework/Align.h \
 	   framework/Document.h \
            framework/MainWindowBase.h \
+           framework/OSCScript.h \
            framework/SVFileReader.h \
            framework/TransformUserConfigurator.h \
            framework/VersionTester.h

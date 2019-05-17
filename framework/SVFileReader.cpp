@@ -31,7 +31,6 @@
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/RegionModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
@@ -459,28 +458,30 @@ SVFileReader::addUnaddedModels()
 {
     makeAggregateModels();
     
-    std::set<Model *> unaddedModels;
-    
     for (std::map<int, Model *>::iterator i = m_models.begin();
          i != m_models.end(); ++i) {
-        if (m_addedModels.find(i->second) == m_addedModels.end()) {
-            unaddedModels.insert(i->second);
+
+        Model *model = i->second;
+
+        if (m_addedModels.find(model) != m_addedModels.end()) {
+            // already added this one
+            continue;
         }
-    }
-    
-    for (std::set<Model *>::iterator i = unaddedModels.begin();
-         i != unaddedModels.end(); ++i) {
-        Model *model = *i;
-        // don't want to add these models, because their lifespans
-        // are entirely dictated by the models that "own" them even
-        // though they were read independently from the .sv file.
-        // (pity we don't have a nicer way)
+        
+        // don't want to add path and alignment models to the
+        // document, because their lifespans are entirely dictated by
+        // the models that "own" them even though they were read
+        // independently from the .sv file.  (pity we don't have a
+        // nicer way to handle this)
         if (!dynamic_cast<PathModel *>(model) &&
             !dynamic_cast<AlignmentModel *>(model)) {
+            
             m_document->addImportedModel(model);
         }
-        // but we add all models here, so they don't get deleted
-        // when the file loader is destroyed
+        
+        // but we add all models including path and alignment ones to
+        // the added set, so they don't get deleted from our own
+        // destructor
         m_addedModels.insert(model);
     }
 }
@@ -713,13 +714,16 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     model->setObjectName(name);
                     m_models[id] = model;
                 } else if (attributes.value("subtype") == "flexinote") {
-                    FlexiNoteModel *model;
+                    NoteModel *model;
                     if (haveMinMax) {
-                        model = new FlexiNoteModel
-                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                        model = new NoteModel
+                            (sampleRate, resolution, minimum, maximum,
+                             notifyOnAdd,
+                             NoteModel::FLEXI_NOTE);
                     } else {
-                        model = new FlexiNoteModel
-                            (sampleRate, resolution, notifyOnAdd);
+                        model = new NoteModel
+                            (sampleRate, resolution, notifyOnAdd,
+                             NoteModel::FLEXI_NOTE);
                     }
                     model->setValueQuantization(valueQuantization);
                     model->setScaleUnits(units);
@@ -1051,7 +1055,6 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 
     case 3:
         if (dynamic_cast<NoteModel *>(model)) good = true;
-        else if (dynamic_cast<FlexiNoteModel *>(model)) good = true;
         else if (dynamic_cast<RegionModel *>(model)) good = true;
         else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
             m_datasetSeparator = attributes.value("separator");
@@ -1085,7 +1088,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     if (sodm) {
 //        SVCERR << "Current dataset is a sparse one dimensional model" << endl;
         QString label = attributes.value("label");
-        sodm->addPoint(SparseOneDimensionalModel::Point(frame, label));
+        sodm->add(Event(frame, label));
         return true;
     }
 
@@ -1097,7 +1100,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
-        stvm->addPoint(SparseTimeValueModel::Point(frame, value, label));
+        stvm->add(Event(frame, value, label));
         return ok;
     }
         
@@ -1115,25 +1118,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
             level = 1.f;
             ok = true;
         }
-        nm->addPoint(NoteModel::Point(frame, value, duration, level, label));
-        return ok;
-    }
-
-    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(m_currentDataset);
-
-    if (fnm) {
-//        SVCERR << "Current dataset is a flexinote model" << endl;
-        float value = 0.0;
-        value = attributes.value("value").trimmed().toFloat(&ok);
-        int duration = 0;
-        duration = attributes.value("duration").trimmed().toInt(&ok);
-        QString label = attributes.value("label");
-        float level = attributes.value("level").trimmed().toFloat(&ok);
-        if (!ok) { // level is optional
-            level = 1.f;
-            ok = true;
-        }
-        fnm->addPoint(FlexiNoteModel::Point(frame, value, duration, level, label));
+        nm->add(Event(frame, value, duration, level, label));
         return ok;
     }
 
@@ -1146,7 +1131,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         int duration = 0;
         duration = attributes.value("duration").trimmed().toInt(&ok);
         QString label = attributes.value("label");
-        rm->addPoint(RegionModel::Point(frame, value, duration, label));
+        rm->add(Event(frame, value, duration, label));
         return ok;
     }
 
@@ -1158,7 +1143,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         height = attributes.value("height").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << endl;
-        tm->addPoint(TextModel::Point(frame, height, label));
+        tm->add(Event(frame, height, label));
         return ok;
     }
 
@@ -1168,7 +1153,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 //        SVCERR << "Current dataset is a path model" << endl;
         int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
 //        SVDEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
-        pm->addPoint(PathModel::Point(frame, mapframe));
+        pm->add(PathPoint(frame, mapframe));
         return ok;
     }
 
@@ -1179,7 +1164,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         QString image = attributes.value("image");
         QString label = attributes.value("label");
 //        SVDEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
-        im->addPoint(ImageModel::Point(frame, image, label));
+        im->add(Event(frame).withURI(image).withLabel(label));
         return ok;
     }
 

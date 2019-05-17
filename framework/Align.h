@@ -19,10 +19,13 @@
 #include <QString>
 #include <QObject>
 #include <QProcess>
+#include <QMutex>
 #include <set>
 
 class Model;
 class AlignmentModel;
+class SparseTimeValueModel;
+class AggregateWaveModel;
 class Document;
 
 class Align : public QObject
@@ -30,13 +33,24 @@ class Align : public QObject
     Q_OBJECT
     
 public:
-    Align() : m_error("") { }
+    Align() { }
 
     /**
      * Align the "other" model to the reference, attaching an
      * AlignmentModel to it. Alignment is carried out by the method
      * configured in the user preferences (either a plugin transform
      * or an external process) and is done asynchronously. 
+     *
+     * The return value indicates whether the alignment procedure
+     * started successfully. If it is true, then an AlignmentModel has
+     * been constructed and attached to the toAlign model, and you can
+     * query that model to discover the alignment progress, eventual
+     * outcome, and any error message generated during alignment. (The
+     * AlignmentModel is subsequently owned by the toAlign model.)
+     * Conversely if alignModel returns false, no AlignmentModel has
+     * been created, and the error return argument will contain an
+     * error report about whatever problem prevented this from
+     * happening.
      *
      * A single Align object may carry out many simultanous alignment
      * calls -- you do not need to create a new Align object each
@@ -50,24 +64,25 @@ public:
      */
     bool alignModel(Document *doc,
                     Model *reference,
-                    Model *other); // via user preference
+                    Model *toAlign,
+                    QString &error);
     
     bool alignModelViaTransform(Document *doc,
                                 Model *reference,
-                                Model *other);
+                                Model *toAlign,
+                                QString &error);
 
     bool alignModelViaProgram(Document *doc,
                               Model *reference,
-                              Model *other,
-                              QString program);
+                              Model *toAlign,
+                              QString program,
+                              QString &error);
 
     /**
      * Return true if the alignment facility is available (relevant
      * plugin installed, etc).
      */
     static bool canAlign();
-    
-    QString getError() const { return m_error; }
 
 signals:
     /**
@@ -79,13 +94,30 @@ signals:
 
 private slots:
     void alignmentCompletionChanged();
+    void tuningDifferenceCompletionChanged();
     void alignmentProgramFinished(int, QProcess::ExitStatus);
     
 private:
     static QString getAlignmentTransformName();
-    
-    QString m_error;
-    std::map<QProcess *, AlignmentModel *> m_processModels;
+    static QString getTuningDifferenceTransformName();
+
+    bool beginTransformDrivenAlignment(AggregateWaveModel *,
+                                       AlignmentModel *,
+                                       float tuningFrequency = 0.f);
+
+    QMutex m_mutex;
+
+    struct TuningDiffRec {
+        AggregateWaveModel *input;
+        AlignmentModel *alignment;
+        SparseTimeValueModel *preparatory;
+    };
+
+    // tuning-difference output model -> data needed for subsequent alignment
+    std::map<SparseTimeValueModel *, TuningDiffRec> m_pendingTuningDiffs;
+
+    // external alignment subprocess -> model into which to stuff the results
+    std::map<QProcess *, AlignmentModel *> m_pendingProcesses;
 };
 
 #endif

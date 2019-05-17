@@ -294,6 +294,12 @@ public:
     void alignModels();
 
     /**
+     * Re-generate alignments for all appropriate models against the
+     * main model.  Existing alignments will be re-calculated.
+     */
+    void realignModels();
+
+    /**
      * Return true if any external files (most obviously audio) failed
      * to be found on load, so that the document is incomplete
      * compared to its saved description.
@@ -338,11 +344,11 @@ protected:
 
     /**
      * If model is suitable for alignment, align it against the main
-     * model and store the alignment in the model.  (If the model has
-     * an alignment already for the current main model, leave it
-     * unchanged.)
+     * model and store the alignment in the model. If the model has an
+     * alignment already for the current main model, leave it
+     * unchanged unless forceRecalculate is true.
      */
-    void alignModel(Model *);
+    void alignModel(Model *, bool forceRecalculate = false);
 
     /*
      * Every model that is in use by a layer in the document must be
@@ -370,6 +376,7 @@ protected:
         // be confusing to have Input objects hanging around with NULL
         // models in them.
 
+        Model *model;
         const Model *source;
         int channel;
         Transform transform;
@@ -379,8 +386,41 @@ protected:
         int refcount;
     };
 
-    typedef std::map<Model *, ModelRecord> ModelMap;
-    ModelMap m_models;
+    // This used to be a map<Model *, ModelRecord>, but a vector
+    // ensures that models are consistently recorded in order of
+    // creation rather than at the whim of heap allocation, and that's
+    // useful for automated testing. We don't expect ever to have so
+    // many models that there is any significant overhead there.
+    typedef std::vector<ModelRecord> ModelList;
+    ModelList m_models;
+
+    ModelList::iterator findModelInList(Model *m) {
+        for (ModelList::iterator i = m_models.begin();
+             i != m_models.end(); ++i) {
+            if (i->model == m) {
+                return i;
+            }
+        }
+        return m_models.end();
+    }
+    
+    void deleteModelFromList(Model *m) {
+        ModelList keep;
+        bool found = false;
+        for (const ModelRecord &rec: m_models) {
+            if (rec.model == m) {
+                found = true;
+                m->aboutToDelete();
+                emit modelAboutToBeDeleted(m);
+            } else {
+                keep.push_back(rec);
+            }
+        }
+        m_models = keep;
+        if (found) {
+            delete m;
+        }
+    }
 
     /**
      * Add an extra derived model (returned at the end of processing a
@@ -447,8 +487,8 @@ protected:
      * And these are the layers.  We also control the lifespans of
      * these (usually through the commands used to add and remove them).
      */
-    typedef std::set<Layer *> LayerSet;
-    LayerSet m_layers;
+    typedef std::vector<Layer *> LayerList;
+    LayerList m_layers;
 
     bool m_autoAlignment;
     Align *m_align;

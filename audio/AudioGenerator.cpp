@@ -22,11 +22,10 @@
 #include "base/Exceptions.h"
 
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/DenseTimeValueModel.h"
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
-#include "data/model/NoteData.h"
+#include "base/NoteData.h"
 
 #include "ClipMixer.h"
 #include "ContinuousSynth.h"
@@ -185,8 +184,7 @@ AudioGenerator::usesClipMixer(const Model *model)
 {
     bool clip = 
         (qobject_cast<const SparseOneDimensionalModel *>(model) ||
-         qobject_cast<const NoteModel *>(model) ||
-         qobject_cast<const FlexiNoteModel *>(model));
+         qobject_cast<const NoteModel *>(model));
     return clip;
 }
 
@@ -196,9 +194,7 @@ AudioGenerator::wantsQuieterClips(const Model *model)
     // basically, anything that usually has sustain (like notes) or
     // often has multiple sounds at once (like notes) wants to use a
     // quieter level than simple click tracks
-    bool does = 
-        (qobject_cast<const NoteModel *>(model) ||
-         qobject_cast<const FlexiNoteModel *>(model));
+    bool does = (qobject_cast<const NoteModel *>(model));
     return does;
 }
 
@@ -559,6 +555,8 @@ AudioGenerator::mixClipModel(Model *model,
 
     float **bufferIndexes = new float *[m_targetChannelCount];
 
+    //!!! + for first block, prime with notes already active
+    
     for (int i = 0; i < blocks; ++i) {
 
         sv_frame_t reqStart = startFrame + i * m_processingBlockSize;
@@ -566,8 +564,8 @@ AudioGenerator::mixClipModel(Model *model,
         NoteList notes;
         NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
         if (exportable) {
-            notes = exportable->getNotesWithin(reqStart,
-                                               reqStart + m_processingBlockSize);
+            notes = exportable->getNotesStartingWithin(reqStart,
+                                                       m_processingBlockSize);
         }
 
         std::vector<ClipMixer::NoteStart> starts;
@@ -714,32 +712,28 @@ AudioGenerator::mixContinuousSynthModel(Model *model,
             bufferIndexes[c] = buffer[c] + i * m_processingBlockSize;
         }
 
-        SparseTimeValueModel::PointList points = 
-            stvm->getPoints(reqStart, reqStart + m_processingBlockSize);
+        EventVector points = 
+            stvm->getEventsStartingWithin(reqStart, m_processingBlockSize);
 
         // by default, repeat last frequency
         float f0 = 0.f;
 
-        // go straight to the last freq that is genuinely in this range
-        for (SparseTimeValueModel::PointList::const_iterator itr = points.end();
-             itr != points.begin(); ) {
-            --itr;
-            if (itr->frame >= reqStart &&
-                itr->frame < reqStart + m_processingBlockSize) {
-                f0 = itr->value;
-                break;
-            }
+        // go straight to the last freq in this range
+        if (!points.empty()) {
+            f0 = points.rbegin()->getValue();
         }
 
-        // if we found no such frequency and the next point is further
+        // if there is no such frequency and the next point is further
         // away than twice the model resolution, go silent (same
         // criterion TimeValueLayer uses for ending a discrete curve
         // segment)
         if (f0 == 0.f) {
-            SparseTimeValueModel::PointList nextPoints = 
-                stvm->getNextPoints(reqStart + m_processingBlockSize);
-            if (nextPoints.empty() ||
-                nextPoints.begin()->frame > reqStart + 2 * stvm->getResolution()) {
+            Event nextP;
+            if (!stvm->getNearestEventMatching(reqStart + m_processingBlockSize,
+                                               [](Event) { return true; },
+                                               EventSeries::Forward,
+                                               nextP) ||
+                nextP.getFrame() > reqStart + 2 * stvm->getResolution()) {
                 f0 = -1.f;
             }
         }

@@ -22,7 +22,6 @@
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/SparseOneDimensionalModel.h"
 #include "data/model/NoteModel.h"
-#include "data/model/FlexiNoteModel.h"
 #include "data/model/Labeller.h"
 #include "data/model/TabularModel.h"
 #include "view/ViewManager.h"
@@ -55,10 +54,12 @@
 #include "data/fileio/PlaylistFileReader.h"
 #include "data/fileio/WavFileWriter.h"
 #include "data/fileio/MIDIFileWriter.h"
+#include "data/fileio/CSVFileWriter.h"
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
+#include "rdf/RDFExporter.h"
 
 #include "base/RecentFiles.h"
 
@@ -72,6 +73,7 @@
 
 #include "data/osc/OSCQueue.h"
 #include "data/midi/MIDIInput.h"
+#include "OSCScript.h"
 
 #include "system/System.h"
 
@@ -149,6 +151,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     m_audioIO(nullptr),
     m_oscQueue(nullptr),
     m_oscQueueStarter(nullptr),
+    m_oscScript(nullptr),
     m_midiInput(nullptr),
     m_recentFiles("RecentFiles", 20),
     m_recentTransforms("RecentTransforms", 20),
@@ -328,6 +331,17 @@ MainWindowBase::~MainWindowBase()
     delete m_viewManager;
     delete m_midiInput;
 
+    if (m_oscScript) {
+        disconnect(m_oscScript, nullptr, nullptr, nullptr);
+        m_oscScript->abandon();
+        m_oscScript->wait(1000);
+        if (m_oscScript->isRunning()) {
+            m_oscScript->terminate();
+            m_oscScript->wait(1000);
+        }
+        delete m_oscScript;
+    }
+
     if (m_oscQueueStarter) {
         disconnect(m_oscQueueStarter, nullptr, nullptr, nullptr);
         m_oscQueueStarter->wait(1000);
@@ -501,9 +515,9 @@ MainWindowBase::resizeConstrained(QSize size)
 }
 
 void
-MainWindowBase::startOSCQueue()
+MainWindowBase::startOSCQueue(bool withNetworkPort)
 {
-    m_oscQueueStarter = new OSCQueueStarter(this);
+    m_oscQueueStarter = new OSCQueueStarter(this, withNetworkPort);
     connect(m_oscQueueStarter, SIGNAL(finished()), this, SLOT(oscReady()));
     m_oscQueueStarter->start();
 }
@@ -516,8 +530,43 @@ MainWindowBase::oscReady()
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
         oscTimer->start(1000);
-        SVCERR << "Finished setting up OSC interface" << endl;
+
+        if (m_oscQueue->hasPort()) {
+            SVDEBUG << "Finished setting up OSC interface" << endl;
+        } else {
+            SVDEBUG << "Finished setting up internal-only OSC queue" << endl;
+        }
+
+        if (m_oscScriptFile != QString()) {
+            startOSCScript();
+        }
     }
+}
+
+void
+MainWindowBase::startOSCScript()
+{
+    m_oscScript = new OSCScript(m_oscScriptFile, m_oscQueue);
+    connect(m_oscScript, SIGNAL(finished()),
+            this, SLOT(oscScriptFinished()));
+    m_oscScriptFile = QString();
+    m_oscScript->start();
+}
+
+void
+MainWindowBase::cueOSCScript(QString fileName)
+{
+    m_oscScriptFile = fileName;
+    if (m_oscQueue && m_oscQueue->isOK()) {
+        startOSCScript();
+    }
+}
+
+void
+MainWindowBase::oscScriptFinished()
+{
+    delete m_oscScript;
+    m_oscScript = 0;
 }
 
 QString
@@ -699,16 +748,46 @@ MainWindowBase::updateMenuStates()
 }
 
 void
+MainWindowBase::updateWindowTitle()
+{
+    QString title;
+
+    if (m_sessionFile != "") {
+        if (m_originalLocation != "" &&
+            m_originalLocation != m_sessionFile) { // session + location
+            title = tr("%1: %2 [%3]")
+                .arg(QApplication::applicationName())
+                .arg(QFileInfo(m_sessionFile).fileName())
+                .arg(m_originalLocation);
+        } else { // session only
+            title = tr("%1: %2")
+                .arg(QApplication::applicationName())
+                .arg(QFileInfo(m_sessionFile).fileName());
+        }
+    } else {
+        if (m_originalLocation != "") { // location only
+            title = tr("%1: %2")
+                .arg(QApplication::applicationName())
+                .arg(m_originalLocation);
+        } else { // neither
+            title = QApplication::applicationName();
+        }
+    }
+    
+    if (m_documentModified) {
+        title = tr("%1 (modified)").arg(title);
+    }
+
+    setWindowTitle(title);
+}
+
+void
 MainWindowBase::documentModified()
 {
 //    SVDEBUG << "MainWindowBase::documentModified" << endl;
 
-    if (!m_documentModified) {
-        //!!! this in subclass implementation?
-        setWindowTitle(tr("%1 (modified)").arg(windowTitle()));
-    }
-
     m_documentModified = true;
+    updateWindowTitle();
     updateMenuStates();
 }
 
@@ -717,14 +796,8 @@ MainWindowBase::documentRestored()
 {
 //    SVDEBUG << "MainWindowBase::documentRestored" << endl;
 
-    if (m_documentModified) {
-        //!!! this in subclass implementation?
-        QString wt(windowTitle());
-        wt.replace(tr(" (modified)"), "");
-        setWindowTitle(wt);
-    }
-
     m_documentModified = false;
+    updateWindowTitle();
     updateMenuStates();
 }
 
@@ -1136,46 +1209,44 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
     if (layer) {
     
         Model *model = layer->getModel();
-        SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-            (model);
+        SparseOneDimensionalModel *sodm =
+            dynamic_cast<SparseOneDimensionalModel *>(model);
 
         if (sodm) {
-            SparseOneDimensionalModel::Point point(frame, "");
-
-            SparseOneDimensionalModel::Point prevPoint(0);
+            Event point(frame, "");
+            Event prevPoint(0);
             bool havePrevPoint = false;
 
-            SparseOneDimensionalModel::EditCommand *command =
-                new SparseOneDimensionalModel::EditCommand(sodm, tr("Add Point"));
+            ChangeEventsCommand *command =
+                new ChangeEventsCommand(sodm, tr("Add Point"));
 
             if (m_labeller) {
 
                 if (m_labeller->requiresPrevPoint()) {
-
-                    SparseOneDimensionalModel::PointList prevPoints =
-                        sodm->getPreviousPoints(frame);
-
-                    if (!prevPoints.empty()) {
-                        prevPoint = *prevPoints.begin();
+                    
+                    if (sodm->getNearestEventMatching
+                        (frame,
+                         [](Event) { return true; },
+                         EventSeries::Backward,
+                         prevPoint)) {
                         havePrevPoint = true;
                     }
                 }
 
                 m_labeller->setSampleRate(sodm->getSampleRate());
 
-                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
-                    command->deletePoint(prevPoint);
-                }
-
-                m_labeller->label<SparseOneDimensionalModel::Point>
+                Labeller::Relabelling relabelling = m_labeller->label
                     (point, havePrevPoint ? &prevPoint : nullptr);
 
-                if (m_labeller->actingOnPrevPoint() && havePrevPoint) {
-                    command->addPoint(prevPoint);
+                if (relabelling.first == Labeller::AppliesToPreviousEvent) {
+                    command->remove(prevPoint);
+                    command->add(relabelling.second);
+                } else {
+                    point = relabelling.second;
                 }
             }
             
-            command->addPoint(point);
+            command->add(point);
 
             command->setName(tr("Add Point at %1 s")
                              .arg(RealTime::frame2RealTime
@@ -1231,14 +1302,12 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 
     RegionModel *rm = dynamic_cast<RegionModel *>(layer->getModel());
     if (rm) {
-        RegionModel::Point point(alignedStart,
-                                 rm->getValueMaximum() + 1,
-                                 alignedDuration,
-                                 "");
-        RegionModel::EditCommand *command =
-            new RegionModel::EditCommand(rm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
+        Event point(alignedStart,
+                    rm->getValueMaximum() + 1,
+                    alignedDuration,
+                    "");
+        ChangeEventsCommand *command = new ChangeEventsCommand(rm, name);
+        command->add(point);
         c = command->finish();
     }
 
@@ -1249,37 +1318,16 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
 
     NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
     if (nm) {
-        NoteModel::Point point(alignedStart,
-                               nm->getValueMinimum(),
-                               alignedDuration,
-                               1.f,
-                               "");
-        NoteModel::EditCommand *command =
-            new NoteModel::EditCommand(nm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
+        Event point(alignedStart,
+                    nm->getValueMinimum(),
+                    alignedDuration,
+                    1.f,
+                    "");
+        ChangeEventsCommand *command = new ChangeEventsCommand(nm, name);
+        command->add(point);
         c = command->finish();
     }
 
-    if (c) {
-        CommandHistory::getInstance()->addCommand(c, false);
-        return;
-    }
-
-    FlexiNoteModel *fnm = dynamic_cast<FlexiNoteModel *>(layer->getModel());
-    if (fnm) {
-        FlexiNoteModel::Point point(alignedStart,
-                                    fnm->getValueMinimum(),
-                                    alignedDuration,
-                                    1.f,
-                                    "");
-        FlexiNoteModel::EditCommand *command =
-            new FlexiNoteModel::EditCommand(fnm, tr("Add Point"));
-        command->addPoint(point);
-        command->setName(name);
-        c = command->finish();
-    }
-    
     if (c) {
         CommandHistory::getInstance()->addCommand(c, false);
         return;
@@ -1306,9 +1354,10 @@ MainWindowBase::renumberInstants()
 
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
-
+/*!!! to be updated after SODM API update
     Command *c = labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 void
@@ -1332,9 +1381,12 @@ MainWindowBase::subdivideInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
+    (void)n;
+/*!!! to be updated after SODM API update
     Command *c = labeller.subdivide<SparseOneDimensionalModel::Point>
         (*sodm, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 void
@@ -1358,9 +1410,12 @@ MainWindowBase::winnowInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
+    (void)n;
+/*!!! to be updated after SODM API update
     Command *c = labeller.winnow<SparseOneDimensionalModel::Point>
         (*sodm, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
+*/
 }
 
 MainWindowBase::FileOpenStatus
@@ -1632,7 +1687,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
     }
 
     emit activity(tr("Import audio file \"%1\"").arg(source.getLocation()));
-
+    
     if (mode == ReplaceMainModel) {
 
         Model *prevMain = getMainModel();
@@ -1648,22 +1703,15 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
 
         setupMenus();
 
+        m_originalLocation = source.getLocation();
+
         if (loadedTemplate || (m_sessionFile == "")) {
-            //!!! shouldn't be dealing directly with title from here -- call a method
-            setWindowTitle(tr("%1: %2")
-                           .arg(QApplication::applicationName())
-                           .arg(source.getLocation()));
             CommandHistory::getInstance()->clear();
             CommandHistory::getInstance()->documentSaved();
             m_documentModified = false;
         } else {
-            setWindowTitle(tr("%1: %2 [%3]")
-                           .arg(QApplication::applicationName())
-                           .arg(QFileInfo(m_sessionFile).fileName())
-                           .arg(source.getLocation()));
             if (m_documentModified) {
                 m_documentModified = false;
-                documentModified(); // so as to restore "(modified)" window title
             }
         }
 
@@ -1671,6 +1719,8 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
             m_audioFile = source.getLocalFilename();
         }
 
+        updateWindowTitle();
+        
     } else if (mode == CreateAdditionalModel) {
 
         SVCERR << "Mode is CreateAdditionalModel" << endl;
@@ -2133,10 +2183,6 @@ MainWindowBase::openSession(FileSource source)
 
         emit activity(tr("Import session file \"%1\"").arg(source.getLocation()));
 
-        setWindowTitle(tr("%1: %2")
-                       .arg(QApplication::applicationName())
-                       .arg(source.getLocation()));
-
         if (!source.isRemote() && !m_document->isIncomplete()) {
             // Setting the session file path enables the Save (as
             // opposed to Save As...) option. We can't do this if we
@@ -2153,6 +2199,7 @@ MainWindowBase::openSession(FileSource source)
                  QMessageBox::Ok);
         }
 
+        updateWindowTitle();
         setupMenus();
         findTimeRulerLayer();
 
@@ -2169,12 +2216,13 @@ MainWindowBase::openSession(FileSource source)
                                        source.getLocalFilename());
         }
 
+        m_originalLocation = source.getLocation();
+        
         emit sessionLoaded();
 
-    } else {
-        setWindowTitle(QApplication::applicationName());
+        updateWindowTitle();
     }
-
+    
     return ok ? FileOpenSucceeded : FileOpenFailed;
 }
 
@@ -2240,8 +2288,6 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
     bool ok = (error == "");
 
-    setWindowTitle(QApplication::applicationName());
-
     if (ok) {
 
         emit activity(tr("Open session template \"%1\"").arg(source.getLocation()));
@@ -2256,6 +2302,8 @@ MainWindowBase::openSessionTemplate(FileSource source)
 
         emit sessionLoaded();
     }
+
+    updateWindowTitle();
 
     return ok ? FileOpenSucceeded : FileOpenFailed;
 }
@@ -2279,13 +2327,11 @@ MainWindowBase::openSessionFromRDF(FileSource source)
 
     setupMenus();
     findTimeRulerLayer();
-    
-    setWindowTitle(tr("%1: %2")
-                   .arg(QApplication::applicationName())
-                   .arg(source.getLocation()));
+
     CommandHistory::getInstance()->clear();
     CommandHistory::getInstance()->documentSaved();
     m_documentModified = false;
+    updateWindowTitle();
 
     emit sessionLoaded();
 
@@ -2649,6 +2695,8 @@ MainWindowBase::createDocument()
     connect(m_document, SIGNAL(alignmentFailed(QString)),
             this, SLOT(alignmentFailed(QString)));
 
+    m_document->setAutoAlignment(m_viewManager->getAlignMode());
+
     emit replacedDocument();
 }
 
@@ -2734,6 +2782,79 @@ MainWindowBase::saveSessionTemplate(QString path)
                               .arg(path).arg(f.what()));
         return false;
     }
+}
+
+bool
+MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".svl";
+
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    Model *model = layer->getModel();
+
+    if (suffix == "xml" || suffix == "svl") {
+
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            error = tr("Failed to open file %1 for writing").arg(path);
+        } else {
+            QTextStream out(&file);
+            out.setCodec(QTextCodec::codecForName("UTF-8"));
+            out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                << "<!DOCTYPE sonic-visualiser>\n"
+                << "<sv>\n"
+                << "  <data>\n";
+
+            model->toXml(out, "    ");
+
+            out << "  </data>\n"
+                << "  <display>\n";
+
+            layer->toXml(out, "    ");
+
+            out << "  </display>\n"
+                << "</sv>\n";
+        }
+
+    } else if (suffix == "mid" || suffix == "midi") {
+
+        NoteModel *nm = dynamic_cast<NoteModel *>(model);
+
+        if (!nm) {
+            error = tr("Can't export non-note layers to MIDI");
+        } else {
+            MIDIFileWriter writer(path, nm, nm->getSampleRate());
+            writer.write();
+            if (!writer.isOK()) {
+                error = writer.getError();
+            }
+        }
+
+    } else if (suffix == "ttl" || suffix == "n3") {
+
+        if (!RDFExporter::canExportModel(model)) {
+            error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
+        } else {
+            RDFExporter exporter(path, model);
+            exporter.write();
+            if (!exporter.isOK()) {
+                error = exporter.getError();
+            }
+        }
+
+    } else {
+
+        CSVFileWriter writer(path, model,
+                             ((suffix == "csv") ? "," : "\t"));
+        writer.write();
+
+        if (!writer.isOK()) {
+            error = writer.getError();
+        }
+    }
+
+    return (error == "");
 }
 
 void
@@ -3181,24 +3302,15 @@ MainWindowBase::record()
         setupMenus();
         findTimeRulerLayer();
 
+        m_originalLocation = model->getLocation();
+        
         if (loadedTemplate || (m_sessionFile == "")) {
-            //!!! shouldn't be dealing directly with title from here -- call a method
-            setWindowTitle(tr("%1: %2")
-                           .arg(QApplication::applicationName())
-                           .arg(model->getLocation()));
             CommandHistory::getInstance()->clear();
             CommandHistory::getInstance()->documentSaved();
-            m_documentModified = false;
-        } else {
-            setWindowTitle(tr("%1: %2 [%3]")
-                           .arg(QApplication::applicationName())
-                           .arg(QFileInfo(m_sessionFile).fileName())
-                           .arg(model->getLocation()));
-            if (m_documentModified) {
-                m_documentModified = false;
-                documentModified(); // so as to restore "(modified)" window title
-            }
         }
+
+        m_documentModified = false;
+        updateWindowTitle();
 
     } else {
 

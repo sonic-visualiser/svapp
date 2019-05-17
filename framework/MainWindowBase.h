@@ -34,6 +34,7 @@
 #include "data/fileio/FileFinder.h"
 #include "data/fileio/FileSource.h"
 #include "data/osc/OSCQueue.h"
+#include "data/osc/OSCMessageCallback.h"
 #include <map>
 
 class Document;
@@ -58,6 +59,7 @@ class PreferencesDialog;
 class QTreeView;
 class QPushButton;
 class OSCMessage;
+class OSCScript;
 class MIDIInput;
 class KeyReference;
 class Labeller;
@@ -81,7 +83,9 @@ namespace breakfastquay {
  * to use different subclasses retaining the same general structure.
  */
 
-class MainWindowBase : public QMainWindow, public FrameTimer
+class MainWindowBase : public QMainWindow,
+                       public FrameTimer,
+                       public OSCMessageCallback
 {
     Q_OBJECT
 
@@ -135,6 +139,10 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
+    virtual bool exportLayerTo(Layer *layer, QString path, QString &error);
+
+    void cueOSCScript(QString filename);
+    
     /// Implementation of FrameTimer interface method
     sv_frame_t getFrame() const override;
 
@@ -300,6 +308,7 @@ protected slots:
 
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
+    virtual void updateWindowTitle();
 
     virtual void modelGenerationFailed(QString, QString) = 0;
     virtual void modelGenerationWarning(QString, QString) = 0;
@@ -320,7 +329,7 @@ protected slots:
 
     virtual void oscReady();
     virtual void pollOSC();
-    virtual void handleOSCMessage(const OSCMessage &) = 0;
+    virtual void oscScriptFinished();
 
     virtual void contextHelpChanged(const QString &);
     virtual void inProgressSelectionChanged();
@@ -337,15 +346,23 @@ protected slots:
     virtual void menuActionMapperInvoked(QObject *);
 
 protected:
-    QString                  m_sessionFile;
-    QString                  m_audioFile;
-    Document                *m_document;
+    QString m_sessionFile;
+    QString m_audioFile;
+    Document *m_document;
 
-    PaneStack               *m_paneStack;
-    ViewManager             *m_viewManager;
-    Layer                   *m_timeRulerLayer;
+    // This is used in the window title. It's the upstream location
+    // (maybe a URL) the user provided as source of the main model. It
+    // should be set in cases where there is no current session file
+    // and m_sessionFile is empty, or where a new main model has been
+    // imported into an existing session. It should be used only for
+    // user presentation, never parsed - treat it as an opaque label
+    QString m_originalLocation;
 
-    SoundOptions             m_soundOptions;
+    PaneStack *m_paneStack;
+    ViewManager *m_viewManager;
+    Layer *m_timeRulerLayer;
+
+    SoundOptions m_soundOptions;
 
     AudioCallbackPlaySource *m_playSource;
     AudioCallbackRecordTarget *m_recordTarget;
@@ -356,18 +373,27 @@ protected:
     class OSCQueueStarter : public QThread
     {
     public:
-        OSCQueueStarter(MainWindowBase *mwb) : QThread(mwb), m_mwb(mwb) { }
+        OSCQueueStarter(MainWindowBase *mwb, bool withNetworkPort) :
+            QThread(mwb), m_mwb(mwb), m_withPort(withNetworkPort) { }
+
         void run() override {
-            OSCQueue *queue = new OSCQueue(); // can take a long time
+            // NB creating the queue object can take a long time
+            OSCQueue *queue = new OSCQueue(m_withPort);
             m_mwb->m_oscQueue = queue;
         }
+        
     private:
         MainWindowBase *m_mwb;
+        bool m_withPort;
     };
 
     OSCQueue                *m_oscQueue;
     OSCQueueStarter         *m_oscQueueStarter;
-    void startOSCQueue();
+    OSCScript               *m_oscScript;
+    QString                  m_oscScriptFile;
+
+    void startOSCQueue(bool withNetworkPort);
+    void startOSCScript();
 
     MIDIInput               *m_midiInput;
 
