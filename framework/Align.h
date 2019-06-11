@@ -96,6 +96,7 @@ private slots:
     void alignmentCompletionChanged();
     void tuningDifferenceCompletionChanged();
     void alignmentProgramFinished(int, QProcess::ExitStatus);
+    void aggregateModelAboutToBeDeleted();
     
 private:
     static QString getAlignmentTransformName();

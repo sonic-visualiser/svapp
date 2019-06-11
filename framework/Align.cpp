@@ -201,6 +201,9 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
         rec.input = aggregateModel;
         rec.alignment = alignmentModel;
 
+        connect(aggregateModel, SIGNAL(aboutToBeDeleted()),
+                this, SLOT(aggregateModelAboutToBeDeleted()));
+        
         // This model exists only so that the AlignmentModel can get a
         // completion value from somewhere while the tuning difference
         // calculation is going on
@@ -213,6 +216,28 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
     }
 
     return true;
+}
+
+void
+Align::aggregateModelAboutToBeDeleted()
+{
+    SVCERR << "Align::aggregateModelAboutToBeDeleted" << endl;
+
+    QObject *s = sender();
+    AggregateWaveModel *awm = qobject_cast<AggregateWaveModel *>(s);
+    if (!awm) return;
+    QMutexLocker locker(&m_mutex);
+
+    SVCERR << "Align::aggregateModelAboutToBeDeleted: awm = " << awm
+           << endl;
+
+    for (const auto &p : m_pendingTuningDiffs) {
+        if (p.second.input == awm) {
+            SVCERR << "we have a record of this, getting rid of it" << endl;
+            m_pendingTuningDiffs.erase(p.first);
+            return;
+        }
+    }
 }
 
 void
