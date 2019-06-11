@@ -804,10 +804,12 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
     }
 
     bool toDelete = false;
+    bool isInModelList = false; // should become true for any "normal" model
 
     ModelList::iterator mitr = findModelInList(model);
-    
+
     if (mitr != m_models.end()) {
+
         if (mitr->refcount == 0) {
             SVCERR << "WARNING: Document::releaseModel: model " << model
                    << " reference count is zero already!" << endl;
@@ -819,6 +821,8 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
                 toDelete = true;
             }
         }
+        isInModelList = true;
+
     } else if (m_aggregateModels.find(model) != m_aggregateModels.end()) {
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::releaseModel: is an aggregate model" << endl;
@@ -848,16 +852,26 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
                     << "their source fields appropriately" << endl;
         }
 
-        deleteModelFromList(model);
+        if (isInModelList) {
+            deleteModelFromList(model);
 
 #ifdef DEBUG_DOCUMENT
-        SVDEBUG << "Document::releaseModel: Deleted model " << model << endl;
-        SVDEBUG << "Models now: ";
-        for (const auto &r: m_models) {
-            SVDEBUG << r.model << " ";
-        } 
-        SVDEBUG << endl;
+            SVDEBUG << "Document::releaseModel: Deleted model " << model << endl;
+            SVDEBUG << "Models now: ";
+            for (const auto &r: m_models) {
+                SVDEBUG << r.model << " ";
+            } 
+            SVDEBUG << endl;
 #endif
+        } else {
+            model->aboutToDelete();
+            emit modelAboutToBeDeleted(model);
+            delete model;
+
+#ifdef DEBUG_DOCUMENT
+            SVDEBUG << "Document::releaseModel: Deleted awkward model " << model << endl;
+#endif
+        }
     }
 }
 
