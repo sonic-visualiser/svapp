@@ -172,8 +172,9 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
         Transform transform = tf->getDefaultTransformFor
             (tdId, aggregateModel->getSampleRate());
 
-        transform.setParameter("maxduration", 50);
-        transform.setParameter("maxrange", 5);
+        transform.setParameter("maxduration", 60);
+        transform.setParameter("maxrange", 6);
+        transform.setParameter("finetuning", false);
     
         SVDEBUG << "Align::alignModel: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
