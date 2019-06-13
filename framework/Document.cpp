@@ -43,7 +43,7 @@
 
 using std::vector;
 
-//#define DEBUG_DOCUMENT 1
+#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
 
@@ -1121,7 +1121,7 @@ Document::alignModel(Model *model, bool forceRecalculate)
 {
     SVDEBUG << "Document::alignModel(" << model << ", " << forceRecalculate
             << ") (main model is " << m_mainModel << ")" << endl;
-
+    
     RangeSummarisableTimeValueModel *rm = 
         dynamic_cast<RangeSummarisableTimeValueModel *>(model);
     if (!rm) {
@@ -1161,6 +1161,17 @@ Document::alignModel(Model *model, bool forceRecalculate)
         return;
     }
 
+    WritableWaveFileModel *w =
+        dynamic_cast<WritableWaveFileModel *>(model);
+    if (w && w->getWriteProportion() < 100) {
+        SVDEBUG << "Document::alignModel(" << model
+                << "): model write is not complete, deferring"
+                << endl;
+        connect(w, SIGNAL(writeCompleted()),
+                this, SLOT(performDeferredAlignment()));
+        return;
+    }
+
     SVDEBUG << "Document::alignModel: aligning..." << endl;
     if (rm->getAlignmentReference() != nullptr) {
         SVDEBUG << "(Note: model " << rm << " is currently aligned to model "
@@ -1172,6 +1183,19 @@ Document::alignModel(Model *model, bool forceRecalculate)
     if (!m_align->alignModel(this, m_mainModel, rm, err)) {
         SVCERR << "Alignment failed: " << err << endl;
         emit alignmentFailed(err);
+    }
+}
+
+void
+Document::performDeferredAlignment()
+{
+    QObject *s = sender();
+    Model *m = dynamic_cast<Model *>(s);
+    if (!m) {
+        SVDEBUG << "Document::performDeferredAlignment: sender is not a Model" << endl;
+    } else {
+        SVDEBUG << "Document::performDeferredAlignment: aligning..." << endl;
+        alignModel(m);
     }
 }
 

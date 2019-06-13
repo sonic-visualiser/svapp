@@ -338,6 +338,7 @@ signals:
 
 protected slots:
     void aggregateModelInvalidated();
+    void performDeferredAlignment();
     
 protected:
     void releaseModel(Model *model);
