@@ -358,6 +358,10 @@ AudioCallbackPlaySource::removeModel(Model *model)
 
     m_audioGenerator->removeModel(model);
 
+    if (m_models.empty()) {
+        m_sourceSampleRate = 0;
+    }
+    
     m_mutex.unlock();
 
     clearRingBuffers();
