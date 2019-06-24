@@ -422,8 +422,10 @@ SVFileReader::makeAggregateModels()
                     dynamic_cast<RangeSummarisableTimeValueModel *>
                     (m_models[componentId]);
                 if (rs) {
+                    //!!! NB difference between model id and model
+                    //!!! export id - we need to be clearer about this
                     specs.push_back(AggregateWaveModel::ModelChannelSpec
-                                    (rs, -1));
+                                    (rs->getId(), -1));
                     found = true;
                 }
             }

@@ -139,10 +139,10 @@ Align::alignModelViaTransform(Document *doc, Model *ref, Model *other,
     AggregateWaveModel::ChannelSpecList components;
 
     components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (reference, -1));
+                         (reference->getId(), -1));
 
     components.push_back(AggregateWaveModel::ModelChannelSpec
-                         (rm, -1));
+                         (rm->getId(), -1));
 
     AggregateWaveModel *aggregateModel = new AggregateWaveModel(components);
     doc->addAggregateModel(aggregateModel);
