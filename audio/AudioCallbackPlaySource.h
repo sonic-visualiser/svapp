@@ -29,6 +29,7 @@
 
 #include "base/Thread.h"
 #include "base/RealTime.h"
+#include "data/model/Model.h"
 
 #include <samplerate.h>
 
@@ -73,12 +74,12 @@ public:
      * models.  The models must match in sample rate, but they don't
      * have to have identical numbers of channels.
      */
-    virtual void addModel(Model *model);
+    virtual void addModel(ModelId model);
 
     /**
      * Remove a model.
      */
-    virtual void removeModel(Model *model);
+    virtual void removeModel(ModelId model);
 
     /**
      * Remove all models.  (Silence will ensue.)
@@ -292,7 +293,7 @@ public:
     /**
      * Specify that only the given set of models should be played.
      */
-    void setSoloModelSet(std::set<Model *>s);
+    void setSoloModelSet(std::set<ModelId>s);
 
     /**
      * Specify that all models should be played as normal (if not
@@ -344,7 +345,7 @@ protected:
         }
     };
 
-    std::set<Model *>                 m_models;
+    std::set<ModelId>                 m_models;
     RingBufferVector                 *m_readBuffers;
     RingBufferVector                 *m_writeBuffers;
     sv_frame_t                        m_readBufferFill;

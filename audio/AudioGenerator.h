@@ -48,12 +48,12 @@ public:
      * played.  The model will be added regardless of the return
      * value.
      */
-    virtual bool addModel(Model *model);
+    virtual bool addModel(ModelId model);
 
     /**
      * Remove a model.
      */
-    virtual void removeModel(Model *model);
+    virtual void removeModel(ModelId model);
 
     /**
      * Remove all models.
@@ -81,7 +81,7 @@ public:
     /**
      * Mix a single model into an output buffer.
      */
-    virtual sv_frame_t mixModel(Model *model,
+    virtual sv_frame_t mixModel(ModelId model,
                                 sv_frame_t startFrame,
                                 sv_frame_t frameCount,
                                 float **buffer,
@@ -91,7 +91,7 @@ public:
     /**
      * Specify that only the given set of models should be played.
      */
-    virtual void setSoloModelSet(std::set<Model *>s);
+    virtual void setSoloModelSet(std::set<ModelId>s);
 
     /**
      * Specify that all models should be played as normal (if not
@@ -100,7 +100,7 @@ public:
     virtual void clearSoloModelSet();
 
 protected slots:
-    void playClipIdChanged(const Playable *, QString);
+    void playClipIdChanged(int playableId, QString);
 
 protected:
     sv_samplerate_t m_sourceSampleRate;
@@ -108,7 +108,7 @@ protected:
     int m_waveType;
 
     bool m_soloing;
-    std::set<Model *> m_soloModelSet;
+    std::set<ModelId> m_soloModelSet;
 
     struct NoteOff {
 
@@ -140,12 +140,12 @@ protected:
     };
 
 
-    typedef std::map<const ModelId, ClipMixer *> ClipMixerMap;
+    typedef std::map<ModelId, ClipMixer *> ClipMixerMap;
 
     typedef std::multiset<NoteOff, NoteOff::Comparator> NoteOffSet;
-    typedef std::map<const ModelId, NoteOffSet> NoteOffMap;
+    typedef std::map<ModelId, NoteOffSet> NoteOffMap;
 
-    typedef std::map<const ModelId, ContinuousSynth *> ContinuousSynthMap;
+    typedef std::map<ModelId, ContinuousSynth *> ContinuousSynthMap;
 
     QMutex m_mutex;
 
@@ -155,25 +155,25 @@ protected:
 
     ContinuousSynthMap m_continuousSynthMap;
 
-    bool usesClipMixer(const Model *);
-    bool wantsQuieterClips(const Model *);
-    bool usesContinuousSynth(const Model *);
+    bool usesClipMixer(ModelId);
+    bool wantsQuieterClips(ModelId);
+    bool usesContinuousSynth(ModelId);
 
-    ClipMixer *makeClipMixerFor(const Model *model);
-    ContinuousSynth *makeSynthFor(const Model *model);
+    ClipMixer *makeClipMixerFor(ModelId model);
+    ContinuousSynth *makeSynthFor(ModelId model);
 
     static void initialiseSampleDir();
 
     virtual sv_frame_t mixDenseTimeValueModel
-    (DenseTimeValueModel *model, sv_frame_t startFrame, sv_frame_t frameCount,
+    (ModelId model, sv_frame_t startFrame, sv_frame_t frameCount,
      float **buffer, float gain, float pan, sv_frame_t fadeIn, sv_frame_t fadeOut);
 
     virtual sv_frame_t mixClipModel
-    (Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
+    (ModelId model, sv_frame_t startFrame, sv_frame_t frameCount,
      float **buffer, float gain, float pan);
 
     virtual sv_frame_t mixContinuousSynthModel
-    (Model *model, sv_frame_t startFrame, sv_frame_t frameCount,
+    (ModelId model, sv_frame_t startFrame, sv_frame_t frameCount,
      float **buffer, float gain, float pan);
     
     static const sv_frame_t m_processingBlockSize;
