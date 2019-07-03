@@ -35,6 +35,8 @@
 #include "data/fileio/FileSource.h"
 #include "data/osc/OSCQueue.h"
 #include "data/osc/OSCMessageCallback.h"
+#include "data/model/Model.h"
+
 #include <map>
 
 class Document;
@@ -302,9 +304,9 @@ protected slots:
     virtual void layerAboutToBeDeleted(Layer *);
     virtual void layerInAView(Layer *, bool);
 
-    virtual void mainModelChanged(WaveFileModel *);
-    virtual void modelAdded(Model *);
-    virtual void modelAboutToBeDeleted(Model *);
+    virtual void mainModelChanged(ModelId);
+    virtual void modelAdded(ModelId);
+    virtual void modelAboutToBeDeleted(ModelId);
 
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
@@ -315,7 +317,7 @@ protected slots:
     virtual void modelRegenerationFailed(QString, QString, QString) = 0;
     virtual void modelRegenerationWarning(QString, QString, QString) = 0;
 
-    virtual void alignmentComplete(AlignmentModel *);
+    virtual void alignmentComplete(ModelId);
     virtual void alignmentFailed(QString) = 0;
 
     virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
@@ -418,12 +420,12 @@ protected:
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 
-    WaveFileModel *getMainModel();
-    const WaveFileModel *getMainModel() const;
+    ModelId getMainModelId();
+    std::shared_ptr<WaveFileModel> getMainModel();
     void createDocument();
 
     FileOpenStatus addOpenedAudioModel(FileSource source,
-                                       WaveFileModel *model,
+                                       ModelId model,
                                        AudioFileOpenMode mode,
                                        QString templateName,
                                        bool registerSource);

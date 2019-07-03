@@ -105,7 +105,7 @@
 #include <QCheckBox>
 #include <QRegExp>
 #include <QScrollArea>
-#include <QDesktopWidget>
+#include <QScreen>
 #include <QSignalMapper>
 
 #include <iostream>
@@ -507,8 +507,8 @@ MainWindowBase::menuActionMapperInvoked(QObject *o)
 void
 MainWindowBase::resizeConstrained(QSize size)
 {
-    QDesktopWidget *desktop = QApplication::desktop();
-    QRect available = desktop->availableGeometry();
+    QScreen *screen = QApplication::primaryScreen();
+    QRect available = screen->availableGeometry();
     QSize actual(std::min(size.width(), available.width()),
                  std::min(size.height(), available.height()));
     resize(actual);
@@ -575,7 +575,7 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
     FileFinder *ff = FileFinder::getInstance();
 
     if (type == FileFinder::AnyFile) {
-        if (getMainModel() != nullptr &&
+        if (!getMainModelId().isNone() &&
             m_paneStack != nullptr &&
             m_paneStack->getCurrentPane() != nullptr) { // can import a layer
             return ff->getOpenFileName(FileFinder::AnyFile, m_sessionFile);
@@ -668,7 +668,7 @@ MainWindowBase::updateMenuStates()
         (haveCurrentPane &&
          (currentLayer != nullptr));
     bool haveMainModel =
-        (getMainModel() != nullptr);
+        (!getMainModelId().isNone());
     bool havePlayTarget =
         (m_playTarget != nullptr || m_audioIO != nullptr);
     bool haveSelection = 
@@ -693,7 +693,7 @@ MainWindowBase::updateMenuStates()
          !m_viewManager->getClipboard().empty());
     bool haveTabularLayer =
         (haveCurrentLayer &&
-         dynamic_cast<TabularModel *>(currentLayer->getModel()));
+         ModelById::isa<TabularModel>(currentLayer->getModel()));
 
     emit canAddPane(haveMainModel);
     emit canDeleteCurrentPane(haveCurrentPane);
@@ -839,7 +839,7 @@ MainWindowBase::playSoloToggled()
     if (m_viewManager->getPlaySoloMode()) {
         currentPaneChanged(m_paneStack->getCurrentPane());
     } else {
-        m_viewManager->setPlaybackModel(nullptr);
+        m_viewManager->setPlaybackModel({});
         if (m_playSource) {
             m_playSource->clearSoloModelSet();
         }
@@ -857,11 +857,13 @@ MainWindowBase::currentPaneChanged(Pane *p)
     if (!(m_viewManager &&
           m_playSource &&
           m_viewManager->getPlaySoloMode())) {
-        if (m_viewManager) m_viewManager->setPlaybackModel(nullptr);
+        if (m_viewManager) {
+            m_viewManager->setPlaybackModel(ModelId());
+        }
         return;
     }
 
-    Model *prevPlaybackModel = m_viewManager->getPlaybackModel();
+    ModelId prevPlaybackModel = m_viewManager->getPlaybackModel();
 
     // What we want here is not the currently playing frame (unless we
     // are about to clear out the audio playback buffers -- which may
@@ -878,21 +880,20 @@ MainWindowBase::currentPaneChanged(Pane *p)
     View::ModelSet soloModels = p->getModels();
     
     View::ModelSet sources;
-    for (View::ModelSet::iterator mi = soloModels.begin();
-         mi != soloModels.end(); ++mi) {
+    for (ModelId modelId: sources) {
         // If a model in this pane is derived from something else,
         // then we want to play that model as well -- if the model
         // that's derived from it is not something that is itself
         // individually playable (e.g. a waveform)
-        if (*mi &&
-            !dynamic_cast<RangeSummarisableTimeValueModel *>(*mi) &&
-            (*mi)->getSourceModel()) {
-            sources.insert((*mi)->getSourceModel());
+        if (auto model = ModelById::get(modelId)) {
+            if (!ModelById::isa<RangeSummarisableTimeValueModel>(modelId) &&
+                !model->getSourceModel().isNone()) {
+                sources.insert(model->getSourceModel());
+            }
         }
     }
-    for (View::ModelSet::iterator mi = sources.begin();
-         mi != sources.end(); ++mi) {
-        soloModels.insert(*mi);
+    for (ModelId modelId: sources) {
+        soloModels.insert(modelId);
     }
 
     //!!! Need an "atomic" way of telling the play source that the
@@ -900,23 +901,22 @@ MainWindowBase::currentPaneChanged(Pane *p)
     //the play source should be making the setPlaybackModel call to
     //ViewManager
 
-    for (View::ModelSet::iterator mi = soloModels.begin();
-         mi != soloModels.end(); ++mi) {
-        if (dynamic_cast<RangeSummarisableTimeValueModel *>(*mi)) {
-            m_viewManager->setPlaybackModel(*mi);
+    ModelId newPlaybackModel;
+    
+    for (ModelId modelId: soloModels) {
+        if (ModelById::isa<RangeSummarisableTimeValueModel>(modelId)) {
+            m_viewManager->setPlaybackModel(modelId);
+            newPlaybackModel = modelId;
         }
     }
-    
-    RangeSummarisableTimeValueModel *a = 
-        dynamic_cast<RangeSummarisableTimeValueModel *>(prevPlaybackModel);
-    RangeSummarisableTimeValueModel *b = 
-        dynamic_cast<RangeSummarisableTimeValueModel *>(m_viewManager->
-                                                        getPlaybackModel());
 
     m_playSource->setSoloModelSet(soloModels);
 
-    if (a && b && (a != b)) {
-        if (m_playSource->isPlaying()) m_playSource->play(frame);
+    if (!prevPlaybackModel.isNone() && !newPlaybackModel.isNone() &&
+        prevPlaybackModel != newPlaybackModel) {
+        if (m_playSource->isPlaying()) {
+            m_playSource->play(frame);
+        }
     }
 }
 
@@ -958,7 +958,6 @@ MainWindowBase::getModelsEndFrame() const
 void
 MainWindowBase::selectAll()
 {
-    if (!getMainModel()) return;
     m_viewManager->setSelection(Selection(getModelsStartFrame(),
                                           getModelsEndFrame()));
 }
@@ -966,23 +965,21 @@ MainWindowBase::selectAll()
 void
 MainWindowBase::selectToStart()
 {
-    if (!getMainModel()) return;
-    m_viewManager->setSelection(Selection(getMainModel()->getStartFrame(),
+    m_viewManager->setSelection(Selection(getModelsStartFrame(),
                                           m_viewManager->getGlobalCentreFrame()));
 }
 
 void
 MainWindowBase::selectToEnd()
 {
-    if (!getMainModel()) return;
     m_viewManager->setSelection(Selection(m_viewManager->getGlobalCentreFrame(),
-                                          getMainModel()->getEndFrame()));
+                                          getModelsEndFrame()));
 }
 
 void
 MainWindowBase::selectVisible()
 {
-    Model *model = getMainModel();
+    auto model = getMainModel();
     if (!model) return;
 
     Pane *currentPane = m_paneStack->getCurrentPane();
@@ -990,11 +987,17 @@ MainWindowBase::selectVisible()
 
     sv_frame_t startFrame, endFrame;
 
-    if (currentPane->getStartFrame() < 0) startFrame = 0;
-    else startFrame = currentPane->getStartFrame();
+    if (currentPane->getStartFrame() < 0) {
+        startFrame = 0;
+    } else {
+        startFrame = currentPane->getStartFrame();
+    }
 
-    if (currentPane->getEndFrame() > model->getEndFrame()) endFrame = model->getEndFrame();
-    else endFrame = currentPane->getEndFrame();
+    if (currentPane->getEndFrame() > model->getEndFrame()) {
+        endFrame = model->getEndFrame();
+    } else {
+        endFrame = currentPane->getEndFrame();
+    }
 
     m_viewManager->setSelection(Selection(startFrame, endFrame));
 }
@@ -1208,9 +1211,8 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
 
     if (layer) {
     
-        Model *model = layer->getModel();
-        SparseOneDimensionalModel *sodm =
-            dynamic_cast<SparseOneDimensionalModel *>(model);
+        ModelId model = layer->getModel();
+        auto sodm = ModelById::getAs<SparseOneDimensionalModel>(model);
 
         if (sodm) {
             Event point(frame, "");
@@ -1218,7 +1220,7 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
             bool havePrevPoint = false;
 
             ChangeEventsCommand *command =
-                new ChangeEventsCommand(sodm, tr("Add Point"));
+                new ChangeEventsCommand(model.untyped, tr("Add Point"));
 
             if (m_labeller) {
 
@@ -1255,7 +1257,9 @@ MainWindowBase::insertInstantAt(sv_frame_t frame)
                                   .toText(false).c_str()));
 
             Command *c = command->finish();
-            if (c) CommandHistory::getInstance()->addCommand(c, false);
+            if (c) {
+                CommandHistory::getInstance()->addCommand(c, false);
+            }
         }
     }
 }
@@ -1300,13 +1304,14 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
     Layer *layer = pane->getSelectedLayer();
     if (!layer) return;
 
-    RegionModel *rm = dynamic_cast<RegionModel *>(layer->getModel());
+    auto rm = ModelById::getAs<RegionModel>(layer->getModel());
     if (rm) {
         Event point(alignedStart,
                     rm->getValueMaximum() + 1,
                     alignedDuration,
                     "");
-        ChangeEventsCommand *command = new ChangeEventsCommand(rm, name);
+        ChangeEventsCommand *command = new ChangeEventsCommand
+            (rm->getId().untyped, name);
         command->add(point);
         c = command->finish();
     }
@@ -1316,14 +1321,15 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
         return;
     }
 
-    NoteModel *nm = dynamic_cast<NoteModel *>(layer->getModel());
+    auto nm = ModelById::getAs<NoteModel>(layer->getModel());
     if (nm) {
         Event point(alignedStart,
                     nm->getValueMinimum(),
                     alignedDuration,
                     1.f,
                     "");
-        ChangeEventsCommand *command = new ChangeEventsCommand(nm, name);
+        ChangeEventsCommand *command = new ChangeEventsCommand
+            (nm->getId().untyped, name);
         command->add(point);
         c = command->finish();
     }
@@ -1345,17 +1351,16 @@ MainWindowBase::renumberInstants()
 
     MultiSelection ms(m_viewManager->getSelection());
     
-    Model *model = layer->getModel();
-    SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-        (model);
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
     if (!sodm) return;
 
     if (!m_labeller) return;
 
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
-/*!!! to be updated after SODM API update
-    Command *c = labeller.labelAll<SparseOneDimensionalModel::Point>(*sodm, &ms);
+
+    /*!!!
+    Command *c = labeller.labelAll(sodm->getId().untyped, &ms);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
 */
 }
@@ -1371,9 +1376,7 @@ MainWindowBase::subdivideInstantsBy(int n)
 
     MultiSelection ms(m_viewManager->getSelection());
     
-    Model *model = layer->getModel();
-    SparseOneDimensionalModel *sodm =
-        dynamic_cast<SparseOneDimensionalModel *>(model);
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
     if (!sodm) return;
 
     if (!m_labeller) return;
@@ -1382,11 +1385,10 @@ MainWindowBase::subdivideInstantsBy(int n)
     labeller.setSampleRate(sodm->getSampleRate());
 
     (void)n;
-/*!!! to be updated after SODM API update
-    Command *c = labeller.subdivide<SparseOneDimensionalModel::Point>
-        (*sodm, &ms, n);
+    /*!!!
+    Command *c = labeller.subdivide(sodm->getId().untyped, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
-*/
+    */
 }
 
 void
@@ -1400,9 +1402,7 @@ MainWindowBase::winnowInstantsBy(int n)
 
     MultiSelection ms(m_viewManager->getSelection());
     
-    Model *model = layer->getModel();
-    SparseOneDimensionalModel *sodm =
-        dynamic_cast<SparseOneDimensionalModel *>(model);
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
     if (!sodm) return;
 
     if (!m_labeller) return;
@@ -1411,11 +1411,11 @@ MainWindowBase::winnowInstantsBy(int n)
     labeller.setSampleRate(sodm->getSampleRate());
 
     (void)n;
-/*!!! to be updated after SODM API update
-    Command *c = labeller.winnow<SparseOneDimensionalModel::Point>
-        (*sodm, &ms, n);
+    //!!! to update: (and the above two functions)
+    /*
+    Command *c = labeller.winnow(sodm->getId.untyped, &ms, n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
-*/
+    */
 }
 
 MainWindowBase::FileOpenStatus
@@ -1565,10 +1565,8 @@ MainWindowBase::openAudio(FileSource source,
         SVDEBUG << "Yes, preserving incoming file rate" << endl;
     }
     
-    ReadOnlyWaveFileModel *newModel = new ReadOnlyWaveFileModel(source, rate);
-
+    auto newModel = std::make_shared<ReadOnlyWaveFileModel>(source, rate);
     if (!newModel->isOK()) {
-        delete newModel;
         m_openingAudioFile = false;
         if (source.wasCancelled()) {
             return FileOpenCancelled;
@@ -1577,12 +1575,15 @@ MainWindowBase::openAudio(FileSource source,
         }
     }
 
-    return addOpenedAudioModel(source, newModel, mode, templateName, true);
+    ModelById::add(newModel);
+
+    return addOpenedAudioModel(source, newModel->getId(),
+                               mode, templateName, true);
 }
 
 MainWindowBase::FileOpenStatus
 MainWindowBase::addOpenedAudioModel(FileSource source,
-                                    WaveFileModel *newModel,
+                                    ModelId newModel,
                                     AudioFileOpenMode mode,
                                     QString templateName,
                                     bool registerSource)
@@ -1608,7 +1609,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
                  items, lastMode, &ok);
             
             if (!ok || item.isEmpty()) {
-                delete newModel;
+                ModelById::release(newModel);
                 m_openingAudioFile = false;
                 return FileOpenCancelled;
             }
@@ -1635,7 +1636,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         if (pane) {
             if (getMainModel()) {
                 View::ModelSet models(pane->getModels());
-                if (models.find(getMainModel()) != models.end()) {
+                if (models.find(getMainModelId()) != models.end()) {
                     // Current pane contains main model: replace that
                     mode = ReplaceMainModel;
                 }
@@ -1652,7 +1653,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         }
     }
 
-    if (mode == CreateAdditionalModel && !getMainModel()) {
+    if (mode == CreateAdditionalModel && getMainModelId().isNone()) {
         SVDEBUG << "Mode is CreateAdditionalModel but we have no main model, switching to ReplaceSession mode" << endl;
         mode = ReplaceSession;
     }
@@ -1690,12 +1691,14 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
     
     if (mode == ReplaceMainModel) {
 
-        Model *prevMain = getMainModel();
-        if (prevMain) {
+        ModelId prevMain = getMainModelId();
+        if (!prevMain.isNone()) {
             m_playSource->removeModel(prevMain);
-            PlayParameterRepository::getInstance()->removePlayable(prevMain);
+            //!!! shouldn't this stuff be handled by Document?
+            PlayParameterRepository::getInstance()->removePlayable
+                (prevMain.untyped);
         }
-        PlayParameterRepository::getInstance()->addPlayable(newModel);
+        PlayParameterRepository::getInstance()->addPlayable(newModel.untyped);
 
         SVDEBUG << "SV about to call setMainModel(" << newModel << "): prevMain is " << prevMain << endl;
 
@@ -1932,30 +1935,33 @@ MainWindowBase::openLayer(FileSource source)
 
             MIDIFileImportDialog midiDlg(this);
 
-            Model *model = DataFileReaderFactory::loadNonCSV
+            Model *newModelPtr = DataFileReaderFactory::loadNonCSV
                 (path, &midiDlg, getMainModel()->getSampleRate());
         
-            if (!model) {
+            if (!newModelPtr) {
                 CSVFormatDialog *dialog =
                     new CSVFormatDialog(this,
                                         path,
                                         getMainModel()->getSampleRate(),
                                         5);
                 if (dialog->exec() == QDialog::Accepted) {
-                    model = DataFileReaderFactory::loadCSV
+                    newModelPtr = DataFileReaderFactory::loadCSV
                         (path, dialog->getFormat(),
                          getMainModel()->getSampleRate());
                 }
                 delete dialog;
             }
 
-            if (model) {
+            if (newModelPtr) {
 
                 SVDEBUG << "MainWindowBase::openLayer: Have model" << endl;
 
                 emit activity(tr("Import MIDI file \"%1\"").arg(source.getLocation()));
 
-                Layer *newLayer = m_document->createImportedLayer(model);
+                ModelId modelId = newModelPtr->getId();
+                ModelById::add(std::shared_ptr<Model>(newModelPtr));
+                
+                Layer *newLayer = m_document->createImportedLayer(modelId);
 
                 if (newLayer) {
 
@@ -1996,7 +2002,7 @@ MainWindowBase::openImage(FileSource source)
         return FileOpenWrongMode;
     }
 
-    if (!m_document->getMainModel()) {
+    if (!getMainModel()) {
         return FileOpenWrongMode;
     }
 
@@ -2369,11 +2375,11 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         return FileOpenFailed;
     }
 
-    std::vector<Model *> models = importer.getDataModels(&dialog);
+    std::vector<Model *> modelPtrs = importer.getDataModels(&dialog);
 
     dialog.setMessage(tr("Importing from RDF..."));
 
-    if (models.empty()) {
+    if (modelPtrs.empty()) {
         QMessageBox::critical
             (this, tr("Failed to import RDF"),
              tr("<b>Failed to import RDF</b><p>No suitable data models found for import from RDF document at \"%1\"</p>").arg(source.getLocation()));
@@ -2382,14 +2388,18 @@ MainWindowBase::openLayersFromRDF(FileSource source)
 
     emit activity(tr("Import RDF document \"%1\"").arg(source.getLocation()));
 
-    std::set<Model *> added;
+    std::set<ModelId> modelIds;
 
-    for (int i = 0; i < (int)models.size(); ++i) {
+    for (Model *modelPtr: modelPtrs) {
+        modelIds.insert(modelPtr->getId());
+        ModelById::add(std::shared_ptr<Model>(modelPtr));
+    }
+    
+    std::set<ModelId> added;
 
-        Model *m = models[i];
-        WaveFileModel *w = dynamic_cast<WaveFileModel *>(m);
-
-        if (w) {
+    for (auto modelId: modelIds) {
+        
+        if (ModelById::isa<WaveFileModel>(modelId)) {
 
             Pane *pane = addPaneToStack();
             Layer *layer = nullptr;
@@ -2399,24 +2409,29 @@ MainWindowBase::openLayersFromRDF(FileSource source)
             }
 
             if (!getMainModel()) {
-                m_document->setMainModel(w);
+                m_document->setMainModel(modelId);
                 layer = m_document->createMainModelLayer(LayerFactory::Waveform);
             } else {
-                layer = m_document->createImportedLayer(w);
+                layer = m_document->createImportedLayer(modelId);
             }
 
             m_document->addLayerToView(pane, layer);
 
-            added.insert(w);
-            
-            for (int j = 0; j < (int)models.size(); ++j) {
+            added.insert(modelId);
 
-                Model *dm = models[j];
+            for (auto otherId: modelIds) {
 
-                if (dm == m) continue;
-                if (dm->getSourceModel() != m) continue;
+                if (otherId == modelId) continue;
 
-                layer = m_document->createImportedLayer(dm);
+                bool isDependent = false;
+                if (auto dm = ModelById::get(otherId)) {
+                    if (dm->getSourceModel() == modelId) {
+                        isDependent = true;
+                    }
+                }
+                if (!isDependent) continue;
+
+                layer = m_document->createImportedLayer(otherId);
 
                 if (layer->isLayerOpaque() ||
                     dynamic_cast<Colour3DPlotLayer *>(layer)) {
@@ -2462,18 +2477,16 @@ MainWindowBase::openLayersFromRDF(FileSource source)
                     m_document->addLayerToView(pane, layer);
                 }
 
-                added.insert(dm);
+                added.insert(otherId);
             }
         }
     }
 
-    for (int i = 0; i < (int)models.size(); ++i) {
-
-        Model *m = models[i];
-
-        if (added.find(m) == added.end()) {
+    for (auto modelId : modelIds) {
+        
+        if (added.find(modelId) == added.end()) {
             
-            Layer *layer = m_document->createImportedLayer(m);
+            Layer *layer = m_document->createImportedLayer(modelId);
             if (!layer) return FileOpenFailed;
 
             Pane *singleLayerPane = addPaneToStack();
@@ -2651,18 +2664,17 @@ MainWindowBase::audioChannelCountIncreased(int)
     }
 }
 
-WaveFileModel *
-MainWindowBase::getMainModel()
+ModelId
+MainWindowBase::getMainModelId()
 {
-    if (!m_document) return nullptr;
+    if (!m_document) return {};
     return m_document->getMainModel();
 }
 
-const WaveFileModel *
-MainWindowBase::getMainModel() const
+std::shared_ptr<WaveFileModel>
+MainWindowBase::getMainModel()
 {
-    if (!m_document) return nullptr;
-    return m_document->getMainModel();
+    return ModelById::getAs<WaveFileModel>(getMainModelId());
 }
 
 void
@@ -2679,12 +2691,12 @@ MainWindowBase::createDocument()
     connect(m_document, SIGNAL(layerInAView(Layer *, bool)),
             this, SLOT(layerInAView(Layer *, bool)));
 
-    connect(m_document, SIGNAL(modelAdded(Model *)),
-            this, SLOT(modelAdded(Model *)));
+    connect(m_document, SIGNAL(modelAdded(ModelId )),
+            this, SLOT(modelAdded(ModelId )));
     connect(m_document, SIGNAL(mainModelChanged(WaveFileModel *)),
             this, SLOT(mainModelChanged(WaveFileModel *)));
-    connect(m_document, SIGNAL(modelAboutToBeDeleted(Model *)),
-            this, SLOT(modelAboutToBeDeleted(Model *)));
+    connect(m_document, SIGNAL(modelAboutToBeDeleted(ModelId )),
+            this, SLOT(modelAboutToBeDeleted(ModelId )));
 
     connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
             this, SLOT(modelGenerationFailed(QString, QString)));
@@ -2791,7 +2803,11 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
     QString suffix = QFileInfo(path).suffix().toLower();
 
-    Model *model = layer->getModel();
+    auto model = ModelById::get(layer->getModel());
+    if (!model) {
+        error = tr("Internal error: unknown model");
+        return false;
+    }
 
     if (suffix == "xml" || suffix == "svl") {
 
@@ -2819,12 +2835,12 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
     } else if (suffix == "mid" || suffix == "midi") {
 
-        NoteModel *nm = dynamic_cast<NoteModel *>(model);
+        auto nm = ModelById::getAs<NoteModel>(layer->getModel());
 
         if (!nm) {
             error = tr("Can't export non-note layers to MIDI");
         } else {
-            MIDIFileWriter writer(path, nm, nm->getSampleRate());
+            MIDIFileWriter writer(path, nm.get(), nm->getSampleRate());
             writer.write();
             if (!writer.isOK()) {
                 error = writer.getError();
@@ -2833,10 +2849,10 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
     } else if (suffix == "ttl" || suffix == "n3") {
 
-        if (!RDFExporter::canExportModel(model)) {
+        if (!RDFExporter::canExportModel(model.get())) {
             error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
         } else {
-            RDFExporter exporter(path, model);
+            RDFExporter exporter(path, model.get());
             exporter.write();
             if (!exporter.isOK()) {
                 error = exporter.getError();
@@ -2845,7 +2861,7 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
     } else {
 
-        CSVFileWriter writer(path, model,
+        CSVFileWriter writer(path, model.get(),
                              ((suffix == "csv") ? "," : "\t"));
         writer.write();
 
@@ -2923,7 +2939,7 @@ MainWindowBase::zoomToFit()
     Pane *currentPane = m_paneStack->getCurrentPane();
     if (!currentPane) return;
 
-    Model *model = getMainModel();
+    auto model = getMainModel();
     if (!model) return;
     
     sv_frame_t start = model->getStartFrame();
@@ -3243,8 +3259,8 @@ MainWindowBase::record()
     SVCERR << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
-    WritableWaveFileModel *model = m_recordTarget->startRecording();
-    if (!model) {
+    WritableWaveFileModel *modelPtr = m_recordTarget->startRecording();
+    if (!modelPtr) {
         SVCERR << "ERROR: MainWindowBase::record: Recording failed" << endl;
         QMessageBox::critical
             (this, tr("Recording failed"),
@@ -3253,18 +3269,22 @@ MainWindowBase::record()
         return;
     }
 
-    if (!model->isOK()) {
+    if (!modelPtr->isOK()) {
         SVCERR << "MainWindowBase::record: Model not OK, stopping and suspending" << endl;
         m_recordTarget->stopRecording();
         m_audioIO->suspend();
         if (action) action->setChecked(false);
-        delete model;
+        delete modelPtr;
         return;
     }
 
     SVCERR << "MainWindowBase::record: Model is OK, continuing..." << endl;
+
+    QString location = modelPtr->getLocation();
     
-    PlayParameterRepository::getInstance()->addPlayable(model);
+    auto modelId = modelPtr->getId();
+    ModelById::add(std::shared_ptr<Model>(modelPtr));
+    PlayParameterRepository::getInstance()->addPlayable(modelId.untyped);
 
     if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 
@@ -3279,7 +3299,9 @@ MainWindowBase::record()
                 SVCERR << "MainWindowBase::record: Session template open cancelled, stopping and suspending" << endl;
                 m_recordTarget->stopRecording();
                 m_audioIO->suspend();
-                PlayParameterRepository::getInstance()->removePlayable(model);
+                PlayParameterRepository::getInstance()->removePlayable
+                    (modelId.untyped);
+                ModelById::release(modelId);
                 return;
             }
             if (tplStatus != FileOpenFailed) {
@@ -3292,17 +3314,18 @@ MainWindowBase::record()
             createDocument();
         }
         
-        Model *prevMain = getMainModel();
-        if (prevMain) {
+        ModelId prevMain = getMainModelId();
+        if (!prevMain.isNone()) {
             m_playSource->removeModel(prevMain);
-            PlayParameterRepository::getInstance()->removePlayable(prevMain);
+            PlayParameterRepository::getInstance()->removePlayable
+                (prevMain.untyped);
         }
         
-        m_document->setMainModel(model);
+        m_document->setMainModel(modelId);
         setupMenus();
         findTimeRulerLayer();
 
-        m_originalLocation = model->getLocation();
+        m_originalLocation = location;
         
         if (loadedTemplate || (m_sessionFile == "")) {
             CommandHistory::getInstance()->clear();
@@ -3317,7 +3340,7 @@ MainWindowBase::record()
         CommandHistory::getInstance()->startCompoundOperation
             (tr("Import Recorded Audio"), true);
 
-        m_document->addImportedModel(model);
+        m_document->addImportedModel(modelId);
 
         AddPaneCommand *command = new AddPaneCommand(this);
         CommandHistory::getInstance()->addCommand(command);
@@ -3328,7 +3351,7 @@ MainWindowBase::record()
             m_document->addLayerToView(pane, m_timeRulerLayer);
         }
 
-        Layer *newLayer = m_document->createImportedLayer(model);
+        Layer *newLayer = m_document->createImportedLayer(modelId);
 
         if (newLayer) {
             m_document->addLayerToView(pane, newLayer);
@@ -3338,7 +3361,7 @@ MainWindowBase::record()
     }
 
     updateMenuStates();
-    m_recentFiles.addFile(model->getLocation());
+    m_recentFiles.addFile(location);
     currentPaneChanged(m_paneStack->getCurrentPane());
     
     emit audioFileLoaded();
@@ -3724,10 +3747,7 @@ MainWindowBase::editCurrentLayer()
     if (pane) layer = pane->getSelectedLayer();
     if (!layer) return;
 
-    Model *model = layer->getModel();
-    if (!model) return;
-
-    TabularModel *tabular = dynamic_cast<TabularModel *>(model);
+    auto tabular = ModelById::getAs<TabularModel>(layer->getModel());
     if (!tabular) {
         //!!! how to prevent this function from being active if not
         //appropriate model type?  or will we ultimately support
@@ -3746,7 +3766,8 @@ MainWindowBase::editCurrentLayer()
 
     QString title = layer->getLayerPresentationName();
 
-    ModelDataTableDialog *dialog = new ModelDataTableDialog(tabular, title, this);
+    ModelDataTableDialog *dialog = new ModelDataTableDialog
+        (layer->getModel(), title, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     
     connectLayerEditDialog(dialog);
@@ -4005,10 +4026,10 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
     if (!inAView) removeLayerEditDialog(layer);
 
     // Check whether we need to add or remove model from play source
-    Model *model = layer->getModel();
-    if (model) {
+    ModelId modelId = layer->getModel();
+    if (!modelId.isNone()) {
         if (inAView) {
-            m_playSource->addModel(model);
+            m_playSource->addModel(modelId);
         } else {
             bool found = false;
             for (int i = 0; i < m_paneStack->getPaneCount(); ++i) {
@@ -4018,7 +4039,7 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
                     Layer *pl = pane->getLayer(j);
                     if (pl &&
                         !dynamic_cast<TimeRulerLayer *>(pl) &&
-                        (pl->getModel() == model)) {
+                        (pl->getModel() == modelId)) {
                         found = true;
                         break;
                     }
@@ -4026,7 +4047,7 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
                 if (found) break;
             }
             if (!found) {
-                m_playSource->removeModel(model);
+                m_playSource->removeModel(modelId);
             }
         }
     }
@@ -4052,18 +4073,19 @@ MainWindowBase::removeLayerEditDialog(Layer *layer)
 }
 
 void
-MainWindowBase::modelAdded(Model *model)
+MainWindowBase::modelAdded(ModelId model)
 {
 //    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
-        std::cerr << "\nAdding model " << model->getTypeName() << " to playsource " << std::endl;
+    std::cerr << "\nAdding model " << model << " to playsource " << std::endl;
     m_playSource->addModel(model);
 }
 
 void
-MainWindowBase::mainModelChanged(WaveFileModel *model)
+MainWindowBase::mainModelChanged(ModelId modelId)
 {
 //    SVDEBUG << "MainWindowBase::mainModelChanged(" << model << ")" << endl;
     updateDescriptionLabel();
+    auto model = ModelById::getAs<WaveFileModel>(modelId);
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
     if (model && !(m_playTarget || m_audioIO) &&
         (m_soundOptions & WithAudioOutput)) {
@@ -4072,11 +4094,10 @@ MainWindowBase::mainModelChanged(WaveFileModel *model)
 }
 
 void
-MainWindowBase::modelAboutToBeDeleted(Model *model)
+MainWindowBase::modelAboutToBeDeleted(ModelId model)
 {
-//    SVDEBUG << "MainWindowBase::modelAboutToBeDeleted(" << model << ")" << endl;
     if (model == m_viewManager->getPlaybackModel()) {
-        m_viewManager->setPlaybackModel(nullptr);
+        m_viewManager->setPlaybackModel({});
     }
     m_playSource->removeModel(model);
 }
@@ -4118,9 +4139,9 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
 }
 
 void
-MainWindowBase::alignmentComplete(AlignmentModel *model)
+MainWindowBase::alignmentComplete(ModelId alignmentModelId)
 {
-    cerr << "MainWindowBase::alignmentComplete(" << model << ")" << endl;
+    cerr << "MainWindowBase::alignmentComplete(" << alignmentModelId << ")" << endl;
 }
 
 void
