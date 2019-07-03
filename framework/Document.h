@@ -95,7 +95,7 @@ public:
      * Create and return a new layer associated with the given model,
      * and register the model as an imported model.
      */
-    Layer *createImportedLayer(Model *);
+    Layer *createImportedLayer(ModelId);
 
     /**
      * Create and return a new layer of the given type, with an
@@ -183,39 +183,38 @@ public:
     /**
      * Set the main model (the source for playback sample rate, etc)
      * to the given wave file model.  This will regenerate any derived
-     * models that were based on the previous main model.
+     * models that were based on the previous main model. The model
+     * must have been added to ModelById already, and Document will
+     * take responsibility for releasing it later.
      */
-    void setMainModel(WaveFileModel *);
+    void setMainModel(ModelId); // a WaveFileModel
 
     /**
      * Get the main model (the source for playback sample rate, etc).
      */
-    WaveFileModel *getMainModel() { return m_mainModel; }
-
-    /**
-     * Get the main model (the source for playback sample rate, etc).
-     */
-    const WaveFileModel *getMainModel() const { return m_mainModel; }
+    ModelId getMainModel() { return m_mainModel; }
     
-    std::vector<Model *> getTransformInputModels();
+    std::vector<ModelId> getTransformInputModels();
 
-    bool isKnownModel(const Model *) const;
+    //??? investigate & document
+    bool isKnownModel(ModelId) const;
 
     /**
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.
+     * The model is added to ModelById before returning.
      */
-    Model *addDerivedModel(const Transform &transform,
-                           const ModelTransformer::Input &input,
-                           QString &returnedMessage);
+    ModelId addDerivedModel(const Transform &transform,
+                            const ModelTransformer::Input &input,
+                            QString &returnedMessage);
 
     /**
      * Add derived models associated with the given set of related
      * transforms, running the transforms and returning the resulting
-     * models.
+     * models.  The models are added to ModelById before returning.
      */
     friend class AdditionalModelConverter;
-    std::vector<Model *> addDerivedModels(const Transforms &transforms,
+    std::vector<ModelId> addDerivedModels(const Transforms &transforms,
                                           const ModelTransformer::Input &input,
                                           QString &returnedMessage,
                                           AdditionalModelConverter *);
@@ -223,20 +222,27 @@ public:
     /**
      * Add a derived model associated with the given transform.  This
      * is necessary to register any derived model that was not created
-     * by the document using createDerivedModel or createDerivedLayer.
+     * by the document using createDerivedModel or
+     * createDerivedLayer. The model must have been added to ModelById
+     * already, and Document will take responsibility for releasing it
+     * later.
      */
     void addAlreadyDerivedModel(const Transform &transform,
                                 const ModelTransformer::Input &input,
-                                Model *outputModelToAdd);
+                                ModelId outputModelToAdd);
 
     /**
      * Add an imported (non-derived, non-main) model.  This is
      * necessary to register any imported model that is associated
-     * with a layer.
+     * with a layer. The model must have been added to ModelById
+     * already, and Document will take responsibility for releasing it
+     * later.
      */
-    void addImportedModel(Model *);
+    void addImportedModel(ModelId);
     
     /**
+     *!!! todo: do we still need this to be separate?
+     *
      * Add an aggregate model (one which represents a set of component
      * wave models as one model per channel in a single wave
      * model). Aggregate models are unusual in that they are created
@@ -244,15 +250,18 @@ public:
      * probably isn't ideal!) They are recorded separately from other
      * models, and will be deleted if any of their component models
      * are removed.
+     * 
+     * The model must have been added to ModelById already, and
+     * Document will take responsibility for releasing it later.
      */
-    void addAggregateModel(AggregateWaveModel *);
+    void addAggregateModel(ModelId); // an AggregateWaveModel
 
     /**
      * Associate the given model with the given layer.  The model must
      * have already been registered using one of the addXXModel
      * methods above.
      */
-    void setModel(Layer *, Model *);
+    void setModel(Layer *, ModelId);
 
     /**
      * Set the given layer to use the given channel of its model (-1
@@ -320,9 +329,8 @@ signals:
     // last removed from a view
     void layerInAView(Layer *, bool);
 
-    void modelAdded(Model *);
-    void mainModelChanged(WaveFileModel *); // emitted after modelAdded
-    void modelAboutToBeDeleted(Model *);
+    void modelAdded(ModelId);
+    void mainModelChanged(ModelId); // a WaveFileModel; emitted after modelAdded
 
     void modelGenerationFailed(QString transformName, QString message);
     void modelGenerationWarning(QString transformName, QString message);
@@ -331,17 +339,17 @@ signals:
     void modelRegenerationWarning(QString layerName, QString transformName,
                                   QString message);
 
-    void alignmentComplete(AlignmentModel *);
+    void alignmentComplete(ModelId); // an AlignmentModel
     void alignmentFailed(QString message);
 
     void activity(QString);
 
 protected slots:
-    void aggregateModelInvalidated();
+//!!!    void aggregateModelInvalidated();
     void performDeferredAlignment();
     
 protected:
-    void releaseModel(Model *model);
+    void releaseModel(ModelId model);
 
     /**
      * If model is suitable for alignment, align it against the main
@@ -349,7 +357,7 @@ protected:
      * alignment already for the current main model, leave it
      * unchanged unless forceRecalculate is true.
      */
-    void alignModel(Model *, bool forceRecalculate = false);
+    void alignModel(ModelId, bool forceRecalculate = false);
 
     /*
      * Every model that is in use by a layer in the document must be
@@ -362,75 +370,38 @@ protected:
      * model is not reference counted for layers, and is not freed
      * unless it is replaced or the document is deleted.
      */
-    WaveFileModel *m_mainModel;
+    ModelId m_mainModel; // a WaveFileModel
 
     struct ModelRecord
     {
         // Information associated with a non-main model.  If this
-        // model is derived from another, then source will be non-NULL
-        // and the transform name will be set appropriately.  If the
-        // transform name is set but source is NULL, then there was a
-        // transform involved but the (target) model has been modified
-        // since being generated from it.
+        // model is derived from another, then source will be
+        // something other than None and the transform name will be
+        // set appropriately.  If the transform is set but source is
+        // None, then there was a transform involved but the (target)
+        // model has been modified since being generated from it.
         
         // This does not use ModelTransformer::Input, because it would
-        // be confusing to have Input objects hanging around with NULL
+        // be confusing to have Input objects hanging around with None
         // models in them.
 
-        Model *model;
-        const Model *source;
+        ModelId source; // may be None
         int channel;
         Transform transform;
         bool additional;
-
-        // Count of the number of layers using this model.
-        int refcount;
     };
 
-    // This used to be a map<Model *, ModelRecord>, but a vector
-    // ensures that models are consistently recorded in order of
-    // creation rather than at the whim of heap allocation, and that's
-    // useful for automated testing. We don't expect ever to have so
-    // many models that there is any significant overhead there.
-    typedef std::vector<ModelRecord> ModelList;
-    ModelList m_models;
-
-    ModelList::iterator findModelInList(Model *m) {
-        for (ModelList::iterator i = m_models.begin();
-             i != m_models.end(); ++i) {
-            if (i->model == m) {
-                return i;
-            }
-        }
-        return m_models.end();
-    }
+    // These must be stored in increasing order of id (as in the
+    // ordered std::map), to ensure repeatability for automated tests
+    std::map<ModelId, ModelRecord> m_models;
+    std::set<ModelId> m_aggregateModels;
     
-    void deleteModelFromList(Model *m) {
-        ModelList keep;
-        bool found = false;
-        for (const ModelRecord &rec: m_models) {
-            if (rec.model == m) {
-                found = true;
-                m->aboutToDelete();
-                emit modelAboutToBeDeleted(m);
-            } else {
-                keep.push_back(rec);
-            }
-        }
-        m_models = keep;
-        if (found) {
-            delete m;
-        }
-    }
-
     /**
      * Add an extra derived model (returned at the end of processing a
      * transform).
      */
-    void addAdditionalModel(Model *);
+    void addAdditionalModel(ModelId);
 
-    std::set<Model *> m_aggregateModels;
-    
     class AddLayerCommand : public Command
     {
     public:
@@ -475,13 +446,13 @@ protected:
     void removeFromLayerViewMap(Layer *, View *);
 
     QString getUniqueLayerName(QString candidate);
-    void writeBackwardCompatibleDerivation(QTextStream &, QString, Model *,
+    void writeBackwardCompatibleDerivation(QTextStream &, QString, ModelId,
                                            const ModelRecord &) const;
 
     void toXml(QTextStream &, QString, QString, bool asTemplate) const;
     void writePlaceholderMainModel(QTextStream &, QString) const;
 
-    std::vector<Layer *> createLayersForDerivedModels(std::vector<Model *>,
+    std::vector<Layer *> createLayersForDerivedModels(std::vector<ModelId>,
                                                       QStringList names);
 
     /**

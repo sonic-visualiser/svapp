@@ -4,7 +4,6 @@
     Sonic Visualiser
     An audio file viewer and annotation editor.
     Centre for Digital Music, Queen Mary, University of London.
-    This file copyright 2006 Chris Cannam and QMUL.
     
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License as
@@ -22,7 +21,8 @@
 #include <QMutex>
 #include <set>
 
-class Model;
+#include "data/model/Model.h"
+
 class AlignmentModel;
 class SparseTimeValueModel;
 class AggregateWaveModel;
@@ -63,18 +63,18 @@ public:
      * lifespan.
      */
     bool alignModel(Document *doc,
-                    Model *reference,
-                    Model *toAlign,
+                    ModelId reference,
+                    ModelId toAlign,
                     QString &error);
     
     bool alignModelViaTransform(Document *doc,
-                                Model *reference,
-                                Model *toAlign,
+                                ModelId reference,
+                                ModelId toAlign,
                                 QString &error);
 
     bool alignModelViaProgram(Document *doc,
-                              Model *reference,
-                              Model *toAlign,
+                              ModelId reference,
+                              ModelId toAlign,
                               QString program,
                               QString &error);
 
@@ -90,35 +90,36 @@ signals:
      * reference and other models can be queried from the alignment
      * model.
      */
-    void alignmentComplete(AlignmentModel *alignment);
+    void alignmentComplete(ModelId alignmentModel); // an AlignmentModel
 
 private slots:
     void alignmentCompletionChanged();
     void tuningDifferenceCompletionChanged();
     void alignmentProgramFinished(int, QProcess::ExitStatus);
-    void aggregateModelAboutToBeDeleted();
     
 private:
     static QString getAlignmentTransformName();
     static QString getTuningDifferenceTransformName();
 
-    bool beginTransformDrivenAlignment(AggregateWaveModel *,
-                                       AlignmentModel *,
+    bool beginTransformDrivenAlignment(ModelId, // an AggregateWaveModel
+                                       ModelId, // an AlignmentModel
                                        float tuningFrequency = 0.f);
 
     QMutex m_mutex;
 
     struct TuningDiffRec {
-        AggregateWaveModel *input;
-        AlignmentModel *alignment;
-        SparseTimeValueModel *preparatory;
+        ModelId input; // an AggregateWaveModel
+        ModelId alignment; // an AlignmentModel
+        ModelId preparatory; // a SparseTimeValueModel
     };
 
-    // tuning-difference output model -> data needed for subsequent alignment
-    std::map<SparseTimeValueModel *, TuningDiffRec> m_pendingTuningDiffs;
+    // tuning-difference output model (a SparseTimeValueModel) -> data
+    // needed for subsequent alignment
+    std::map<ModelId, TuningDiffRec> m_pendingTuningDiffs;
 
-    // external alignment subprocess -> model into which to stuff the results
-    std::map<QProcess *, AlignmentModel *> m_pendingProcesses;
+    // external alignment subprocess -> model into which to stuff the
+    // results (an AlignmentModel)
+    std::map<QProcess *, ModelId> m_pendingProcesses;
 };
 
 #endif

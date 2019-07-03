@@ -48,23 +48,17 @@ using std::vector;
 //!!! still need to handle command history, documentRestored/documentModified
 
 Document::Document() :
-    m_mainModel(nullptr),
     m_autoAlignment(false),
     m_align(new Align()),
     m_isIncomplete(false)
 {
-    connect(this,
-            SIGNAL(modelAboutToBeDeleted(Model *)),
-            ModelTransformerFactory::getInstance(),
-            SLOT(modelAboutToBeDeleted(Model *)));
-
     connect(ModelTransformerFactory::getInstance(),
             SIGNAL(transformFailed(QString, QString)),
             this,
             SIGNAL(modelGenerationFailed(QString, QString)));
 
-    connect(m_align, SIGNAL(alignmentComplete(AlignmentModel *)),
-            this, SIGNAL(alignmentComplete(AlignmentModel *)));
+    connect(m_align, SIGNAL(alignmentComplete(ModelId)),
+            this, SIGNAL(alignmentComplete(ModelId)));
 }
 
 Document::~Document()
@@ -85,37 +79,17 @@ Document::~Document()
         deleteLayer(*m_layers.begin(), true);
     }
 
-    if (!m_models.empty()) {
-        SVDEBUG << "Document::~Document: WARNING: " 
-                  << m_models.size() << " model(s) still remain -- "
-                  << "should have been garbage collected when deleting layers"
-                  << endl;
-        for (ModelRecord &rec: m_models) {
-            Model *model = rec.model;
-            if (model == m_mainModel) {
-                // just in case!
-                SVDEBUG << "Document::~Document: WARNING: Main model is also"
-                          << " in models list!" << endl;
-            } else if (model) {
-                model->aboutToDelete();
-                emit modelAboutToBeDeleted(model);
-                delete model;
-            }
-        }
-        m_models.clear();
+    for (auto mr: m_models) {
+        ModelById::release(mr.first);
+    }
+    for (auto m: m_aggregateModels) {
+        ModelById::release(m);
     }
 
-#ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::~Document: About to get rid of main model"
-              << endl;
-#endif
-    if (m_mainModel) {
-        m_mainModel->aboutToDelete();
-        emit modelAboutToBeDeleted(m_mainModel);
-    }
-
-    emit mainModelChanged(nullptr);
-    delete m_mainModel;
+    auto mainModel = m_mainModel;
+    m_mainModel = {};
+    emit mainModelChanged(m_mainModel);
+    ModelById::release(mainModel);
 }
 
 Layer *
@@ -148,10 +122,10 @@ Document::createMainModelLayer(LayerFactory::LayerType type)
 }
 
 Layer *
-Document::createImportedLayer(Model *model)
+Document::createImportedLayer(ModelId modelId)
 {
     LayerFactory::LayerTypeSet types =
-        LayerFactory::getInstance()->getValidLayerTypes(model);
+        LayerFactory::getInstance()->getValidLayerTypes(modelId);
 
     if (types.empty()) {
         SVCERR << "WARNING: Document::importLayer: no valid display layer for model" << endl;
@@ -166,8 +140,8 @@ Document::createImportedLayer(Model *model)
 
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
-    addImportedModel(model);
-    setModel(newLayer, model);
+    addImportedModel(modelId);
+    setModel(newLayer, modelId);
 
     //!!! and all channels
     setChannel(newLayer, -1);
@@ -186,20 +160,20 @@ Document::createImportedLayer(Model *model)
 Layer *
 Document::createEmptyLayer(LayerFactory::LayerType type)
 {
-    if (!m_mainModel) return nullptr;
+    if (m_mainModel.isNone()) return nullptr;
 
-    Model *newModel =
+    auto newModel =
         LayerFactory::getInstance()->createEmptyModel(type, m_mainModel);
     if (!newModel) return nullptr;
-
+    
     Layer *newLayer = createLayer(type);
     if (!newLayer) {
-        delete newModel;
         return nullptr;
     }
 
-    addImportedModel(newModel);
-    setModel(newLayer, newModel);
+    ModelById::add(newModel);
+    addImportedModel(newModel->getId());
+    setModel(newLayer, newModel->getId());
 
     return newLayer;
 }
@@ -234,7 +208,8 @@ Document::createDerivedLayers(const Transforms &transforms,
                               const ModelTransformer::Input &input)
 {
     QString message;
-    vector<Model *> newModels = addDerivedModels(transforms, input, message, nullptr);
+    vector<ModelId> newModels =
+        addDerivedModels(transforms, input, message, nullptr);
 
     if (newModels.empty()) {
         //!!! This identifier may be wrong!
@@ -246,7 +221,7 @@ Document::createDerivedLayers(const Transforms &transforms,
     }
 
     QStringList names;
-    for (int i = 0; i < (int)newModels.size(); ++i) {
+    for (int i = 0; in_range_for(newModels, i); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -275,13 +250,13 @@ public:
     }
 
     void
-    moreModelsAvailable(vector<Model *> models) override {
+    moreModelsAvailable(vector<ModelId> models) override {
         SVDEBUG << "AdditionalModelConverter::moreModelsAvailable: " << models.size() << " model(s)" << endl;
         // We can't automatically regenerate the additional models on
-        // reload -- we should delete them instead
+        // reload - so they go in m_additionalModels instead of m_models
         QStringList names;
-        foreach (Model *model, models) {
-            m_doc->addAdditionalModel(model);
+        foreach (ModelId modelId, models) {
+            m_doc->addAdditionalModel(modelId);
             names.push_back(QString());
         }
         vector<Layer *> layers = m_doc->createLayersForDerivedModels
@@ -298,12 +273,15 @@ public:
     }
 
     void cancel() {
+/*!!! todo: restore
         foreach (Layer *layer, m_primary) {
-            Model *model = layer->getModel();
+            ModelId model = layer->getModel();
+            //!!! todo: restore this behaviour
             if (model) {
                 model->abandon();
             }
         }
+*/
     }
 
 private:
@@ -321,11 +299,11 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
 
     AdditionalModelConverter *amc = new AdditionalModelConverter(this, handler);
     
-    vector<Model *> newModels = addDerivedModels
+    vector<ModelId> newModels = addDerivedModels
         (transforms, input, message, amc);
 
     QStringList names;
-    for (int i = 0; i < (int)newModels.size(); ++i) {
+    for (int i = 0; in_range_for(newModels, i); ++i) {
         names.push_back(getUniqueLayerName
                         (TransformFactory::getInstance()->
                          getTransformFriendlyName
@@ -356,29 +334,30 @@ Document::cancelAsyncLayerCreation(Document::LayerCreationAsyncHandle h)
 }
 
 vector<Layer *>
-Document::createLayersForDerivedModels(vector<Model *> newModels, 
+Document::createLayersForDerivedModels(vector<ModelId> newModels, 
                                        QStringList names)
 {
     vector<Layer *> layers;
     
-    for (int i = 0; i < (int)newModels.size(); ++i) {
+    for (int i = 0; in_range_for(newModels, i); ++i) {
 
-        Model *newModel = newModels[i];
+        ModelId newModelId = newModels[i];
 
         LayerFactory::LayerTypeSet types =
-            LayerFactory::getInstance()->getValidLayerTypes(newModel);
+            LayerFactory::getInstance()->getValidLayerTypes(newModelId);
 
         if (types.empty()) {
             SVCERR << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << names[i] << endl;
             //!!! inadequate cleanup:
-            deleteModelFromList(newModel);
+            //!!! review: ->
+//            deleteModelFromList(newModel);
             return vector<Layer *>();
         }
 
         //!!! for now, just use the first suitable layer type
 
         Layer *newLayer = createLayer(*types.begin());
-        setModel(newLayer, newModel);
+        setModel(newLayer, newModelId);
 
         //!!! We need to clone the model when adding the layer, so that it
         //can be edited without affecting other layers that are based on
@@ -407,13 +386,14 @@ Document::createLayersForDerivedModels(vector<Model *> newModels,
 }
 
 void
-Document::setMainModel(WaveFileModel *model)
+Document::setMainModel(ModelId modelId)
 {
-    Model *oldMainModel = m_mainModel;
-    m_mainModel = model;
+    ModelId oldMainModel = m_mainModel;
+    m_mainModel = modelId;
     
     emit modelAdded(m_mainModel);
-    if (model) {
+    
+    if (auto model = ModelById::get(modelId)) {
         emit activity(tr("Set main model to %1").arg(model->objectName()));
     } else {
         emit activity(tr("Clear main model"));
@@ -433,7 +413,7 @@ Document::setMainModel(WaveFileModel *model)
               << m_layers.size() << " layers" << endl;
     SVDEBUG << "Models now: ";
     for (const auto &r: m_models) {
-        SVDEBUG << r.model << " ";
+        SVDEBUG << r.first << " ";
     }
     SVDEBUG << endl;
     SVDEBUG << "Old main model: " << oldMainModel << endl;
@@ -441,15 +421,14 @@ Document::setMainModel(WaveFileModel *model)
 
     for (Layer *layer: m_layers) {
 
-        Model *model = layer->getModel();
+        ModelId modelId = layer->getModel();
 
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::setMainModel: inspecting model "
-                << (model ? model->objectName(): "(null)") << " in layer "
-                << layer->objectName() << endl;
+                << modelId << " in layer " << layer->objectName() << endl;
 #endif
 
-        if (model == oldMainModel) {
+        if (modelId == oldMainModel) {
 #ifdef DEBUG_DOCUMENT
             SVDEBUG << "... it uses the old main model, replacing" << endl;
 #endif
@@ -457,7 +436,7 @@ Document::setMainModel(WaveFileModel *model)
             continue;
         }
 
-        if (!model) {
+        if (modelId.isNone()) {
             SVCERR << "WARNING: Document::setMainModel: Null model in layer "
                    << layer << endl;
             // get rid of this hideous degenerate
@@ -465,19 +444,17 @@ Document::setMainModel(WaveFileModel *model)
             continue;
         }
 
-        auto mitr = findModelInList(model);
-        
-        if (mitr == m_models.end()) {
+        if (m_models.find(modelId) == m_models.end()) {
             SVCERR << "WARNING: Document::setMainModel: Unknown model "
-                   << model << " in layer " << layer << endl;
+                   << modelId << " in layer " << layer << endl;
             // and this one
             obsoleteLayers.push_back(layer);
             continue;
         }
 
-        ModelRecord record = *mitr;
+        ModelRecord record = m_models[modelId];
         
-        if (record.source && (record.source == oldMainModel)) {
+        if (!record.source.isNone() && (record.source == oldMainModel)) {
 
 #ifdef DEBUG_DOCUMENT
             SVDEBUG << "... it uses a model derived from the old main model, regenerating" << endl;
@@ -493,13 +470,13 @@ Document::setMainModel(WaveFileModel *model)
             //the main model has changed.
 
             QString message;
-            Model *replacementModel =
+            ModelId replacementModel =
                 addDerivedModel(transform,
                                 ModelTransformer::Input
                                 (m_mainModel, record.channel),
                                 message);
             
-            if (!replacementModel) {
+            if (replacementModel.isNone()) {
                 SVCERR << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
                        << transformId << "\"" << " in layer " << layer << endl;
                 if (failedTransformers.find(transformId)
@@ -517,15 +494,12 @@ Document::setMainModel(WaveFileModel *model)
                                                   message);
                 }
 #ifdef DEBUG_DOCUMENT
-                SVDEBUG << "Replacing model " << model << " (type "
-                        << typeid(*model).name() << ") with model "
-                        << replacementModel << " (type "
-                        << typeid(*replacementModel).name() << ") in layer "
+                SVDEBUG << "Replacing model " << modelId << ") with model "
+                        << replacementModel << ") in layer "
                         << layer << " (name " << layer->objectName() << ")"
                         << endl;
 
-                RangeSummarisableTimeValueModel *rm =
-                    dynamic_cast<RangeSummarisableTimeValueModel *>(replacementModel);
+                auto rm = ModelById::getAs<RangeSummarisableTimeValueModel>(replacementModel);
                 if (rm) {
                     SVDEBUG << "new model has " << rm->getChannelCount() << " channels " << endl;
                 } else {
@@ -541,39 +515,34 @@ Document::setMainModel(WaveFileModel *model)
         deleteLayer(obsoleteLayers[k], true);
     }
 
-    std::set<Model *> additionalModels;
+    std::set<ModelId> additionalModels;
     for (const auto &rec : m_models) {
-        if (rec.additional) {
-            additionalModels.insert(rec.model);
+        if (rec.second.additional) {
+            additionalModels.insert(rec.first);
         }
     }
-    for (Model *a: additionalModels) {
-        deleteModelFromList(a);
+    for (ModelId a: additionalModels) {
+        m_models.erase(a);
     }
 
     for (const auto &rec : m_models) {
 
-        Model *m = rec.model;
+        auto m = ModelById::get(rec.first);
+        if (!m) continue;
 
 #ifdef DEBUG_DOCUMENT
-        SVDEBUG << "considering alignment for model " << m << " (name \""
-                  << m->objectName() << "\")" << endl;
+        SVDEBUG << "considering alignment for model " << rec.first << endl;
 #endif
 
         if (m_autoAlignment) {
 
-            alignModel(m);
+            alignModel(rec.first);
 
-        } else if (oldMainModel &&
+        } else if (!oldMainModel.isNone() && 
                    (m->getAlignmentReference() == oldMainModel)) {
 
-            alignModel(m);
+            alignModel(rec.first);
         }
-    }
-
-    if (oldMainModel) {
-        oldMainModel->aboutToDelete();
-        emit modelAboutToBeDeleted(oldMainModel);
     }
 
     if (m_autoAlignment) {
@@ -585,45 +554,41 @@ Document::setMainModel(WaveFileModel *model)
 
     emit mainModelChanged(m_mainModel);
 
-    delete oldMainModel;
+    ModelById::release(oldMainModel);
 }
 
 void
 Document::addAlreadyDerivedModel(const Transform &transform,
                                  const ModelTransformer::Input &input,
-                                 Model *outputModelToAdd)
+                                 ModelId outputModelToAdd)
 {
-    if (findModelInList(outputModelToAdd) != m_models.end()) {
+    if (m_models.find(outputModelToAdd) != m_models.end()) {
         SVCERR << "WARNING: Document::addAlreadyDerivedModel: Model already added"
-                  << endl;
+               << endl;
         return;
     }
-
+    
 #ifdef DEBUG_DOCUMENT
-    if (input.getModel()) {
-        SVDEBUG << "Document::addAlreadyDerivedModel: source is " << input.getModel() << " \"" << input.getModel()->objectName() << "\"" << endl;
-    } else {
-        SVDEBUG << "Document::addAlreadyDerivedModel: source is " << input.getModel() << endl;
-    }
+    SVDEBUG << "Document::addAlreadyDerivedModel: source is " << input.getModel() << endl;
 #endif
 
     ModelRecord rec;
-    rec.model = outputModelToAdd;
     rec.source = input.getModel();
     rec.channel = input.getChannel();
     rec.transform = transform;
     rec.additional = false;
-    rec.refcount = 0;
 
-    outputModelToAdd->setSourceModel(input.getModel());
+    if (auto m = ModelById::get(outputModelToAdd)) {
+        m->setSourceModel(input.getModel());
+    }
 
-    m_models.push_back(rec);
+    m_models[outputModelToAdd] = rec;
 
 #ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::addAlreadyDerivedModel: Added model " << outputModelToAdd << endl;
     SVDEBUG << "Models now: ";
     for (const auto &rec : m_models) {
-        SVDEBUG << rec.model << " ";
+        SVDEBUG << rec.first << " ";
     } 
     SVDEBUG << endl;
 #endif
@@ -631,131 +596,121 @@ Document::addAlreadyDerivedModel(const Transform &transform,
     emit modelAdded(outputModelToAdd);
 }
 
-
 void
-Document::addImportedModel(Model *model)
+Document::addImportedModel(ModelId modelId)
 {
-    if (findModelInList(model) != m_models.end()) {
+    if (m_models.find(modelId) != m_models.end()) {
         SVCERR << "WARNING: Document::addImportedModel: Model already added"
-                  << endl;
+               << endl;
         return;
     }
 
     ModelRecord rec;
-    rec.model = model;
-    rec.source = nullptr;
+    rec.source = {};
     rec.channel = 0;
-    rec.refcount = 0;
     rec.additional = false;
 
-    m_models.push_back(rec);
+    m_models[modelId] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::addImportedModel: Added model " << model << endl;
+    SVDEBUG << "Document::addImportedModel: Added model " << modelId << endl;
     SVDEBUG << "Models now: ";
     for (const auto &rec : m_models) {
-        SVDEBUG << rec.model << " ";
+        SVDEBUG << rec.first << " ";
     } 
     SVDEBUG << endl;
 #endif
 
     if (m_autoAlignment) {
         SVDEBUG << "Document::addImportedModel: auto-alignment is on, aligning model if possible" << endl;
-        alignModel(model);
+        alignModel(modelId);
     } else {
         SVDEBUG << "Document(" << this << "): addImportedModel: auto-alignment is off" << endl;
     }
 
-    emit modelAdded(model);
+    emit modelAdded(modelId);
 }
 
 void
-Document::addAdditionalModel(Model *model)
+Document::addAdditionalModel(ModelId modelId)
 {
-    if (findModelInList(model) != m_models.end()) {
+    if (m_models.find(modelId) != m_models.end()) {
         SVCERR << "WARNING: Document::addAdditionalModel: Model already added"
-                  << endl;
+               << endl;
         return;
     }
 
     ModelRecord rec;
-    rec.model = model;
-    rec.source = nullptr;
+    rec.source = {};
     rec.channel = 0;
-    rec.refcount = 0;
     rec.additional = true;
 
-    m_models.push_back(rec);
+    m_models[modelId] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::addAdditionalModel: Added model " << model << endl;
+    SVDEBUG << "Document::addAdditionalModel: Added model " << modelId << endl;
     SVDEBUG << "Models now: ";
     for (const auto &rec : m_models) {
-        SVDEBUG << rec.model << " ";
+        SVDEBUG << rec.first << " ";
     } 
     SVDEBUG << endl;
 #endif
 
     if (m_autoAlignment) {
         SVDEBUG << "Document::addAdditionalModel: auto-alignment is on, aligning model if possible" << endl;
-        alignModel(model);
+        alignModel(modelId);
     }
 
-    emit modelAdded(model);
+    emit modelAdded(modelId);
 }
 
 void
-Document::addAggregateModel(AggregateWaveModel *model)
+Document::addAggregateModel(ModelId modelId)
 {
-    connect(model, SIGNAL(modelInvalidated()),
-            this, SLOT(aggregateModelInvalidated()));
-    m_aggregateModels.insert(model);
-    SVDEBUG << "Document::addAggregateModel(" << model << ")" << endl;
+    m_aggregateModels.insert(modelId);
+    SVDEBUG << "Document::addAggregateModel(" << modelId << ")" << endl;
 }
 
-void
-Document::aggregateModelInvalidated()
-{
-    QObject *s = sender();
-    AggregateWaveModel *aggregate = qobject_cast<AggregateWaveModel *>(s);
-    SVDEBUG << "Document::aggregateModelInvalidated(" << aggregate << ")" << endl;
-    if (aggregate) releaseModel(aggregate);
-}
-
-Model *
+ModelId
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
                           QString &message)
 {
     for (auto &rec : m_models) {
-        if (rec.transform == transform &&
-            rec.source == input.getModel() && 
-            rec.channel == input.getChannel()) {
+        if (rec.second.transform == transform &&
+            rec.second.source == input.getModel() && 
+            rec.second.channel == input.getChannel()) {
             SVDEBUG << "derived model taken from map " << endl;
-            return rec.model;
+            return rec.first;
         }
     }
 
     Transforms tt;
     tt.push_back(transform);
-    vector<Model *> mm = addDerivedModels(tt, input, message, nullptr);
-    if (mm.empty()) return nullptr;
+    vector<ModelId> mm = addDerivedModels(tt, input, message, nullptr);
+    if (mm.empty()) return {};
     else return mm[0];
 }
 
-vector<Model *>
+vector<ModelId>
 Document::addDerivedModels(const Transforms &transforms,
                            const ModelTransformer::Input &input,
                            QString &message,
                            AdditionalModelConverter *amc)
 {
-    vector<Model *> mm = 
+    vector<ModelId> mm = 
         ModelTransformerFactory::getInstance()->transformMultiple
         (transforms, input, message, amc);
 
-    for (int j = 0; j < (int)mm.size(); ++j) {
+    for (int j = 0; in_range_for(mm, j); ++j) {
 
-        Model *model = mm[j];
+        ModelId modelId = mm[j];
+        Transform applied = transforms[j];
+
+        if (modelId.isNone()) {
+            SVCERR << "WARNING: Document::addDerivedModel: no output model for transform " << applied.getIdentifier() << endl;
+            continue;
+        }
 
         // The transform we actually used was presumably identical to
         // the one asked for, except that the version of the plugin
@@ -768,47 +723,50 @@ Document::addDerivedModels(const Transforms &transforms,
         //!!! would be nice to short-circuit this -- the version is
         //!!! static data, shouldn't have to construct a plugin for it
         //!!! (which may be expensive in Piper-world)
-        
-        Transform applied = transforms[j];
         applied.setPluginVersion
             (TransformFactory::getInstance()->
              getDefaultTransformFor(applied.getIdentifier(),
                                     applied.getSampleRate())
              .getPluginVersion());
 
-        if (!model) {
-            SVCERR << "WARNING: Document::addDerivedModel: no output model for transform " << applied.getIdentifier() << endl;
-        } else {
-            addAlreadyDerivedModel(applied, input, model);
-        }
+        addAlreadyDerivedModel(applied, input, modelId);
     }
         
     return mm;
 }
 
 void
-Document::releaseModel(Model *model) // Will _not_ release main model!
+Document::releaseModel(ModelId modelId) // Will _not_ release main model!
 {
-    if (model == nullptr) {
+    //!!!
+
+    SVCERR << "Document::releaseModel(" << modelId << "): STILL TO REVIEW" << endl;
+
+#ifdef NOT_DEFINED
+    
+    if (modelId.isNone()) {
         return;
     }
 
+    auto model = ModelById::get(modelId);
+    if (!model) {
+        return;
+    }
+    
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::releaseModel(" << model << ", type "
+    SVDEBUG << "Document::releaseModel(" << modelId << ", type "
             << model->getTypeName() << ", name \""
             << model->objectName() << "\")" << endl;
 #endif
     
-    if (model == m_mainModel) {
+    if (modelId == m_mainModel) {
         return;
     }
 
     bool toDelete = false;
     bool isInModelList = false; // should become true for any "normal" model
 
-    ModelList::iterator mitr = findModelInList(model);
-
-    if (mitr != m_models.end()) {
+    if (m_models.find(modelId) != m_models.end()) {
 
         if (mitr->refcount == 0) {
             SVCERR << "WARNING: Document::releaseModel: model " << model
@@ -873,6 +831,8 @@ Document::releaseModel(Model *model) // Will _not_ release main model!
 #endif
         }
     }
+
+#endif
 }
 
 void
@@ -936,47 +896,44 @@ Document::deleteLayer(Layer *layer, bool force)
 }
 
 void
-Document::setModel(Layer *layer, Model *model)
+Document::setModel(Layer *layer, ModelId modelId)
 {
-    if (model && 
-        model != m_mainModel &&
-        findModelInList(model) == m_models.end()) {
+    if (!modelId.isNone() && 
+        modelId != m_mainModel &&
+        m_models.find(modelId) == m_models.end()) {
         SVCERR << "ERROR: Document::setModel: Layer " << layer
-                  << " (\"" << layer->objectName()
-                  << "\") wants to use unregistered model " << model
-                  << ": register the layer's model before setting it!"
-                  << endl;
+               << " (\"" << layer->objectName()
+               << "\") wants to use unregistered model " << modelId
+               << ": register the layer's model before setting it!"
+               << endl;
         return;
     }
 
-    Model *previousModel = layer->getModel();
+    ModelId previousModel = layer->getModel();
 
-    if (previousModel == model) {
+    if (previousModel == modelId) {
         SVDEBUG << "NOTE: Document::setModel: Layer " << layer << " (\""
-                  << layer->objectName()                  << "\") is already set to model "
-                  << model << " (\""
-                  << (model ? model->objectName(): "(null)")
-                  << "\")" << endl;
+                << layer->objectName()
+                << "\") is already set to model "
+                << modelId << endl;
         return;
     }
-
+/*!!!
     if (model && model != m_mainModel) {
         ModelList::iterator mitr = findModelInList(model);
         if (mitr != m_models.end()) {
             mitr->refcount ++;
         }
     }
-
-    if (model && previousModel) {
+*/
+    if (!modelId.isNone() && !previousModel.isNone()) {
         PlayParameterRepository::getInstance()->copyParameters
-            (previousModel, model);
+            (previousModel.untyped, modelId.untyped);
     }
 
-    LayerFactory::getInstance()->setModel(layer, model);
+    LayerFactory::getInstance()->setModel(layer, modelId);
 
-    if (previousModel) {
-        releaseModel(previousModel);
-    }
+    releaseModel(previousModel);
 }
 
 void
@@ -988,8 +945,8 @@ Document::setChannel(Layer *layer, int channel)
 void
 Document::addLayerToView(View *view, Layer *layer)
 {
-    Model *model = layer->getModel();
-    if (!model) {
+    ModelId modelId = layer->getModel();
+    if (modelId.isNone()) {
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::addLayerToView: Layer (\""
                   << layer->objectName()
@@ -997,10 +954,10 @@ Document::addLayerToView(View *view, Layer *layer)
                   << "normally you want to set the model first" << endl;
 #endif
     } else {
-        if (model != m_mainModel &&
-            findModelInList(model) == m_models.end()) {
+        if (modelId != m_mainModel &&
+            m_models.find(modelId) == m_models.end()) {
             SVCERR << "ERROR: Document::addLayerToView: Layer " << layer
-                      << " has unregistered model " << model
+                      << " has unregistered model " << modelId
                       << " -- register the layer's model before adding the layer!" << endl;
             return;
         }
@@ -1075,37 +1032,38 @@ Document::getUniqueLayerName(QString candidate)
     }
 }
 
-std::vector<Model *>
+std::vector<ModelId>
 Document::getTransformInputModels()
 {
-    std::vector<Model *> models;
+    std::vector<ModelId> models;
 
-    if (!m_mainModel) return models;
+    if (m_mainModel.isNone()) return models;
 
     models.push_back(m_mainModel);
 
     //!!! This will pick up all models, including those that aren't visible...
 
-    for (ModelRecord &rec: m_models) {
+    for (auto rec: m_models) {
 
-        Model *model = rec.model;
-        if (!model || model == m_mainModel) continue;
-        DenseTimeValueModel *dtvm = dynamic_cast<DenseTimeValueModel *>(model);
-        
+        ModelId modelId = rec.first;
+        if (modelId == m_mainModel) continue;
+
+        auto dtvm = ModelById::getAs<DenseTimeValueModel>(modelId);
         if (dtvm) {
-            models.push_back(dtvm);
+            models.push_back(modelId);
         }
     }
 
     return models;
 }
 
+//!!! what is this used for?
 bool
-Document::isKnownModel(const Model *model) const
+Document::isKnownModel(const ModelId modelId) const
 {
-    if (model == m_mainModel) return true;
-    for (const ModelRecord &rec: m_models) {
-        if (rec.model == model) return true;
+    if (modelId == m_mainModel) return true;
+    for (auto rec: m_models) {
+        if (rec.first == modelId) return true;
     }
     return false;
 }
@@ -1117,30 +1075,29 @@ Document::canAlign()
 }
 
 void
-Document::alignModel(Model *model, bool forceRecalculate)
+Document::alignModel(ModelId modelId, bool forceRecalculate)
 {
-    SVDEBUG << "Document::alignModel(" << model << ", " << forceRecalculate
+    SVDEBUG << "Document::alignModel(" << modelId << ", " << forceRecalculate
             << ") (main model is " << m_mainModel << ")" << endl;
-    
-    RangeSummarisableTimeValueModel *rm = 
-        dynamic_cast<RangeSummarisableTimeValueModel *>(model);
+
+    auto rm = ModelById::getAs<RangeSummarisableTimeValueModel>(modelId);
     if (!rm) {
-        SVDEBUG << "(model " << rm << " is not an alignable sort)" << endl;
+        SVDEBUG << "(model " << modelId << " is not an alignable sort)" << endl;
         return;
     }
 
-    if (!m_mainModel) {
+    if (m_mainModel.isNone()) {
         SVDEBUG << "(no main model to align to)" << endl;
-        if (forceRecalculate && rm->getAlignment()) {
+        if (forceRecalculate && !rm->getAlignment().isNone()) {
             SVDEBUG << "(but model is aligned, and forceRecalculate is true, "
                     << "so resetting alignment to nil)" << endl;
-            rm->setAlignment(nullptr);
+            rm->setAlignment({});
         }
         return;
     }
 
     if (rm->getAlignmentReference() == m_mainModel) {
-        SVDEBUG << "(model " << rm << " is already aligned to main model "
+        SVDEBUG << "(model " << modelId << " is already aligned to main model "
                 << m_mainModel << ")" << endl;
         if (!forceRecalculate) {
             return;
@@ -1150,37 +1107,40 @@ Document::alignModel(Model *model, bool forceRecalculate)
         }
     }
     
-    if (model == m_mainModel) {
+    if (modelId == m_mainModel) {
         // The reference has an empty alignment to itself.  This makes
         // it possible to distinguish between the reference and any
         // unaligned model just by looking at the model itself,
         // without also knowing what the main model is
-        SVDEBUG << "Document::alignModel(" << model
+        SVDEBUG << "Document::alignModel(" << modelId
                 << "): is main model, setting alignment to itself" << endl;
-        rm->setAlignment(new AlignmentModel(model, model, nullptr));
+        auto alignment = std::make_shared<AlignmentModel>(modelId, modelId,
+                                                          ModelId());
+        ModelById::add(alignment);
+        //!!! hang on, who tracks alignment models?
+        rm->setAlignment(alignment->getId());
         return;
     }
 
-    WritableWaveFileModel *w =
-        dynamic_cast<WritableWaveFileModel *>(model);
+    auto w = ModelById::getAs<WritableWaveFileModel>(modelId);
     if (w && w->getWriteProportion() < 100) {
-        SVDEBUG << "Document::alignModel(" << model
+        SVDEBUG << "Document::alignModel(" << modelId
                 << "): model write is not complete, deferring"
                 << endl;
-        connect(w, SIGNAL(writeCompleted()),
+        connect(w.get(), SIGNAL(writeCompleted()),
                 this, SLOT(performDeferredAlignment()));
         return;
     }
 
     SVDEBUG << "Document::alignModel: aligning..." << endl;
-    if (rm->getAlignmentReference() != nullptr) {
+    if (!rm->getAlignmentReference().isNone()) {
         SVDEBUG << "(Note: model " << rm << " is currently aligned to model "
                 << rm->getAlignmentReference() << "; this will replace that)"
                 << endl;
     }
 
     QString err;
-    if (!m_align->alignModel(this, m_mainModel, rm, err)) {
+    if (!m_align->alignModel(this, m_mainModel, modelId, err)) {
         SVCERR << "Alignment failed: " << err << endl;
         emit alignmentFailed(err);
     }
@@ -1189,21 +1149,23 @@ Document::alignModel(Model *model, bool forceRecalculate)
 void
 Document::performDeferredAlignment()
 {
-    QObject *s = sender();
-    Model *m = dynamic_cast<Model *>(s);
-    if (!m) {
-        SVDEBUG << "Document::performDeferredAlignment: sender is not a Model" << endl;
+    ModelId modelId;
+    if (Model *m = qobject_cast<Model *>(sender())) {
+        modelId = m->getId();
     } else {
-        SVDEBUG << "Document::performDeferredAlignment: aligning..." << endl;
-        alignModel(m);
+        SVDEBUG << "Document::performDeferredAlignment: sender is not a Model" << endl;
+        return;
     }
+
+    SVDEBUG << "Document::performDeferredAlignment: aligning..." << endl;
+    alignModel(modelId);
 }
 
 void
 Document::alignModels()
 {
-    for (const ModelRecord &rec: m_models) {
-        alignModel(rec.model);
+    for (auto rec: m_models) {
+        alignModel(rec.first);
     }
     alignModel(m_mainModel);
 }
@@ -1211,8 +1173,8 @@ Document::alignModels()
 void
 Document::realignModels()
 {
-    for (const ModelRecord &rec: m_models) {
-        alignModel(rec.model, true);
+    for (auto rec: m_models) {
+        alignModel(rec.first, true);
     }
     alignModel(m_mainModel);
 }
@@ -1362,7 +1324,8 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     out << indent + QString("<data%1%2>\n")
         .arg(extraAttributes == "" ? "" : " ").arg(extraAttributes);
 
-    if (m_mainModel) {
+    auto mainModel = ModelById::getAs<WaveFileModel>(m_mainModel);
+    if (mainModel) {
 
 #ifdef DEBUG_DOCUMENT
         SVDEBUG << "Document::toXml: writing main model" << endl;
@@ -1371,16 +1334,17 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
         if (asTemplate) {
             writePlaceholderMainModel(out, indent + "  ");
         } else {
-            m_mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
+            mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
         }
 
         PlayParameters *playParameters =
-            PlayParameterRepository::getInstance()->getPlayParameters(m_mainModel);
+            PlayParameterRepository::getInstance()->getPlayParameters
+            (m_mainModel.untyped);
         if (playParameters) {
             playParameters->toXml
                 (out, indent + "  ",
                  QString("model=\"%1\"")
-                 .arg(m_mainModel->getExportId()));
+                 .arg(mainModel->getExportId()));
         }
     } else {
 #ifdef DEBUG_DOCUMENT
@@ -1391,17 +1355,17 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     // Models that are not used in a layer that is in a view should
     // not be written.  Get our list of required models first.
 
-    std::set<const Model *> used;
+    std::set<ModelId> used;
 
     for (LayerViewMap::const_iterator i = m_layerViewMap.begin();
          i != m_layerViewMap.end(); ++i) {
 
         if (i->first && !i->second.empty()) { // Layer exists, is in views
-            Model *m = i->first->getModel();
-            if (m) {
-                used.insert(m);
-                if (m->getSourceModel()) {
-                    used.insert(m->getSourceModel());
+            ModelId modelId = i->first->getModel();
+            if (auto model = ModelById::get(modelId)) {
+                used.insert(modelId);
+                if (!model->getSourceModel().isNone()) {
+                    used.insert(model->getSourceModel());
                 }
             }
         }
@@ -1420,16 +1384,16 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     // that, so existing sessions will always have the aggregate
     // models first and we might as well stick with that.
 
-    for (std::set<Model *>::iterator i = m_aggregateModels.begin();
-         i != m_aggregateModels.end(); ++i) {
+    for (auto modelId: m_aggregateModels) {
 
 #ifdef DEBUG_DOCUMENT
-        SVDEBUG << "Document::toXml: checking aggregate model " << *i << endl;
+        SVDEBUG << "Document::toXml: checking aggregate model "
+                << modelId << endl;
 #endif
-        
-        AggregateWaveModel *aggregate = qobject_cast<AggregateWaveModel *>(*i);
+
+        auto aggregate = ModelById::getAs<AggregateWaveModel>(modelId);
         if (!aggregate) continue; 
-        if (used.find(aggregate) == used.end()) {
+        if (used.find(modelId) == used.end()) {
 #ifdef DEBUG_DOCUMENT
             SVDEBUG << "(unused, skipping)" << endl;
 #endif
@@ -1443,7 +1407,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
         aggregate->toXml(out, indent + "  ");
     }
 
-    std::set<Model *> written;
+    std::set<ModelId> written;
 
     // Now write the other models in two passes: first the models that
     // aren't derived from anything (in case they are source
@@ -1455,17 +1419,18 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     const int nonDerivedPass = 0, derivedPass = 1;
     for (int pass = nonDerivedPass; pass <= derivedPass; ++pass) {
     
-        for (const ModelRecord &rec: m_models) {
+        for (auto rec: m_models) {
 
-            Model *model = rec.model;
+            ModelId modelId = rec.first;
 
-            if (used.find(model) == used.end()) continue;
+            if (used.find(modelId) == used.end()) continue;
         
+            auto model = ModelById::get(modelId);
+            if (!model) continue;
+            
 #ifdef DEBUG_DOCUMENT
-            SVDEBUG << "Document::toXml: looking at model " << model
-                    << " (" << model->getTypeName() << ", \""
-                    << model->objectName() << "\") [pass = "
-                    << pass << "]" << endl;
+            SVDEBUG << "Document::toXml: looking at model " << modelId
+                    << " [pass = " << pass << "]" << endl;
 #endif
             
             // We need an intelligent way to determine which models
@@ -1485,7 +1450,8 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
             bool writeModel = true;
             bool haveDerivation = false;
         
-            if (rec.source && rec.transform.getIdentifier() != "") {
+            if (!rec.second.source.isNone() &&
+                rec.second.transform.getIdentifier() != "") {
                 haveDerivation = true;
             }
 
@@ -1502,26 +1468,26 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
             }            
 
             if (haveDerivation) {
-                if (dynamic_cast<const WritableWaveFileModel *>(model)) {
-                    writeModel = false;
-                } else if (dynamic_cast<const DenseThreeDimensionalModel *>(model)) {
+                if (ModelById::isa<WritableWaveFileModel>(modelId) ||
+                    ModelById::isa<DenseThreeDimensionalModel>(modelId)) {
                     writeModel = false;
                 }
             }
             
             if (writeModel) {
                 model->toXml(out, indent + "  ");
-                written.insert(model);
+                written.insert(modelId);
             }
             
             if (haveDerivation) {
                 writeBackwardCompatibleDerivation(out, indent + "  ",
-                                                  model, rec);
+                                                  modelId, rec.second);
             }
 
             //!!! We should probably own the PlayParameterRepository
             PlayParameters *playParameters =
-                PlayParameterRepository::getInstance()->getPlayParameters(model);
+                PlayParameterRepository::getInstance()->getPlayParameters
+                (modelId.untyped);
             if (playParameters) {
                 playParameters->toXml
                     (out, indent + "  ",
@@ -1537,11 +1503,12 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
     // this will only work when the alignment is complete, so we
     // should probably wait for it if it isn't already by this point.
 
-    for (std::set<Model *>::const_iterator i = written.begin();
-         i != written.end(); ++i) {
+    for (auto modelId: written) {
 
-        const Model *model = *i;
-        const AlignmentModel *alignment = model->getAlignment();
+        auto model = ModelById::get(modelId);
+        if (!model) continue;
+
+        auto alignment = ModelById::get(model->getAlignment());
         if (!alignment) continue;
 
         alignment->toXml(out, indent + "  ");
@@ -1557,15 +1524,17 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
 void
 Document::writePlaceholderMainModel(QTextStream &out, QString indent) const
 {
+    auto mainModel = ModelById::get(m_mainModel);
+    if (!mainModel) return;
     out << indent;
     out << QString("<model id=\"%1\" name=\"placeholder\" sampleRate=\"%2\" type=\"wavefile\" file=\":samples/silent.wav\" mainModel=\"true\"/>\n")
-        .arg(m_mainModel->getExportId())
-        .arg(m_mainModel->getSampleRate());
+        .arg(mainModel->getExportId())
+        .arg(mainModel->getSampleRate());
 }
 
 void
 Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
-                                            Model *targetModel,
+                                            ModelId targetModelId,
                                             const ModelRecord &rec) const
 {
     // There is a lot of redundancy in the XML we output here, because
@@ -1592,6 +1561,13 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
 
     const Transform &transform = rec.transform;
 
+    //!!! in cases like these, where we think we have the model handle
+    //!!! and nobody else should be releasing it, we probably ought to
+    //!!! throw std::logic_error if !targetModel
+    
+    auto targetModel = ModelById::get(targetModelId);
+    if (!targetModel) return;
+    
     // Just for reference, this is what we would write if we didn't
     // have to be backward compatible:
     //
@@ -1623,7 +1599,7 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
                    "model=\"%2\" channel=\"%3\" domain=\"%4\" "
                    "stepSize=\"%5\" blockSize=\"%6\" %7windowType=\"%8\" "
                    "transform=\"%9\">\n")
-        .arg(rec.source->getExportId())
+        .arg(ModelById::getExportId(rec.source))
         .arg(targetModel->getExportId())
         .arg(rec.channel)
         .arg(TransformFactory::getInstance()->getTransformInputDomain
