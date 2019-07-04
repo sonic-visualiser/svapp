@@ -131,7 +131,7 @@ AudioGenerator::addModel(ModelId modelId)
         }
     }
 
-    PlayParameters *parameters =
+    auto parameters =
         PlayParameterRepository::getInstance()->getPlayParameters
         (modelId.untyped);
 
@@ -222,7 +222,7 @@ AudioGenerator::makeClipMixerFor(ModelId modelId)
 {
     QString clipId;
 
-    PlayParameters *parameters =
+    auto parameters =
         PlayParameterRepository::getInstance()->getPlayParameters
         (modelId.untyped);
     if (parameters) {
@@ -374,7 +374,7 @@ AudioGenerator::mixModel(ModelId modelId,
     auto model = ModelById::get(modelId);
     if (!model || !model->canPlay()) return frameCount;
 
-    PlayParameters *parameters =
+    auto parameters =
         PlayParameterRepository::getInstance()->getPlayParameters
         (modelId.untyped);
     if (!parameters) return frameCount;

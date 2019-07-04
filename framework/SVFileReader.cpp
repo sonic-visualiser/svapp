@@ -61,7 +61,6 @@ SVFileReader::SVFileReader(Document *document,
     m_currentDataset(XmlExportable::NO_ID),
     m_currentLayer(nullptr),
     m_pendingDerivedModel(XmlExportable::NO_ID),
-    m_currentPlayParameters(nullptr),
     m_currentTransformChannel(0),
     m_currentTransformIsNewStyle(true),
     m_datasetSeparator(" "),
@@ -358,7 +357,7 @@ SVFileReader::endElement(const QString &, const QString &,
     } else if (name == "selections") {
         m_inSelections = false;
     } else if (name == "playparameters") {
-        m_currentPlayParameters = nullptr;
+        m_currentPlayParameters = {};
     }
 
     return true;
@@ -1373,7 +1372,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
 bool
 SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 {
-    m_currentPlayParameters = nullptr;
+    m_currentPlayParameters = {};
 
     int modelExportId = 0;
     bool modelOk = false;
@@ -1388,7 +1387,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 
         bool ok = false;
 
-        PlayParameters *parameters = PlayParameterRepository::getInstance()->
+        auto parameters = PlayParameterRepository::getInstance()->
             getPlayParameters(m_models[modelExportId].untyped);
 
         if (!parameters) {

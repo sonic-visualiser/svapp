@@ -282,7 +282,7 @@ protected:
     Layer *m_currentLayer;
     ModelId m_currentDerivedModel;
     ExportId m_pendingDerivedModel;
-    PlayParameters *m_currentPlayParameters;
+    std::shared_ptr<PlayParameters> m_currentPlayParameters;
     Transform m_currentTransform;
     ModelId m_currentTransformSource;
     int m_currentTransformChannel;

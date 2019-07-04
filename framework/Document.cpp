@@ -554,6 +554,12 @@ Document::setMainModel(ModelId modelId)
 
     emit mainModelChanged(m_mainModel);
 
+    // Remove the playable explicitly - the main model's dtor will do
+    // this, but just in case something is still hanging onto a
+    // shared_ptr to the old main model so it doesn't get deleted yet
+    PlayParameterRepository::getInstance()->removePlayable
+        (oldMainModel.untyped);
+    
     ModelById::release(oldMainModel);
 }
 
@@ -1337,7 +1343,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
             mainModel->toXml(out, indent + "  ", "mainModel=\"true\"");
         }
 
-        PlayParameters *playParameters =
+        auto playParameters =
             PlayParameterRepository::getInstance()->getPlayParameters
             (m_mainModel.untyped);
         if (playParameters) {
@@ -1484,8 +1490,7 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
                                                   modelId, rec.second);
             }
 
-            //!!! We should probably own the PlayParameterRepository
-            PlayParameters *playParameters =
+            auto playParameters =
                 PlayParameterRepository::getInstance()->getPlayParameters
                 (modelId.untyped);
             if (playParameters) {

@@ -63,7 +63,6 @@
 
 #include "base/RecentFiles.h"
 
-#include "base/PlayParameterRepository.h"
 #include "base/XmlExportable.h"
 #include "base/Profiler.h"
 #include "base/Preferences.h"
@@ -1694,11 +1693,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         ModelId prevMain = getMainModelId();
         if (!prevMain.isNone()) {
             m_playSource->removeModel(prevMain);
-            //!!! shouldn't this stuff be handled by Document?
-            PlayParameterRepository::getInstance()->removePlayable
-                (prevMain.untyped);
         }
-        PlayParameterRepository::getInstance()->addPlayable(newModel.untyped);
 
         SVDEBUG << "SV about to call setMainModel(" << newModel << "): prevMain is " << prevMain << endl;
 
@@ -3284,7 +3279,6 @@ MainWindowBase::record()
     
     auto modelId = modelPtr->getId();
     ModelById::add(std::shared_ptr<Model>(modelPtr));
-    PlayParameterRepository::getInstance()->addPlayable(modelId.untyped);
 
     if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 
@@ -3299,8 +3293,6 @@ MainWindowBase::record()
                 SVCERR << "MainWindowBase::record: Session template open cancelled, stopping and suspending" << endl;
                 m_recordTarget->stopRecording();
                 m_audioIO->suspend();
-                PlayParameterRepository::getInstance()->removePlayable
-                    (modelId.untyped);
                 ModelById::release(modelId);
                 return;
             }
@@ -3317,8 +3309,6 @@ MainWindowBase::record()
         ModelId prevMain = getMainModelId();
         if (!prevMain.isNone()) {
             m_playSource->removeModel(prevMain);
-            PlayParameterRepository::getInstance()->removePlayable
-                (prevMain.untyped);
         }
         
         m_document->setMainModel(modelId);
