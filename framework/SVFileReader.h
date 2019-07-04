@@ -25,6 +25,7 @@
 
 class Pane;
 class Model;
+class Path;
 class Document;
 class PlayParameters;
 
@@ -182,15 +183,15 @@ public:
     void setCurrentPane(Pane *pane) { m_currentPane = pane; }
     
     bool startElement(const QString &namespaceURI,
-                              const QString &localName,
-                              const QString &qName,
-                              const QXmlAttributes& atts) override;
-
+                      const QString &localName,
+                      const QString &qName,
+                      const QXmlAttributes& atts) override;
+    
     bool characters(const QString &) override;
 
     bool endElement(const QString &namespaceURI,
-                            const QString &localName,
-                            const QString &qName) override;
+                    const QString &localName,
+                    const QString &qName) override;
 
     bool error(const QXmlParseException &exception) override;
     bool fatalError(const QXmlParseException &exception) override;
@@ -233,32 +234,57 @@ protected:
     void makeAggregateModels();
     void addUnaddedModels();
 
-    bool haveModel(int id) {
-        return (m_models.find(id) != m_models.end()) && m_models[id];
-    }
+    // We use the term "pending" of things that have been referred to
+    // but not yet constructed because their definitions are
+    // incomplete. They are just referred to with an ExportId.  Models
+    // that have been constructed are always added straight away to
+    // ById and are referred to with a ModelId (everywhere where
+    // previously we would have used a Model *). m_models maps from
+    // ExportId (as read from the file) to complete Models, or to a
+    // ModelId of None for any model that could not be constructed for
+    // some reason.
 
+    typedef XmlExportable::ExportId ExportId;
+    
+    bool haveModel(ExportId id) {
+        return (m_models.find(id) != m_models.end()) && !m_models[id].isNone();
+    }
+    
     struct PendingAggregateRec {
         QString name;
         sv_samplerate_t sampleRate;
-        std::vector<int> components;
+        std::vector<ExportId> components;
     };
     
     Document *m_document;
     SVFileReaderPaneCallback &m_paneCallback;
     QString m_location;
     Pane *m_currentPane;
-    std::map<int, Layer *> m_layers;
-    std::map<int, Model *> m_models;
-    std::set<Model *> m_addedModels;
-    std::map<int, PendingAggregateRec> m_pendingAggregates;
-    std::map<int, int> m_awaitingDatasets; // map dataset id -> model id
+    std::map<ExportId, Layer *> m_layers;
+    std::map<ExportId, ModelId> m_models;
+    std::map<ExportId, Path *> m_paths;
+    std::set<ModelId> m_addedModels; // i.e. added to Document, not just ById
+    std::map<ExportId, PendingAggregateRec> m_pendingAggregates;
+
+    // A model element often contains a dataset id, and the dataset
+    // then follows it. When the model is read, an entry in this map
+    // is added, mapping from the dataset's export id (the actual
+    // dataset has not been read yet) back to the export id of the
+    // object that needs it. We map to export id rather than model id,
+    // because the object might be a path rather than a model.
+    std::map<ExportId, ExportId> m_awaitingDatasets;
+
+    // And then this is the model or path that a dataset element is
+    // currently being read into, i.e. the value looked up from
+    // m_awaitingDatasets at the point where the dataset is found.
+    ExportId m_currentDataset;
+
     Layer *m_currentLayer;
-    Model *m_currentDataset;
-    Model *m_currentDerivedModel;
-    int m_currentDerivedModelId;
+    ModelId m_currentDerivedModel;
+    ExportId m_pendingDerivedModel;
     PlayParameters *m_currentPlayParameters;
     Transform m_currentTransform;
-    Model *m_currentTransformSource;
+    ModelId m_currentTransformSource;
     int m_currentTransformChannel;
     bool m_currentTransformIsNewStyle;
     QString m_datasetSeparator;

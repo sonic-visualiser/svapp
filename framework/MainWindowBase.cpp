@@ -2665,14 +2665,14 @@ MainWindowBase::audioChannelCountIncreased(int)
 }
 
 ModelId
-MainWindowBase::getMainModelId()
+MainWindowBase::getMainModelId() const
 {
     if (!m_document) return {};
     return m_document->getMainModel();
 }
 
 std::shared_ptr<WaveFileModel>
-MainWindowBase::getMainModel()
+MainWindowBase::getMainModel() const
 {
     return ModelById::getAs<WaveFileModel>(getMainModelId());
 }

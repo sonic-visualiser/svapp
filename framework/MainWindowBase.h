@@ -420,8 +420,8 @@ protected:
     mutable QLabel *m_statusLabel;
     QLabel *getStatusLabel() const;
 
-    ModelId getMainModelId();
-    std::shared_ptr<WaveFileModel> getMainModel();
+    ModelId getMainModelId() const;
+    std::shared_ptr<WaveFileModel> getMainModel() const;
     void createDocument();
 
     FileOpenStatus addOpenedAudioModel(FileSource source,

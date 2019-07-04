@@ -58,12 +58,10 @@ SVFileReader::SVFileReader(Document *document,
     m_paneCallback(callback),
     m_location(location),
     m_currentPane(nullptr),
+    m_currentDataset(XmlExportable::NO_ID),
     m_currentLayer(nullptr),
-    m_currentDataset(nullptr),
-    m_currentDerivedModel(nullptr),
-    m_currentDerivedModelId(-1),
+    m_pendingDerivedModel(XmlExportable::NO_ID),
     m_currentPlayParameters(nullptr),
-    m_currentTransformSource(nullptr),
     m_currentTransformChannel(0),
     m_currentTransformIsNewStyle(true),
     m_datasetSeparator(" "),
@@ -108,24 +106,31 @@ SVFileReader::~SVFileReader()
                   << endl;
     }
 
-    std::set<Model *> unaddedModels;
+    std::set<ModelId> unaddedModels;
 
-    for (std::map<int, Model *>::iterator i = m_models.begin();
-         i != m_models.end(); ++i) {
-        if (m_addedModels.find(i->second) == m_addedModels.end()) {
-            unaddedModels.insert(i->second);
+    for (auto i: m_models) {
+        if (m_addedModels.find(i.second) == m_addedModels.end()) {
+            unaddedModels.insert(i.second);
         }
     }
 
     if (!unaddedModels.empty()) {
         SVCERR << "WARNING: SV-XML: File contained "
-                  << unaddedModels.size() << " unused models"
-                  << endl;
-        while (!unaddedModels.empty()) {
-            delete *unaddedModels.begin();
-            unaddedModels.erase(unaddedModels.begin());
+               << unaddedModels.size() << " unused models"
+               << endl;
+        for (auto m: unaddedModels) {
+            ModelById::release(m);
         }
-    }        
+    }
+
+    if (!m_paths.empty()) {
+        SVCERR << "WARNING: SV-XML: File contained "
+               << m_paths.size() << " unused paths"
+               << endl;
+        for (auto p: m_paths) {
+            delete p.second;
+        }
+    }
 }
 
 bool
@@ -277,15 +282,13 @@ SVFileReader::endElement(const QString &, const QString &,
 
     if (name == "dataset") {
 
-        if (m_currentDataset) {
+        if (m_currentDataset != XmlExportable::NO_ID) {
             
             bool foundInAwaiting = false;
 
-            for (std::map<int, int>::iterator i = m_awaitingDatasets.begin();
-                 i != m_awaitingDatasets.end(); ++i) {
-                if (haveModel(i->second) &&
-                    m_models[i->second] == m_currentDataset) {
-                    m_awaitingDatasets.erase(i);
+            for (auto i: m_awaitingDatasets) {
+                if (i.second == m_currentDataset) {
+                    m_awaitingDatasets.erase(i.first);
                     foundInAwaiting = true;
                     break;
                 }
@@ -296,7 +299,7 @@ SVFileReader::endElement(const QString &, const QString &,
             }
         }
 
-        m_currentDataset = nullptr;
+        m_currentDataset = XmlExportable::NO_ID;
 
     } else if (name == "data") {
 
@@ -305,23 +308,23 @@ SVFileReader::endElement(const QString &, const QString &,
 
     } else if (name == "derivation") {
 
-        if (!m_currentDerivedModel) {
-            if (m_currentDerivedModelId < 0) {
-                SVCERR << "WARNING: SV-XML: Bad derivation output model id "
-                          << m_currentDerivedModelId << endl;
-            } else if (haveModel(m_currentDerivedModelId)) {
+        if (m_currentDerivedModel.isNone()) {
+            if (m_pendingDerivedModel == XmlExportable::NO_ID) {
+                SVCERR << "WARNING: SV-XML: No valid output model id "
+                       << "for derivation" << endl;
+            } else if (haveModel(m_pendingDerivedModel)) {
                 SVCERR << "WARNING: SV-XML: Derivation has existing model "
-                          << m_currentDerivedModelId
-                          << " as target, not regenerating" << endl;
+                       << m_pendingDerivedModel
+                       << " as target, not regenerating" << endl;
             } else {
                 QString message;
-                m_currentDerivedModel = m_models[m_currentDerivedModelId] =
+                m_currentDerivedModel = m_models[m_pendingDerivedModel] =
                     m_document->addDerivedModel
                     (m_currentTransform,
                      ModelTransformer::Input(m_currentTransformSource,
                                              m_currentTransformChannel),
                      message);
-                if (!m_currentDerivedModel) {
+                if (m_currentDerivedModel.isNone()) {
                     emit modelRegenerationFailed(tr("(derived model in SV-XML)"),
                                                  m_currentTransform.getIdentifier(),
                                                  message);
@@ -340,9 +343,9 @@ SVFileReader::endElement(const QString &, const QString &,
         }
 
         m_addedModels.insert(m_currentDerivedModel);
-        m_currentDerivedModel = nullptr;
-        m_currentDerivedModelId = -1;
-        m_currentTransformSource = nullptr;
+        m_currentDerivedModel = {};
+        m_pendingDerivedModel = XmlExportable::NO_ID;
+        m_currentTransformSource = {};
         m_currentTransform = Transform();
         m_currentTransformChannel = -1;
 
@@ -406,7 +409,7 @@ SVFileReader::readWindow(const QXmlAttributes &)
 void
 SVFileReader::makeAggregateModels()
 {
-    std::map<int, PendingAggregateRec> stillPending;
+    std::map<ExportId, PendingAggregateRec> stillPending;
     
     for (auto p: m_pendingAggregates) {
 
@@ -415,22 +418,27 @@ SVFileReader::makeAggregateModels()
         bool skip = false;
 
         AggregateWaveModel::ChannelSpecList specs;
-        for (int componentId: rec.components) {
+        for (ExportId componentId: rec.components) {
             bool found = false;
             if (m_models.find(componentId) != m_models.end()) {
-                RangeSummarisableTimeValueModel *rs =
-                    dynamic_cast<RangeSummarisableTimeValueModel *>
-                    (m_models[componentId]);
+                ModelId modelId = m_models[componentId];
+                auto rs = ModelById::getAs<RangeSummarisableTimeValueModel>
+                    (modelId);
                 if (rs) {
-                    //!!! NB difference between model id and model
-                    //!!! export id - we need to be clearer about this
                     specs.push_back(AggregateWaveModel::ModelChannelSpec
-                                    (rs->getId(), -1));
+                                    (modelId, -1));
                     found = true;
+                } else {
+                    SVDEBUG << "SVFileReader::makeAggregateModels: "
+                            << "Component model id " << componentId
+                            << "in aggregate model id " << id
+                            << "does not appear to be convertible to "
+                            << "RangeSummarisableTimeValueModel"
+                            << endl;
                 }
             }
             if (!found) {
-                SVDEBUG << "SVFileReader::makeAggregateModels:"
+                SVDEBUG << "SVFileReader::makeAggregateModels: "
                         << "Unknown component model id "
                         << componentId << " in aggregate model id " << id
                         << ", hoping we won't be needing it just yet"
@@ -442,13 +450,13 @@ SVFileReader::makeAggregateModels()
         if (skip) {
             stillPending[id] = rec;
         } else {
-            AggregateWaveModel *model = new AggregateWaveModel(specs);
+            auto model = std::make_shared<AggregateWaveModel>(specs);
             model->setObjectName(rec.name);
+            m_models[id] = ModelById::add(model);
 
-            SVDEBUG << "SVFileReader::makeAggregateModels: created aggregate model id "
-                    << id << " with " << specs.size() << " components" << endl;
-        
-            m_models[id] = model;
+            SVDEBUG << "SVFileReader::makeAggregateModels: created aggregate "
+                    << "model id " << id << " with " << specs.size()
+                    << " components" << endl;
         }
     }
 
@@ -459,32 +467,30 @@ void
 SVFileReader::addUnaddedModels()
 {
     makeAggregateModels();
-    
-    for (std::map<int, Model *>::iterator i = m_models.begin();
-         i != m_models.end(); ++i) {
 
-        Model *model = i->second;
+    for (auto i: m_models) {
 
-        if (m_addedModels.find(model) != m_addedModels.end()) {
+        ModelId modelId = i.second;
+
+        if (m_addedModels.find(modelId) != m_addedModels.end()) {
             // already added this one
             continue;
         }
+
+        //!!! todo: review this (i.e. who causes the release of what)
         
-        // don't want to add path and alignment models to the
-        // document, because their lifespans are entirely dictated by
-        // the models that "own" them even though they were read
-        // independently from the .sv file.  (pity we don't have a
-        // nicer way to handle this)
-        if (!dynamic_cast<PathModel *>(model) &&
-            !dynamic_cast<AlignmentModel *>(model)) {
-            
-            m_document->addImportedModel(model);
+        // don't want to add alignment models to the document, because
+        // their lifespans are entirely dictated by the models that
+        // "own" them even though they were read independently from
+        // the .sv file.  (pity we don't have a nicer way to handle
+        // this)
+        if (!ModelById::isa<AlignmentModel>(modelId)) {
+            m_document->addImportedModel(modelId);
         }
         
-        // but we add all models including path and alignment ones to
-        // the added set, so they don't get deleted from our own
-        // destructor
-        m_addedModels.insert(model);
+        // but we add all models including alignment ones to the added
+        // set, so they don't get released by our own destructor
+        m_addedModels.insert(modelId);
     }
 }
 
@@ -540,7 +546,8 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             } else if (rate == 0 &&
                        !isMainModel &&
                        Preferences::getInstance()->getResampleOnLoad()) {
-                WaveFileModel *mm = m_document->getMainModel();
+                auto mm = ModelById::getAs<WaveFileModel>
+                    (m_document->getMainModel());
                 if (mm) rate = mm->getSampleRate();
             }
 
@@ -557,10 +564,14 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         }
 
         model->setObjectName(name);
-        m_models[id] = model;
+
+        ModelId modelId = model->getId();
+        ModelById::add(std::shared_ptr<Model>(model));
+        m_models[id] = modelId;
+        
         if (isMainModel) {
-            m_document->setMainModel(model);
-            m_addedModels.insert(model);
+            m_document->setMainModel(modelId);
+            m_addedModels.insert(modelId);
         }
         // Derived models will be added when their derivation
         // is found.
@@ -572,13 +583,13 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         QString components = attributes.value("components");
         QStringList componentIdStrings = components.split(",");
         std::vector<int> componentIds;
-        for (auto cid: componentIdStrings) {
+        for (auto cidStr: componentIdStrings) {
             bool ok = false;
-            int id = cid.toInt(&ok);
+            int cid = cidStr.toInt(&ok);
             if (!ok) {
-                SVCERR << "SVFileReader::readModel: Failed to convert component model id from part \"" << cid << "\" in \"" << components << "\"" << endl;
+                SVCERR << "SVFileReader::readModel: Failed to convert component model id from part \"" << cidStr << "\" in \"" << components << "\"" << endl;
             } else {
-                componentIds.push_back(id);
+                componentIds.push_back(cid);
             }
         }
         PendingAggregateRec rec { name, sampleRate, componentIds };
@@ -605,10 +616,12 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             READ_MANDATORY(int, windowSize, toInt);
             READ_MANDATORY(int, yBinCount, toInt);
             
-            EditableDenseThreeDimensionalModel *model =
-                new EditableDenseThreeDimensionalModel
+            auto model = std::make_shared<EditableDenseThreeDimensionalModel>
                 (sampleRate, windowSize, yBinCount,
                  EditableDenseThreeDimensionalModel::NoCompression);
+
+            model->setObjectName(name);
+            m_models[id] = ModelById::add(model);
             
             float minimum = attributes.value("minimum").trimmed().toFloat(&ok);
             if (ok) model->setMinimumLevel(minimum);
@@ -622,8 +635,6 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             int startFrame = attributes.value("startFrame").trimmed().toInt(&ok);
             if (ok) model->setStartFrame(startFrame);
 
-            model->setObjectName(name);
-            m_models[id] = model;
             return true;
 
         } else {
@@ -638,21 +649,21 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         if (dimensions == 1) {
             
             READ_MANDATORY(int, resolution, toInt);
-
+            
             if (attributes.value("subtype") == "image") {
 
                 bool notifyOnAdd = (attributes.value("notifyOnAdd") == "true");
-                ImageModel *model = new ImageModel(sampleRate, resolution,
-                                                   notifyOnAdd);
+                auto model = std::make_shared<ImageModel>
+                    (sampleRate, resolution, notifyOnAdd);
                 model->setObjectName(name);
-                m_models[id] = model;
+                m_models[id] = ModelById::add(model);
 
             } else {
 
-                SparseOneDimensionalModel *model = new SparseOneDimensionalModel
+                auto model = std::make_shared<SparseOneDimensionalModel>
                     (sampleRate, resolution);
                 model->setObjectName(name);
-                m_models[id] = model;
+                m_models[id] = ModelById::add(model);
             }
 
             int dataset = attributes.value("dataset").trimmed().toInt(&ok);
@@ -679,73 +690,74 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
             if (dimensions == 2) {
                 if (attributes.value("subtype") == "text") {
-                    TextModel *model = new TextModel
+                    auto model = std::make_shared<TextModel>
                         (sampleRate, resolution, notifyOnAdd);
                     model->setObjectName(name);
-                    m_models[id] = model;
+                    m_models[id] = ModelById::add(model);
                 } else if (attributes.value("subtype") == "path") {
-                    PathModel *model = new PathModel
-                        (sampleRate, resolution, notifyOnAdd);
-                    model->setObjectName(name);
-                    m_models[id] = model;
+                    // Paths are no longer actually models
+                    Path *path = new Path(sampleRate, resolution);
+                    m_paths[id] = path;
                 } else {
-                    SparseTimeValueModel *model;
+                    std::shared_ptr<SparseTimeValueModel> model;
                     if (haveMinMax) {
-                        model = new SparseTimeValueModel
-                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                        model = std::make_shared<SparseTimeValueModel>
+                            (sampleRate, resolution, minimum, maximum,
+                             notifyOnAdd);
                     } else {
-                        model = new SparseTimeValueModel
+                        model = std::make_shared<SparseTimeValueModel>
                             (sampleRate, resolution, notifyOnAdd);
                     }
                     model->setScaleUnits(units);
                     model->setObjectName(name);
-                    m_models[id] = model;
+                    m_models[id] = ModelById::add(model);
                 }
             } else {
                 if (attributes.value("subtype") == "region") {
-                    RegionModel *model;
+                    std::shared_ptr<RegionModel> model;
                     if (haveMinMax) {
-                        model = new RegionModel
-                            (sampleRate, resolution, minimum, maximum, notifyOnAdd);
+                        model = std::make_shared<RegionModel>
+                            (sampleRate, resolution, minimum, maximum,
+                             notifyOnAdd);
                     } else {
-                        model = new RegionModel
+                        model = std::make_shared<RegionModel>
                             (sampleRate, resolution, notifyOnAdd);
                     }
                     model->setValueQuantization(valueQuantization);
                     model->setScaleUnits(units);
                     model->setObjectName(name);
-                    m_models[id] = model;
+                    m_models[id] = ModelById::add(model);
                 } else if (attributes.value("subtype") == "flexinote") {
-                    NoteModel *model;
+                    std::shared_ptr<NoteModel> model;
                     if (haveMinMax) {
-                        model = new NoteModel
+                        model = std::make_shared<NoteModel>
                             (sampleRate, resolution, minimum, maximum,
                              notifyOnAdd,
                              NoteModel::FLEXI_NOTE);
                     } else {
-                        model = new NoteModel
+                        model = std::make_shared<NoteModel>
                             (sampleRate, resolution, notifyOnAdd,
                              NoteModel::FLEXI_NOTE);
                     }
                     model->setValueQuantization(valueQuantization);
                     model->setScaleUnits(units);
                     model->setObjectName(name);
-                    m_models[id] = model;
+                    m_models[id] = ModelById::add(model);
                 } else {
                     // note models written out by SV 1.3 and earlier
                     // have no subtype, so we can't test that
-                    NoteModel *model;
+                    std::shared_ptr<NoteModel> model;
                     if (haveMinMax) {
-                        model = new NoteModel
+                        model = std::make_shared<NoteModel>
                             (sampleRate, resolution, minimum, maximum, notifyOnAdd);
                     } else {
-                        model = new NoteModel
+                        model = std::make_shared<NoteModel>
                             (sampleRate, resolution, notifyOnAdd);
                     }
                     model->setValueQuantization(valueQuantization);
                     model->setScaleUnits(units);
                     model->setObjectName(name);
-                    m_models[id] = model;
+                    m_models[id] = ModelById::add(model);
                 }
             }
 
@@ -766,7 +778,8 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         READ_MANDATORY(int, aligned, toInt);
         READ_MANDATORY(int, path, toInt);
 
-        Model *refModel = nullptr, *alignedModel = nullptr, *pathModel = nullptr;
+        ModelId refModel, alignedModel;
+        Path *pathPtr = nullptr;
 
         if (m_models.find(reference) != m_models.end()) {
             refModel = m_models[reference];
@@ -784,30 +797,29 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                       << endl;
         }
 
-        if (m_models.find(path) != m_models.end()) {
-            pathModel = m_models[path];
+        if (m_paths.find(path) != m_paths.end()) {
+            pathPtr = m_paths[path];
         } else {
-            SVCERR << "WARNING: SV-XML: Unknown path model id "
+            SVCERR << "WARNING: SV-XML: Unknown path id "
                       << path << " in alignment model id " << id
                       << endl;
         }
 
-        if (refModel && alignedModel && pathModel) {
-            AlignmentModel *model = new AlignmentModel
-                (refModel, alignedModel, nullptr);
-            PathModel *pm = dynamic_cast<PathModel *>(pathModel);
-            if (!pm) {
-                SVCERR << "WARNING: SV-XML: Model id " << path
-                          << " referenced as path for alignment " << id
-                          << " is not a path model" << endl;
-            } else {
-                model->setPath(pm);
-                pm->setCompletion(100);
-            }
+        if (!refModel.isNone() && !alignedModel.isNone() && pathPtr) {
+            auto model = std::make_shared<AlignmentModel>
+                (refModel, alignedModel, ModelId());
+            model->setPath(*pathPtr);
             model->setObjectName(name);
-            m_models[id] = model;
-            alignedModel->setAlignment(model);
+            m_models[id] = ModelById::add(model);
+            if (auto am = ModelById::get(alignedModel)) {
+                am->setAlignment(m_models[id]);
+            }
             return true;
+        }
+
+        if (pathPtr) {
+            delete pathPtr;
+            m_paths.erase(path);
         }
         
     } else {
@@ -974,11 +986,10 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 
         if (modelOk) {
             if (haveModel(modelId)) {
-                Model *model = m_models[modelId];
-                m_document->setModel(layer, model);
+                m_document->setModel(layer, m_models[modelId]);
             } else {
                 SVCERR << "WARNING: SV-XML: Unknown model id " << modelId
-                          << " in layer definition" << endl;
+                       << " in layer definition" << endl;
                 if (!layer->canExistWithoutModel()) {
                     // Don't add a layer with an unknown model id
                     // unless it explicitly supports this state
@@ -1030,14 +1041,18 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
         return false;
     }
     
-    int modelId = m_awaitingDatasets[id];
+    int awaitingId = m_awaitingDatasets[id];
+
+    ModelId modelId;
+    Path *path = nullptr;
     
-    Model *model = nullptr;
-    if (haveModel(modelId)) {
-        model = m_models[modelId];
+    if (haveModel(awaitingId)) {
+        modelId = m_models[awaitingId];
+    } else if (m_paths.find(awaitingId) != m_paths.end()) {
+        path = m_paths[awaitingId];
     } else {
-        SVCERR << "WARNING: SV-XML: Internal error: Unknown model " << modelId
-                  << " expecting dataset " << id << endl;
+        SVCERR << "WARNING: SV-XML: Internal error: Unknown model or path "
+               << modelId << " awaiting dataset " << id << endl;
         return false;
     }
 
@@ -1045,33 +1060,37 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 
     switch (dimensions) {
     case 1:
-        if (dynamic_cast<SparseOneDimensionalModel *>(model)) good = true;
-        else if (dynamic_cast<ImageModel *>(model)) good = true;
+        good =
+            (ModelById::isa<SparseOneDimensionalModel>(modelId) ||
+             ModelById::isa<ImageModel>(modelId));
         break;
 
     case 2:
-        if (dynamic_cast<SparseTimeValueModel *>(model)) good = true;
-        else if (dynamic_cast<TextModel *>(model)) good = true;
-        else if (dynamic_cast<PathModel *>(model)) good = true;
+        good =
+            (ModelById::isa<SparseTimeValueModel>(modelId) ||
+             ModelById::isa<TextModel>(modelId) ||
+             path);
         break;
 
     case 3:
-        if (dynamic_cast<NoteModel *>(model)) good = true;
-        else if (dynamic_cast<RegionModel *>(model)) good = true;
-        else if (dynamic_cast<EditableDenseThreeDimensionalModel *>(model)) {
-            m_datasetSeparator = attributes.value("separator");
+        if (ModelById::isa<EditableDenseThreeDimensionalModel>(modelId)) {
             good = true;
+            m_datasetSeparator = attributes.value("separator");
+        } else {
+            good =
+                (ModelById::isa<NoteModel>(modelId) ||
+                 ModelById::isa<RegionModel>(modelId));
         }
         break;
     }
 
     if (!good) {
         SVCERR << "WARNING: SV-XML: Model id " << modelId << " has wrong number of dimensions or inappropriate type for " << dimensions << "-D dataset " << id << endl;
-        m_currentDataset = nullptr;
+        m_currentDataset = XmlExportable::NO_ID;
         return false;
     }
 
-    m_currentDataset = model;
+    m_currentDataset = awaitingId;
     return true;
 }
 
@@ -1082,23 +1101,28 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 
     READ_MANDATORY(int, frame, toInt);
 
-//    SVDEBUG << "SVFileReader::addPointToDataset: frame = " << frame << endl;
+    if (m_paths.find(m_currentDataset) != m_paths.end()) {
+        Path *path = m_paths[m_currentDataset];
+        int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
+        path->add(PathPoint(frame, mapframe));
+        return ok;
+    }
 
-    SparseOneDimensionalModel *sodm = dynamic_cast<SparseOneDimensionalModel *>
-        (m_currentDataset);
+    if (!haveModel(m_currentDataset)) {
+        SVCERR << "WARNING: SV-XML: Point element found in non-point dataset"
+               << endl;
+        return false;
+    }
+        
+    ModelId modelId = m_models[m_currentDataset];        
 
-    if (sodm) {
-//        SVCERR << "Current dataset is a sparse one dimensional model" << endl;
+    if (auto sodm = ModelById::getAs<SparseOneDimensionalModel>(modelId)) {
         QString label = attributes.value("label");
         sodm->add(Event(frame, label));
         return true;
     }
 
-    SparseTimeValueModel *stvm = dynamic_cast<SparseTimeValueModel *>
-        (m_currentDataset);
-
-    if (stvm) {
-//        SVCERR << "Current dataset is a sparse time-value model" << endl;
+    if (auto stvm = ModelById::getAs<SparseTimeValueModel>(modelId)) {
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
@@ -1106,10 +1130,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         return ok;
     }
         
-    NoteModel *nm = dynamic_cast<NoteModel *>(m_currentDataset);
-
-    if (nm) {
-//        SVCERR << "Current dataset is a note model" << endl;
+    if (auto nm = ModelById::getAs<NoteModel>(modelId)) {
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = 0;
@@ -1124,10 +1145,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         return ok;
     }
 
-    RegionModel *rm = dynamic_cast<RegionModel *>(m_currentDataset);
-
-    if (rm) {
-//        SVCERR << "Current dataset is a region model" << endl;
+    if (auto rm = ModelById::getAs<RegionModel>(modelId)) {
         float value = 0.0;
         value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = 0;
@@ -1137,40 +1155,23 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         return ok;
     }
 
-    TextModel *tm = dynamic_cast<TextModel *>(m_currentDataset);
-
-    if (tm) {
-//        SVCERR << "Current dataset is a text model" << endl;
+    if (auto tm = ModelById::getAs<TextModel>(modelId)) {
         float height = 0.0;
         height = attributes.value("height").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
-//        SVDEBUG << "SVFileReader::addPointToDataset: TextModel: frame = " << frame << ", height = " << height << ", label = " << label << ", ok = " << ok << endl;
         tm->add(Event(frame, height, label));
         return ok;
     }
 
-    PathModel *pm = dynamic_cast<PathModel *>(m_currentDataset);
-
-    if (pm) {
-//        SVCERR << "Current dataset is a path model" << endl;
-        int mapframe = attributes.value("mapframe").trimmed().toInt(&ok);
-//        SVDEBUG << "SVFileReader::addPointToDataset: PathModel: frame = " << frame << ", mapframe = " << mapframe << ", ok = " << ok << endl;
-        pm->add(PathPoint(frame, mapframe));
-        return ok;
-    }
-
-    ImageModel *im = dynamic_cast<ImageModel *>(m_currentDataset);
-
-    if (im) {
-//        SVCERR << "Current dataset is an image model" << endl;
+    if (auto im = ModelById::getAs<ImageModel>(modelId)) {
         QString image = attributes.value("image");
         QString label = attributes.value("label");
-//        SVDEBUG << "SVFileReader::addPointToDataset: ImageModel: frame = " << frame << ", image = " << image << ", label = " << label << ", ok = " << ok << endl;
         im->add(Event(frame).withURI(image).withLabel(label));
         return ok;
     }
 
-    SVCERR << "WARNING: SV-XML: Point element found in non-point dataset" << endl;
+    SVCERR << "WARNING: SV-XML: Point element found in non-point dataset"
+           << endl;
 
     return false;
 }
@@ -1178,11 +1179,16 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 bool
 SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
 {
-    EditableDenseThreeDimensionalModel *dtdm = 
-        dynamic_cast<EditableDenseThreeDimensionalModel *>
-        (m_currentDataset);
+    if (!haveModel(m_currentDataset)) {
+        SVCERR << "WARNING: SV-XML: Bin definition found in incompatible dataset"
+               << endl;
+        return false;
+    }
+        
+    ModelId modelId = m_models[m_currentDataset];        
 
-    if (dtdm) {
+    if (auto dtdm = ModelById::getAs<EditableDenseThreeDimensionalModel>
+        (modelId)) {
 
         bool ok = false;
         int n = attributes.value("number").trimmed().toInt(&ok);
@@ -1193,12 +1199,12 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
         }
 
         QString name = attributes.value("name");
-
         dtdm->setBinName(n, name);
         return true;
     }
 
-    SVCERR << "WARNING: SV-XML: Bin definition found in incompatible dataset" << endl;
+    SVCERR << "WARNING: SV-XML: Bin definition found in incompatible dataset"
+           << endl;
 
     return false;
 }
@@ -1227,13 +1233,17 @@ SVFileReader::addRowToDataset(const QXmlAttributes &attributes)
 bool
 SVFileReader::readRowData(const QString &text)
 {
-    EditableDenseThreeDimensionalModel *dtdm =
-        dynamic_cast<EditableDenseThreeDimensionalModel *>
-        (m_currentDataset);
-
+    if (!haveModel(m_currentDataset)) {
+        SVCERR << "WARNING: SV-XML: Row data found in non-row dataset" << endl;
+        return false;
+    }
+        
+    ModelId modelId = m_models[m_currentDataset];        
     bool warned = false;
 
-    if (dtdm) {
+    if (auto dtdm = ModelById::getAs<EditableDenseThreeDimensionalModel>
+        (modelId)) {
+
         QStringList data = text.split(m_datasetSeparator);
 
         DenseThreeDimensionalModel::Column values;
@@ -1264,30 +1274,29 @@ SVFileReader::readRowData(const QString &text)
     }
 
     SVCERR << "WARNING: SV-XML: Row data found in non-row dataset" << endl;
-
     return false;
 }
 
 bool
 SVFileReader::readDerivation(const QXmlAttributes &attributes)
 {
-    int modelId = 0;
+    int modelExportId = 0;
     bool modelOk = false;
-    modelId = attributes.value("model").trimmed().toInt(&modelOk);
+    modelExportId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
         SVCERR << "WARNING: SV-XML: No model id specified for derivation" << endl;
         return false;
     }
 
-    if (haveModel(modelId)) {
-        m_currentDerivedModel = m_models[modelId];
+    if (haveModel(modelExportId)) {
+        m_currentDerivedModel = m_models[modelExportId];
     } else {
         // we'll regenerate the model when the derivation element ends
-        m_currentDerivedModel = nullptr;
+        m_currentDerivedModel = {};
     }
     
-    m_currentDerivedModelId = modelId;
+    m_pendingDerivedModel = modelExportId;
     
     int sourceId = 0;
     bool sourceOk = false;
@@ -1332,7 +1341,10 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     int windowType = attributes.value("windowType").trimmed().toInt(&ok);
     if (ok) m_currentTransform.setWindowType(WindowType(windowType));
 
-    if (!m_currentTransformSource) return true;
+    auto currentTransformSourceModel = ModelById::get(m_currentTransformSource);
+    if (!currentTransformSourceModel) return true;
+
+    sv_samplerate_t sampleRate = currentTransformSourceModel->getSampleRate();
 
     QString startFrameStr = attributes.value("startFrame");
     QString durationStr = attributes.value("duration");
@@ -1350,12 +1362,10 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     }
 
     m_currentTransform.setStartTime
-        (RealTime::frame2RealTime
-         (startFrame, m_currentTransformSource->getSampleRate()));
+        (RealTime::frame2RealTime(startFrame, sampleRate));
 
     m_currentTransform.setDuration
-        (RealTime::frame2RealTime
-         (duration, m_currentTransformSource->getSampleRate()));
+        (RealTime::frame2RealTime(duration, sampleRate));
 
     return true;
 }
@@ -1365,25 +1375,25 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 {
     m_currentPlayParameters = nullptr;
 
-    int modelId = 0;
+    int modelExportId = 0;
     bool modelOk = false;
-    modelId = attributes.value("model").trimmed().toInt(&modelOk);
+    modelExportId = attributes.value("model").trimmed().toInt(&modelOk);
 
     if (!modelOk) {
         SVCERR << "WARNING: SV-XML: No model id specified for play parameters" << endl;
         return false;
     }
 
-    if (haveModel(modelId)) {
+    if (haveModel(modelExportId)) {
 
         bool ok = false;
 
         PlayParameters *parameters = PlayParameterRepository::getInstance()->
-            getPlayParameters(m_models[modelId]);
+            getPlayParameters(m_models[modelExportId].untyped);
 
         if (!parameters) {
             SVCERR << "WARNING: SV-XML: Play parameters for model "
-                      << modelId
+                      << modelExportId
                       << " not found - has model been added to document?"
                       << endl;
             return false;
@@ -1403,12 +1413,12 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
         
         m_currentPlayParameters = parameters;
 
-//        SVCERR << "Current play parameters for model: " << m_models[modelId] << ": " << m_currentPlayParameters << endl;
+//        SVCERR << "Current play parameters for model: " << m_models[modelExportId] << ": " << m_currentPlayParameters << endl;
 
     } else {
 
-        SVCERR << "WARNING: SV-XML: Unknown model " << modelId
-                  << " for play parameters" << endl;
+        SVCERR << "WARNING: SV-XML: Unknown model " << modelExportId
+               << " for play parameters" << endl;
         return false;
     }
 
@@ -1418,7 +1428,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 bool
 SVFileReader::readPlugin(const QXmlAttributes &attributes)
 {
-    if (m_currentDerivedModelId >= 0) {
+    if (m_pendingDerivedModel != XmlExportable::NO_ID) {
         return readPluginForTransform(attributes);
     } else if (m_currentPlayParameters) {
         return readPluginForPlayback(attributes);
@@ -1469,7 +1479,7 @@ SVFileReader::readPluginForPlayback(const QXmlAttributes &attributes)
 bool
 SVFileReader::readTransform(const QXmlAttributes &attributes)
 {
-    if (m_currentDerivedModelId < 0) {
+    if (m_pendingDerivedModel == XmlExportable::NO_ID) {
         SVCERR << "WARNING: SV-XML: Transform found outside derivation" << endl;
         return false;
     }
@@ -1482,7 +1492,7 @@ SVFileReader::readTransform(const QXmlAttributes &attributes)
 bool
 SVFileReader::readParameter(const QXmlAttributes &attributes)
 {
-    if (m_currentDerivedModelId < 0) {
+    if (m_pendingDerivedModel == XmlExportable::NO_ID) {
         SVCERR << "WARNING: SV-XML: Parameter found outside derivation" << endl;
         return false;
     }
