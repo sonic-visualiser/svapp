@@ -93,8 +93,8 @@ signals:
     void alignmentComplete(ModelId alignmentModel); // an AlignmentModel
 
 private slots:
-    void alignmentCompletionChanged();
-    void tuningDifferenceCompletionChanged();
+    void alignmentCompletionChanged(ModelId);
+    void tuningDifferenceCompletionChanged(ModelId);
     void alignmentProgramFinished(int, QProcess::ExitStatus);
     
 private:

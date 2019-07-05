@@ -564,8 +564,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
         model->setObjectName(name);
 
-        ModelId modelId = model->getId();
-        ModelById::add(std::shared_ptr<Model>(model));
+        ModelId modelId = ModelById::add(std::shared_ptr<Model>(model));
         m_models[id] = modelId;
         
         if (isMainModel) {

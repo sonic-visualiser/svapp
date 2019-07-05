@@ -178,6 +178,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     
     qRegisterMetaType<sv_frame_t>("sv_frame_t");
     qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
+    qRegisterMetaType<ModelId>("ModelId");
 
 #ifdef Q_WS_X11
     XSetErrorHandler(handle_x11_error);
@@ -1303,14 +1304,16 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
     Layer *layer = pane->getSelectedLayer();
     if (!layer) return;
 
-    auto rm = ModelById::getAs<RegionModel>(layer->getModel());
+    ModelId modelId = layer->getModel();
+    
+    auto rm = ModelById::getAs<RegionModel>(modelId);
     if (rm) {
         Event point(alignedStart,
                     rm->getValueMaximum() + 1,
                     alignedDuration,
                     "");
         ChangeEventsCommand *command = new ChangeEventsCommand
-            (rm->getId().untyped, name);
+            (modelId.untyped, name);
         command->add(point);
         c = command->finish();
     }
@@ -1320,7 +1323,7 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
         return;
     }
 
-    auto nm = ModelById::getAs<NoteModel>(layer->getModel());
+    auto nm = ModelById::getAs<NoteModel>(modelId);
     if (nm) {
         Event point(alignedStart,
                     nm->getValueMinimum(),
@@ -1328,7 +1331,7 @@ MainWindowBase::insertItemAt(sv_frame_t frame, sv_frame_t duration)
                     1.f,
                     "");
         ChangeEventsCommand *command = new ChangeEventsCommand
-            (nm->getId().untyped, name);
+            (modelId.untyped, name);
         command->add(point);
         c = command->finish();
     }
@@ -1574,10 +1577,8 @@ MainWindowBase::openAudio(FileSource source,
         }
     }
 
-    ModelById::add(newModel);
-
-    return addOpenedAudioModel(source, newModel->getId(),
-                               mode, templateName, true);
+    auto newModelId = ModelById::add(newModel);
+    return addOpenedAudioModel(source, newModelId, mode, templateName, true);
 }
 
 MainWindowBase::FileOpenStatus
@@ -1953,8 +1954,8 @@ MainWindowBase::openLayer(FileSource source)
 
                 emit activity(tr("Import MIDI file \"%1\"").arg(source.getLocation()));
 
-                ModelId modelId = newModelPtr->getId();
-                ModelById::add(std::shared_ptr<Model>(newModelPtr));
+                ModelId modelId = 
+                    ModelById::add(std::shared_ptr<Model>(newModelPtr));
                 
                 Layer *newLayer = m_document->createImportedLayer(modelId);
 
@@ -2370,11 +2371,11 @@ MainWindowBase::openLayersFromRDF(FileSource source)
         return FileOpenFailed;
     }
 
-    std::vector<Model *> modelPtrs = importer.getDataModels(&dialog);
+    std::vector<ModelId> modelIds = importer.getDataModels(&dialog);
 
     dialog.setMessage(tr("Importing from RDF..."));
 
-    if (modelPtrs.empty()) {
+    if (modelIds.empty()) {
         QMessageBox::critical
             (this, tr("Failed to import RDF"),
              tr("<b>Failed to import RDF</b><p>No suitable data models found for import from RDF document at \"%1\"</p>").arg(source.getLocation()));
@@ -2382,13 +2383,6 @@ MainWindowBase::openLayersFromRDF(FileSource source)
     }
 
     emit activity(tr("Import RDF document \"%1\"").arg(source.getLocation()));
-
-    std::set<ModelId> modelIds;
-
-    for (Model *modelPtr: modelPtrs) {
-        modelIds.insert(modelPtr->getId());
-        ModelById::add(std::shared_ptr<Model>(modelPtr));
-    }
     
     std::set<ModelId> added;
 
@@ -2688,17 +2682,15 @@ MainWindowBase::createDocument()
 
     connect(m_document, SIGNAL(modelAdded(ModelId )),
             this, SLOT(modelAdded(ModelId )));
-    connect(m_document, SIGNAL(mainModelChanged(WaveFileModel *)),
-            this, SLOT(mainModelChanged(WaveFileModel *)));
-    connect(m_document, SIGNAL(modelAboutToBeDeleted(ModelId )),
-            this, SLOT(modelAboutToBeDeleted(ModelId )));
+    connect(m_document, SIGNAL(mainModelChanged(ModelId)),
+            this, SLOT(mainModelChanged(ModelId)));
 
     connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
             this, SLOT(modelGenerationFailed(QString, QString)));
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
-    connect(m_document, SIGNAL(alignmentComplete(AlignmentModel *)),
-            this, SLOT(alignmentComplete(AlignmentModel *)));
+    connect(m_document, SIGNAL(alignmentComplete(ModelId)),
+            this, SLOT(alignmentComplete(ModelId)));
     connect(m_document, SIGNAL(alignmentFailed(QString)),
             this, SLOT(alignmentFailed(QString)));
 
@@ -3277,8 +3269,7 @@ MainWindowBase::record()
 
     QString location = modelPtr->getLocation();
     
-    auto modelId = modelPtr->getId();
-    ModelById::add(std::shared_ptr<Model>(modelPtr));
+    auto modelId = ModelById::add(std::shared_ptr<Model>(modelPtr));
 
     if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 

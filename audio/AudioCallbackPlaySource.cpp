@@ -100,8 +100,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
             m_viewManager, SLOT(playStatusChanged(bool)));
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playParametersChanged(PlayParameters *)),
-            this, SLOT(playParametersChanged(PlayParameters *)));
+            SIGNAL(playParametersChanged(int)),
+            this, SLOT(playParametersChanged(int)));
 
     connect(Preferences::getInstance(),
             SIGNAL(propertyChanged(PropertyContainer::PropertyName)),
@@ -294,8 +294,8 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
     SVDEBUG << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s)" << endl;
 #endif
 
-    connect(model.get(), SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
-            this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
+    connect(model.get(), SIGNAL(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)),
+            this, SLOT(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)));
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::addModel: awakening thread" << endl;
@@ -305,7 +305,7 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
 }
 
 void
-AudioCallbackPlaySource::modelChangedWithin(sv_frame_t 
+AudioCallbackPlaySource::modelChangedWithin(ModelId, sv_frame_t 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
                                             startFrame
 #endif
@@ -332,8 +332,8 @@ AudioCallbackPlaySource::removeModel(ModelId modelId)
     cout << "AudioCallbackPlaySource::removeModel(" << modelId << ")" << endl;
 #endif
 
-    disconnect(model.get(), SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
-               this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
+    disconnect(model.get(), SIGNAL(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)),
+               this, SLOT(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)));
 
     m_models.erase(modelId);
 
@@ -576,13 +576,13 @@ AudioCallbackPlaySource::playSelectionModeChanged()
 }
 
 void
-AudioCallbackPlaySource::playParametersChanged(PlayParameters *)
+AudioCallbackPlaySource::playParametersChanged(int)
 {
     clearRingBuffers();
 }
 
 void
-AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName )
+AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName)
 {
 }
 

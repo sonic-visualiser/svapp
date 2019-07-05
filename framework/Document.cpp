@@ -86,10 +86,11 @@ Document::~Document()
         ModelById::release(m);
     }
 
-    auto mainModel = m_mainModel;
+    if (!m_mainModel.isNone()) {
+        ModelById::release(m_mainModel);
+    }
     m_mainModel = {};
-    emit mainModelChanged(m_mainModel);
-    ModelById::release(mainModel);
+    emit mainModelChanged({});
 }
 
 Layer *
@@ -171,9 +172,9 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
         return nullptr;
     }
 
-    ModelById::add(newModel);
-    addImportedModel(newModel->getId());
-    setModel(newLayer, newModel->getId());
+    auto newModelId = ModelById::add(newModel);
+    addImportedModel(newModelId);
+    setModel(newLayer, newModelId);
 
     return newLayer;
 }
@@ -554,13 +555,16 @@ Document::setMainModel(ModelId modelId)
 
     emit mainModelChanged(m_mainModel);
 
-    // Remove the playable explicitly - the main model's dtor will do
-    // this, but just in case something is still hanging onto a
-    // shared_ptr to the old main model so it doesn't get deleted yet
-    PlayParameterRepository::getInstance()->removePlayable
-        (oldMainModel.untyped);
-    
-    ModelById::release(oldMainModel);
+    if (!oldMainModel.isNone()) {
+
+        // Remove the playable explicitly - the main model's dtor will
+        // do this, but just in case something is still hanging onto a
+        // shared_ptr to the old main model so it doesn't get deleted
+        PlayParameterRepository::getInstance()->removePlayable
+            (oldMainModel.untyped);
+
+        ModelById::release(oldMainModel);
+    }
 }
 
 void
@@ -1122,9 +1126,9 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
                 << "): is main model, setting alignment to itself" << endl;
         auto alignment = std::make_shared<AlignmentModel>(modelId, modelId,
                                                           ModelId());
-        ModelById::add(alignment);
+        
         //!!! hang on, who tracks alignment models?
-        rm->setAlignment(alignment->getId());
+        rm->setAlignment(ModelById::add(alignment));
         return;
     }
 
@@ -1133,8 +1137,8 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
         SVDEBUG << "Document::alignModel(" << modelId
                 << "): model write is not complete, deferring"
                 << endl;
-        connect(w.get(), SIGNAL(writeCompleted()),
-                this, SLOT(performDeferredAlignment()));
+        connect(w.get(), SIGNAL(writeCompleted(ModelId)),
+                this, SLOT(performDeferredAlignment(ModelId)));
         return;
     }
 
@@ -1153,16 +1157,8 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
 }
 
 void
-Document::performDeferredAlignment()
+Document::performDeferredAlignment(ModelId modelId)
 {
-    ModelId modelId;
-    if (Model *m = qobject_cast<Model *>(sender())) {
-        modelId = m->getId();
-    } else {
-        SVDEBUG << "Document::performDeferredAlignment: sender is not a Model" << endl;
-        return;
-    }
-
     SVDEBUG << "Document::performDeferredAlignment: aligning..." << endl;
     alignModel(modelId);
 }

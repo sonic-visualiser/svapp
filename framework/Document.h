@@ -345,8 +345,7 @@ signals:
     void activity(QString);
 
 protected slots:
-//!!!    void aggregateModelInvalidated();
-    void performDeferredAlignment();
+    void performDeferredAlignment(ModelId);
     
 protected:
     void releaseModel(ModelId model);
