@@ -306,7 +306,6 @@ protected slots:
 
     virtual void mainModelChanged(ModelId);
     virtual void modelAdded(ModelId);
-    virtual void modelAboutToBeDeleted(ModelId);
 
     virtual void updateMenuStates();
     virtual void updateDescriptionLabel() = 0;
