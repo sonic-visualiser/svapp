@@ -4075,15 +4075,6 @@ MainWindowBase::mainModelChanged(ModelId modelId)
 }
 
 void
-MainWindowBase::modelAboutToBeDeleted(ModelId model)
-{
-    if (model == m_viewManager->getPlaybackModel()) {
-        m_viewManager->setPlaybackModel({});
-    }
-    m_playSource->removeModel(model);
-}
-
-void
 MainWindowBase::paneDeleteButtonClicked(Pane *pane)
 {
     bool found = false;
