@@ -1727,7 +1727,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         CommandHistory::getInstance()->startCompoundOperation
             (tr("Import \"%1\"").arg(source.getBasename()), true);
 
-        m_document->addImportedModel(newModel);
+        m_document->addNonDerivedModel(newModel);
 
         AddPaneCommand *command = new AddPaneCommand(this);
         CommandHistory::getInstance()->addCommand(command);
@@ -1771,7 +1771,7 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         CommandHistory::getInstance()->startCompoundOperation
             (tr("Import \"%1\"").arg(source.getBasename()), true);
 
-        m_document->addImportedModel(newModel);
+        m_document->addNonDerivedModel(newModel);
 
         if (replace) {
             m_document->removeLayerFromView(pane, replace);
@@ -3321,7 +3321,7 @@ MainWindowBase::record()
         CommandHistory::getInstance()->startCompoundOperation
             (tr("Import Recorded Audio"), true);
 
-        m_document->addImportedModel(modelId);
+        m_document->addNonDerivedModel(modelId);
 
         AddPaneCommand *command = new AddPaneCommand(this);
         CommandHistory::getInstance()->addCommand(command);

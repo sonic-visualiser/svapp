@@ -223,38 +223,25 @@ public:
      * Add a derived model associated with the given transform.  This
      * is necessary to register any derived model that was not created
      * by the document using createDerivedModel or
-     * createDerivedLayer. The model must have been added to ModelById
-     * already, and Document will take responsibility for releasing it
-     * later.
+     * createDerivedLayer. Document will take responsibility for
+     * releasing the model later.
      */
     void addAlreadyDerivedModel(const Transform &transform,
                                 const ModelTransformer::Input &input,
                                 ModelId outputModelToAdd);
 
     /**
-     * Add an imported (non-derived, non-main) model.  This is
-     * necessary to register any imported model that is associated
-     * with a layer. The model must have been added to ModelById
-     * already, and Document will take responsibility for releasing it
-     * later.
+     * Add an imported model, i.e. any model (other than the main
+     * model) that has been created by any means other than as the
+     * output of a transform.  This is necessary to register any
+     * imported model that is to be associated with a layer, and also
+     * to make sure that the model is released by the Document
+     * later. Aggregate models, alignment models, and miscellaneous
+     * temporary models should also be added in this way, unless the
+     * temporary models are large enough to need managing in a way
+     * that guarantees the shortest possible lifespan.
      */
-    void addImportedModel(ModelId);
-    
-    /**
-     *!!! todo: do we still need this to be separate?
-     *
-     * Add an aggregate model (one which represents a set of component
-     * wave models as one model per channel in a single wave
-     * model). Aggregate models are unusual in that they are created
-     * for a single transform each and have no refcount. (This
-     * probably isn't ideal!) They are recorded separately from other
-     * models, and will be deleted if any of their component models
-     * are removed.
-     * 
-     * The model must have been added to ModelById already, and
-     * Document will take responsibility for releasing it later.
-     */
-    void addAggregateModel(ModelId); // an AggregateWaveModel
+    void addNonDerivedModel(ModelId);
 
     /**
      * Associate the given model with the given layer.  The model must
@@ -393,7 +380,9 @@ protected:
     // These must be stored in increasing order of id (as in the
     // ordered std::map), to ensure repeatability for automated tests
     std::map<ModelId, ModelRecord> m_models;
+
     std::set<ModelId> m_aggregateModels;
+    std::set<ModelId> m_alignmentModels;
     
     /**
      * Add an extra derived model (returned at the end of processing a

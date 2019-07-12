@@ -484,7 +484,7 @@ SVFileReader::addUnaddedModels()
         // the .sv file.  (pity we don't have a nicer way to handle
         // this)
         if (!ModelById::isa<AlignmentModel>(modelId)) {
-            m_document->addImportedModel(modelId);
+            m_document->addNonDerivedModel(modelId);
         }
         
         // but we add all models including alignment ones to the added

@@ -73,22 +73,40 @@ Document::~Document()
     CommandHistory::getInstance()->clear();
     
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::~Document: about to delete layers" << endl;
+    SVCERR << "Document::~Document: about to delete layers" << endl;
 #endif
     while (!m_layers.empty()) {
         deleteLayer(*m_layers.begin(), true);
     }
 
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: about to release normal models" << endl;
+#endif
     for (auto mr: m_models) {
         ModelById::release(mr.first);
     }
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: about to release aggregate models" << endl;
+#endif
     for (auto m: m_aggregateModels) {
         ModelById::release(m);
     }
 
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: about to release alignment models" << endl;
+#endif
+    for (auto m: m_alignmentModels) {
+        ModelById::release(m);
+    }
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: about to release main model" << endl;
+#endif
     if (!m_mainModel.isNone()) {
         ModelById::release(m_mainModel);
     }
+    
     m_mainModel = {};
     emit mainModelChanged({});
 }
@@ -141,7 +159,7 @@ Document::createImportedLayer(ModelId modelId)
 
     newLayer->setObjectName(getUniqueLayerName(newLayer->objectName()));
 
-    addImportedModel(modelId);
+    addNonDerivedModel(modelId);
     setModel(newLayer, modelId);
 
     //!!! and all channels
@@ -173,7 +191,7 @@ Document::createEmptyLayer(LayerFactory::LayerType type)
     }
 
     auto newModelId = ModelById::add(newModel);
-    addImportedModel(newModelId);
+    addNonDerivedModel(newModelId);
     setModel(newLayer, newModelId);
 
     return newLayer;
@@ -607,10 +625,25 @@ Document::addAlreadyDerivedModel(const Transform &transform,
 }
 
 void
-Document::addImportedModel(ModelId modelId)
+Document::addNonDerivedModel(ModelId modelId)
 {
+    if (ModelById::isa<AggregateWaveModel>(modelId)) {
+#ifdef DEBUG_DOCUMENT
+        SVCERR << "Document::addNonDerivedModel: Model " << modelId << " is an aggregate model, adding it to aggregates" << endl;
+#endif
+        m_aggregateModels.insert(modelId);
+        return;
+    }
+    if (ModelById::isa<AlignmentModel>(modelId)) {
+#ifdef DEBUG_DOCUMENT
+        SVCERR << "Document::addNonDerivedModel: Model " << modelId << " is an alignment model, adding it to alignments" << endl;
+#endif
+        m_alignmentModels.insert(modelId);
+        return;
+    }
+    
     if (m_models.find(modelId) != m_models.end()) {
-        SVCERR << "WARNING: Document::addImportedModel: Model already added"
+        SVCERR << "WARNING: Document::addNonDerivedModel: Model already added"
                << endl;
         return;
     }
@@ -623,19 +656,19 @@ Document::addImportedModel(ModelId modelId)
     m_models[modelId] = rec;
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::addImportedModel: Added model " << modelId << endl;
-    SVDEBUG << "Models now: ";
+    SVCERR << "Document::addNonDerivedModel: Added model " << modelId << endl;
+    SVCERR << "Models now: ";
     for (const auto &rec : m_models) {
-        SVDEBUG << rec.first << " ";
+        SVCERR << rec.first << " ";
     } 
-    SVDEBUG << endl;
+    SVCERR << endl;
 #endif
 
     if (m_autoAlignment) {
-        SVDEBUG << "Document::addImportedModel: auto-alignment is on, aligning model if possible" << endl;
+        SVDEBUG << "Document::addNonDerivedModel: auto-alignment is on, aligning model if possible" << endl;
         alignModel(modelId);
     } else {
-        SVDEBUG << "Document(" << this << "): addImportedModel: auto-alignment is off" << endl;
+        SVDEBUG << "Document(" << this << "): addNonDerivedModel: auto-alignment is off" << endl;
     }
 
     emit modelAdded(modelId);
@@ -666,19 +699,13 @@ Document::addAdditionalModel(ModelId modelId)
     SVDEBUG << endl;
 #endif
 
-    if (m_autoAlignment) {
-        SVDEBUG << "Document::addAdditionalModel: auto-alignment is on, aligning model if possible" << endl;
+    if (m_autoAlignment &&
+        ModelById::isa<RangeSummarisableTimeValueModel>(modelId)) {
+        SVDEBUG << "Document::addAdditionalModel: auto-alignment is on and model is an alignable type, aligning it if possible" << endl;
         alignModel(modelId);
     }
 
     emit modelAdded(modelId);
-}
-
-void
-Document::addAggregateModel(ModelId modelId)
-{
-    m_aggregateModels.insert(modelId);
-    SVDEBUG << "Document::addAggregateModel(" << modelId << ")" << endl;
 }
 
 ModelId
@@ -758,7 +785,13 @@ Document::releaseModel(ModelId modelId)
     // borrowed-pointer mechanism will at least prevent memory errors,
     // although the other code will have to stop whatever it's doing.
 
-    SVCERR << "Document::releaseModel(" << modelId << ")" << endl;
+    if (auto model = ModelById::get(modelId)) {
+        SVCERR << "Document::releaseModel(" << modelId << "), name "
+               << model->objectName() << ", type "
+               << typeid(*model.get()).name() << endl;
+    } else {
+        SVCERR << "Document::releaseModel(" << modelId << ")" << endl;
+    }
     
     if (modelId.isNone()) {
         return;
@@ -777,7 +810,7 @@ Document::releaseModel(ModelId modelId)
     }
 
     if (m_models.find(modelId) == m_models.end()) {
-        // No point in releasing aggregate models and the like,
+        // No point in releasing aggregate and alignment models,
         // they're not large
 #ifdef DEBUG_DOCUMENT
         SVCERR << "Document::releaseModel: It's not a regular layer model, ignoring" << endl;
@@ -902,14 +935,7 @@ Document::setModel(Layer *layer, ModelId modelId)
                 << modelId << endl;
         return;
     }
-/*!!!
-    if (model && model != m_mainModel) {
-        ModelList::iterator mitr = findModelInList(model);
-        if (mitr != m_models.end()) {
-            mitr->refcount ++;
-        }
-    }
-*/
+
     if (!modelId.isNone() && !previousModel.isNone()) {
         PlayParameterRepository::getInstance()->copyParameters
             (previousModel.untyped, modelId.untyped);
@@ -1100,9 +1126,10 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
                 << "): is main model, setting alignment to itself" << endl;
         auto alignment = std::make_shared<AlignmentModel>(modelId, modelId,
                                                           ModelId());
-        
-        //!!! hang on, who tracks alignment models?
-        rm->setAlignment(ModelById::add(alignment));
+
+        ModelId alignmentModelId = ModelById::add(alignment);
+        rm->setAlignment(alignmentModelId);
+        m_alignmentModels.insert(alignmentModelId);
         return;
     }
 

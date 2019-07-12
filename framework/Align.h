@@ -117,6 +117,9 @@ private:
     // needed for subsequent alignment
     std::map<ModelId, TuningDiffRec> m_pendingTuningDiffs;
 
+    // alignment model id -> path output model id
+    std::map<ModelId, ModelId> m_pendingAlignments;
+    
     // external alignment subprocess -> model into which to stuff the
     // results (an AlignmentModel)
     std::map<QProcess *, ModelId> m_pendingProcesses;

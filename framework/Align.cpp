@@ -103,40 +103,47 @@ Align::alignModelViaTransform(Document *doc,
 
     if (!reference || !other) return false;
    
-    // This involves creating either three or four new models:
+    // This involves creating a number of new models:
     //
     // 1. an AggregateWaveModel to provide the mixdowns of the main
     // model and the new model in its two channels, as input to the
-    // MATCH plugin
+    // MATCH plugin. We just call this one aggregateModel
     //
     // 2a. a SparseTimeValueModel which will be automatically created
     // by FeatureExtractionModelTransformer when running the
     // TuningDifference plugin to receive the relative tuning of the
     // second model (if pitch-aware alignment is enabled in the
-    // preferences)
+    // preferences). We call this tuningDiffOutputModel.
     //
     // 2b. a SparseTimeValueModel which will be automatically created
     // by FeatureExtractionPluginTransformer when running the MATCH
-    // plugin to perform alignment (so containing the alignment path)
+    // plugin to perform alignment (so containing the alignment path).
+    // We call this one pathOutputModel.
     //
-    // 3. an AlignmentModel, which stores the path model and carries
-    // out alignment lookups on it.
+    // 2c. a SparseTimeValueModel used solely to provide faked
+    // completion information to the AlignmentModel while a
+    // TuningDifference calculation is going on. We call this
+    // preparatoryModel.
     //
-    // The AggregateWaveModel [1] is registered with the document,
-    // which deletes it when it is invalidated (when one of its
-    // components is deleted). The SparseTimeValueModel [2a] is reused
-    // by us when starting the alignment process proper, and is then
-    // deleted by us. The SparseTimeValueModel [2b] is passed to the
-    // AlignmentModel, which takes ownership of it. The AlignmentModel
-    // is attached to the new model we are aligning, which also takes
-    // ownership of it. The only one of these models that we need to
-    // delete here is the SparseTimeValueModel [2a].
-    //!!! todo: review the above, especially management of AlignmentModel
+    // 3. an AlignmentModel, which stores the path and carries out
+    // alignment lookups on it. We just call this one alignmentModel.
     //
-    // (We also create a sneaky additional SparseTimeValueModel
-    // temporarily so we can attach completion information to it -
-    // this is quite unnecessary from the perspective of simply
-    // producing the results.)
+    // Models 1 and 3 are registered with the document, which will
+    // eventually release them. We don't release them here except in
+    // the case where an activity fails before the point where we
+    // would otherwise have registered them with the document.
+    //
+    // Models 2a (tuningDiffOutputModel), 2b (pathOutputModel) and 2c
+    // (preparatoryModel) are not registered with the document. Model
+    // 2b (pathOutputModel) is not registered because we do not have a
+    // stable reference to the document at the point where it is
+    // created. Model 2c (preparatoryModel) is not registered because
+    // it is a bodge that we are embarrassed about, so we try to
+    // manage it ourselves without anyone else noticing. Model 2a is
+    // not registered for symmetry with the other two. These have to
+    // be released by us when finished with, but their lifespans do
+    // not extend beyond the end of the alignment procedure, so this
+    // should be ok.
 
     AggregateWaveModel::ChannelSpecList components;
 
@@ -148,7 +155,7 @@ Align::alignModelViaTransform(Document *doc,
 
     auto aggregateModel = std::make_shared<AggregateWaveModel>(components);
     auto aggregateModelId = ModelById::add(aggregateModel);
-    doc->addAggregateModel(aggregateModelId);
+    doc->addNonDerivedModel(aggregateModelId);
 
     auto alignmentModel = std::make_shared<AlignmentModel>
         (referenceId, otherId, ModelId());
@@ -161,6 +168,7 @@ Align::alignModelViaTransform(Document *doc,
         if (beginTransformDrivenAlignment(aggregateModelId,
                                           alignmentModelId)) {
             other->setAlignment(alignmentModelId);
+            doc->addNonDerivedModel(alignmentModelId);
         } else {
             error = alignmentModel->getError();
             ModelById::release(alignmentModel);
@@ -186,20 +194,24 @@ Align::alignModelViaTransform(Document *doc,
         ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
         QString message;
-        ModelId transformOutput = mtf->transform(transform,
-                                                 aggregateModelId,
-                                                 message);
+        ModelId tuningDiffOutputModelId = mtf->transform(transform,
+                                                         aggregateModelId,
+                                                         message);
 
-        auto tdout = ModelById::getAs<SparseTimeValueModel>(transformOutput);
-        if (!tdout) {
+        auto tuningDiffOutputModel =
+            ModelById::getAs<SparseTimeValueModel>(tuningDiffOutputModelId);
+        if (!tuningDiffOutputModel) {
             SVCERR << "Align::alignModel: ERROR: Failed to create tuning-difference output model (no Tuning Difference plugin?)" << endl;
             error = message;
+            ModelById::release(alignmentModel);
             return false;
         }
 
         other->setAlignment(alignmentModelId);
+        doc->addNonDerivedModel(alignmentModelId);
     
-        connect(tdout.get(), SIGNAL(completionChanged(ModelId)),
+        connect(tuningDiffOutputModel.get(),
+                SIGNAL(completionChanged(ModelId)),
                 this, SLOT(tuningDifferenceCompletionChanged(ModelId)));
 
         TuningDiffRec rec;
@@ -216,43 +228,45 @@ Align::alignModelViaTransform(Document *doc,
         rec.preparatory = preparatoryModelId;
         alignmentModel->setPathFrom(rec.preparatory);
         
-        m_pendingTuningDiffs[transformOutput] = rec;
+        m_pendingTuningDiffs[tuningDiffOutputModelId] = rec;
     }
 
     return true;
 }
 
 void
-Align::tuningDifferenceCompletionChanged(ModelId tdId)
+Align::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 {
     QMutexLocker locker(&m_mutex);
 
-    if (m_pendingTuningDiffs.find(tdId) == m_pendingTuningDiffs.end()) {
+    if (m_pendingTuningDiffs.find(tuningDiffOutputModelId) ==
+        m_pendingTuningDiffs.end()) {
         SVCERR << "ERROR: Align::tuningDifferenceCompletionChanged: Model "
-               << tdId << " not found in pending tuning diff map!" << endl;
+               << tuningDiffOutputModelId
+               << " not found in pending tuning diff map!" << endl;
         return;
     }
 
-    auto td = ModelById::getAs<SparseTimeValueModel>(tdId);
-    if (!td) {
+    auto tuningDiffOutputModel =
+        ModelById::getAs<SparseTimeValueModel>(tuningDiffOutputModelId);
+    if (!tuningDiffOutputModel) {
         SVCERR << "WARNING: Align::tuningDifferenceCompletionChanged: Model "
-               << tdId << " not known as SparseTimeValueModel" << endl;
+               << tuningDiffOutputModelId
+               << " not known as SparseTimeValueModel" << endl;
         return;
     }
 
-    TuningDiffRec rec = m_pendingTuningDiffs[tdId];
+    TuningDiffRec rec = m_pendingTuningDiffs[tuningDiffOutputModelId];
 
-    auto alignment = ModelById::getAs<AlignmentModel>(rec.alignment);
-    if (!alignment) {
+    auto alignmentModel = ModelById::getAs<AlignmentModel>(rec.alignment);
+    if (!alignmentModel) {
         SVCERR << "WARNING: Align::tuningDifferenceCompletionChanged:"
                << "alignment model has disappeared" << endl;
         return;
     }
     
     int completion = 0;
-    bool done = td->isReady(&completion);
-
-//    SVCERR << "Align::tuningDifferenceCompletionChanged: done = " << done << ", completion = " << completion << endl;
+    bool done = tuningDiffOutputModel->isReady(&completion);
 
     if (!done) {
         // This will be the completion the alignment model reports,
@@ -260,28 +274,30 @@ Align::tuningDifferenceCompletionChanged(ModelId tdId)
         // 99 (not 100!) and then back to 0 again when we start
         // calculating the actual path in the following phase
         int clamped = (completion == 100 ? 99 : completion);
-//        SVCERR << "Align::tuningDifferenceCompletionChanged: setting rec.preparatory completion to " << clamped << endl;
-        auto preparatory = ModelById::getAs<SparseTimeValueModel>
-            (rec.preparatory);
-        if (preparatory) {
-            preparatory->setCompletion(clamped);
+        auto preparatoryModel =
+            ModelById::getAs<SparseTimeValueModel>(rec.preparatory);
+        if (preparatoryModel) {
+            preparatoryModel->setCompletion(clamped);
         }
         return;
     }
 
     float tuningFrequency = 440.f;
     
-    if (!td->isEmpty()) {
-        tuningFrequency = td->getAllEvents()[0].getValue();
+    if (!tuningDiffOutputModel->isEmpty()) {
+        tuningFrequency = tuningDiffOutputModel->getAllEvents()[0].getValue();
         SVCERR << "Align::tuningDifferenceCompletionChanged: Reported tuning frequency = " << tuningFrequency << endl;
     } else {
         SVCERR << "Align::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
     }    
 
-    m_pendingTuningDiffs.erase(tdId);
-    ModelById::release(tdId);
+    ModelById::release(tuningDiffOutputModel);
     
-    alignment->setPathFrom({});
+    alignmentModel->setPathFrom({}); // replace preparatoryModel
+    ModelById::release(rec.preparatory);
+    rec.preparatory = {};
+    
+    m_pendingTuningDiffs.erase(tuningDiffOutputModelId);
     
     beginTransformDrivenAlignment
         (rec.input, rec.alignment, tuningFrequency);
@@ -296,8 +312,10 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     
     TransformFactory *tf = TransformFactory::getInstance();
 
-    auto aggregateModel = ModelById::getAs<AggregateWaveModel>(aggregateModelId);
-    auto alignmentModel = ModelById::getAs<AlignmentModel>(alignmentModelId);
+    auto aggregateModel =
+        ModelById::getAs<AggregateWaveModel>(aggregateModelId);
+    auto alignmentModel =
+        ModelById::getAs<AlignmentModel>(alignmentModelId);
 
     if (!aggregateModel || !alignmentModel) {
         SVCERR << "Align::alignModel: ERROR: One or other of the aggregate & alignment models has disappeared" << endl;
@@ -320,29 +338,31 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
     QString message;
-    ModelId transformOutput = mtf->transform
+    ModelId pathOutputModelId = mtf->transform
         (transform, aggregateModelId, message);
 
-    if (transformOutput.isNone()) {
+    if (pathOutputModelId.isNone()) {
         transform.setStepSize(0);
-        transformOutput = mtf->transform
+        pathOutputModelId = mtf->transform
             (transform, aggregateModelId, message);
     }
 
-    auto path = ModelById::getAs<SparseTimeValueModel>(transformOutput);
+    auto pathOutputModel =
+        ModelById::getAs<SparseTimeValueModel>(pathOutputModelId);
 
     //!!! callers will need to be updated to get error from
     //!!! alignment model after initial call
         
-    if (!path) {
+    if (!pathOutputModel) {
         SVCERR << "Align::alignModel: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
-        ModelById::release(transformOutput);
         alignmentModel->setError(message);
         return false;
     }
 
-    path->setCompletion(0);
-    alignmentModel->setPathFrom(transformOutput); //!!! who releases transformOutput?
+    pathOutputModel->setCompletion(0);
+    alignmentModel->setPathFrom(pathOutputModelId);
+
+    m_pendingAlignments[alignmentModelId] = pathOutputModelId;
 
     connect(alignmentModel.get(), SIGNAL(completionChanged(ModelId)),
             this, SLOT(alignmentCompletionChanged(ModelId)));
@@ -351,20 +371,30 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
 }
 
 void
-Align::alignmentCompletionChanged(ModelId modelId)
+Align::alignmentCompletionChanged(ModelId alignmentModelId)
 {
     QMutexLocker locker (&m_mutex);
 
-    auto am = ModelById::getAs<AlignmentModel>(modelId);
-    if (am && am->isReady()) {
-        disconnect(am.get(), SIGNAL(completionChanged(ModelId)),
+    auto alignmentModel = ModelById::getAs<AlignmentModel>(alignmentModelId);
+
+    if (alignmentModel && alignmentModel->isReady()) {
+
+        if (m_pendingAlignments.find(alignmentModelId) !=
+            m_pendingAlignments.end()) {
+            ModelId pathOutputModelId = m_pendingAlignments[alignmentModelId];
+            ModelById::release(pathOutputModelId);
+            m_pendingAlignments.erase(alignmentModelId);
+        }
+        
+        disconnect(alignmentModel.get(),
+                   SIGNAL(completionChanged(ModelId)),
                    this, SLOT(alignmentCompletionChanged(ModelId)));
-        emit alignmentComplete(modelId);
+        emit alignmentComplete(alignmentModelId);
     }
 }
 
 bool
-Align::alignModelViaProgram(Document *,
+Align::alignModelViaProgram(Document *doc,
                             ModelId referenceId,
                             ModelId otherId,
                             QString program,
@@ -417,11 +447,12 @@ Align::alignModelViaProgram(Document *,
                << endl;
         error = "Alignment program could not be started";
         m_pendingProcesses.erase(process);
-        //!!! who releases alignmentModel? does this? review
         other->setAlignment({});
+        ModelById::release(alignmentModelId);
         delete process;
     }
 
+    doc->addNonDerivedModel(alignmentModelId);
     return success;
 }
 
