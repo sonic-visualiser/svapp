@@ -746,103 +746,77 @@ Document::addDerivedModels(const Transforms &transforms,
 }
 
 void
-Document::releaseModel(ModelId modelId) // Will _not_ release main model!
+Document::releaseModel(ModelId modelId)
 {
-    //!!!
+    // This is called when a layer has been deleted or has replaced
+    // its model, in order to reclaim storage for the old model. It
+    // could be a no-op without making any functional difference, as
+    // all the models stored in the ById pool are released when the
+    // document is deleted. But models can sometimes be large, so if
+    // we know no other layer is using one, we should release it. If
+    // we happen to release one that is being used, the ModelById
+    // borrowed-pointer mechanism will at least prevent memory errors,
+    // although the other code will have to stop whatever it's doing.
 
-    SVCERR << "Document::releaseModel(" << modelId << "): STILL TO REVIEW" << endl;
-
-#ifdef NOT_DEFINED
+    SVCERR << "Document::releaseModel(" << modelId << ")" << endl;
     
     if (modelId.isNone()) {
         return;
     }
-
-    auto model = ModelById::get(modelId);
-    if (!model) {
-        return;
-    }
     
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::releaseModel(" << modelId << ", type "
-            << model->getTypeName() << ", name \""
-            << model->objectName() << "\")" << endl;
+    SVCERR << "Document::releaseModel(" << modelId << ")" << endl;
 #endif
-    
+
     if (modelId == m_mainModel) {
+#ifdef DEBUG_DOCUMENT
+        SVCERR << "Document::releaseModel: It's the main model, ignoring"
+               << endl;
+#endif
         return;
     }
 
-    bool toDelete = false;
-    bool isInModelList = false; // should become true for any "normal" model
-
-    if (m_models.find(modelId) != m_models.end()) {
-
-        if (mitr->refcount == 0) {
-            SVCERR << "WARNING: Document::releaseModel: model " << model
-                   << " reference count is zero already!" << endl;
-        } else {
+    if (m_models.find(modelId) == m_models.end()) {
+        // No point in releasing aggregate models and the like,
+        // they're not large
 #ifdef DEBUG_DOCUMENT
-            SVDEBUG << "Lowering refcount from " << mitr->refcount << endl;
+        SVCERR << "Document::releaseModel: It's not a regular layer model, ignoring" << endl;
 #endif
-            if (--mitr->refcount == 0) {
-                toDelete = true;
-            }
-        }
-        isInModelList = true;
-
-    } else if (m_aggregateModels.find(model) != m_aggregateModels.end()) {
-#ifdef DEBUG_DOCUMENT
-        SVDEBUG << "Document::releaseModel: is an aggregate model" << endl;
-#endif
-        toDelete = true;
-    } else { 
-        SVCERR << "WARNING: Document::releaseModel: Unfound model "
-               << model << endl;
-        toDelete = true;
+        return;
     }
 
-    if (toDelete) {
-
-        int sourceCount = 0;
-
-        for (auto &rec: m_models) {
-            if (rec.source == model) {
-                ++sourceCount;
-                rec.source = nullptr;
-            }
-        }
-
-        if (sourceCount > 0) {
-            SVDEBUG << "Document::releaseModel: Deleting model "
-                    << model << " even though it is source for "
-                    << sourceCount << " other derived model(s) -- resetting "
-                    << "their source fields appropriately" << endl;
-        }
-
-        if (isInModelList) {
-            deleteModelFromList(model);
-
+    for (auto layer: m_layers) {
+        if (layer->getModel() == modelId) {
 #ifdef DEBUG_DOCUMENT
-            SVDEBUG << "Document::releaseModel: Deleted model " << model << endl;
-            SVDEBUG << "Models now: ";
-            for (const auto &r: m_models) {
-                SVDEBUG << r.model << " ";
-            } 
-            SVDEBUG << endl;
+            SVCERR << "Document::releaseModel: It's still in use in at least one layer, ignoring" << endl;
 #endif
-        } else {
-            model->aboutToDelete();
-            emit modelAboutToBeDeleted(model);
-            delete model;
-
-#ifdef DEBUG_DOCUMENT
-            SVDEBUG << "Document::releaseModel: Deleted awkward model " << model << endl;
-#endif
+            return;
         }
     }
 
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::releaseModel: Seems to be OK to release this one"
+           << endl;
 #endif
+
+    int sourceCount = 0;
+
+    for (auto &m: m_models) {
+        if (m.second.source == modelId) {
+            ++sourceCount;
+            m.second.source = {};
+        }
+    }
+
+    if (sourceCount > 0) {
+        SVCERR << "Document::releaseModel: Request to release model "
+               << modelId << " even though it was source for "
+               << sourceCount << " other derived model(s) -- have cleared "
+               << "their source fields" << endl;
+    }
+
+    m_models.erase(modelId);
+    ModelById::release(modelId);
 }
 
 void
