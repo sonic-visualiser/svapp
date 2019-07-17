@@ -348,9 +348,7 @@ Document::createLayersForDerivedModels(vector<ModelId> newModels,
 
         if (types.empty()) {
             SVCERR << "WARNING: Document::createLayerForTransformer: no valid display layer for output of transform " << names[i] << endl;
-            //!!! inadequate cleanup:
-            //!!! review: ->
-//            deleteModelFromList(newModel);
+            releaseModel(newModelId);
             return vector<Layer *>();
         }
 
