@@ -291,18 +291,6 @@ public:
         delete this;
     }
 
-    void cancel() {
-/*!!! todo: restore
-        foreach (Layer *layer, m_primary) {
-            ModelId model = layer->getModel();
-            //!!! todo: restore this behaviour
-            if (model) {
-                model->abandon();
-            }
-        }
-*/
-    }
-
 private:
     Document *m_doc;
     vector<Layer *> m_primary;
@@ -343,13 +331,6 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
     }
 
     return amc;
-}
-
-void
-Document::cancelAsyncLayerCreation(Document::LayerCreationAsyncHandle h)
-{
-    AdditionalModelConverter *conv = static_cast<AdditionalModelConverter *>(h);
-    conv->cancel();
 }
 
 vector<Layer *>
@@ -1067,7 +1048,6 @@ Document::getTransformInputModels()
     return models;
 }
 
-//!!! what is this used for?
 bool
 Document::isKnownModel(const ModelId modelId) const
 {
@@ -1562,10 +1542,6 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
     // 'type="transform"' in the derivation element.
 
     const Transform &transform = rec.transform;
-
-    //!!! in cases like these, where we think we have the model handle
-    //!!! and nobody else should be releasing it, we probably ought to
-    //!!! throw std::logic_error if !targetModel
     
     auto targetModel = ModelById::get(targetModelId);
     if (!targetModel) return;

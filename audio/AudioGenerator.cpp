@@ -166,15 +166,6 @@ AudioGenerator::addModel(ModelId modelId)
 void
 AudioGenerator::playClipIdChanged(int playableId, QString)
 {
-    /*!!!
-    const Model *model = dynamic_cast<const Model *>(playable);
-    if (!model) {
-        cerr << "WARNING: AudioGenerator::playClipIdChanged: playable "
-                  << playable << " is not a supported model type"
-                  << endl;
-        return;
-    }
-    */
     ModelId modelId;
     modelId.untyped = playableId;
     

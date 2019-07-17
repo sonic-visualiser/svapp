@@ -476,19 +476,10 @@ SVFileReader::addUnaddedModels()
             continue;
         }
 
-        //!!! todo: review this (i.e. who causes the release of what)
+        m_document->addNonDerivedModel(modelId);
         
-        // don't want to add alignment models to the document, because
-        // their lifespans are entirely dictated by the models that
-        // "own" them even though they were read independently from
-        // the .sv file.  (pity we don't have a nicer way to handle
-        // this)
-        if (!ModelById::isa<AlignmentModel>(modelId)) {
-            m_document->addNonDerivedModel(modelId);
-        }
-        
-        // but we add all models including alignment ones to the added
-        // set, so they don't get released by our own destructor
+        // make a note of all models that have been added to the
+        // document, so they don't get released by our own destructor
         m_addedModels.insert(modelId);
     }
 }

@@ -158,19 +158,11 @@ public:
      * transformer process, and the layers are returned through a
      * subsequent call to the provided handler (which must be
      * non-null). The handle returned will be passed through to the
-     * handler callback, and may be also used for cancelling the task.
+     * handler callback.
      */
     LayerCreationAsyncHandle createDerivedLayersAsync(const Transforms &,
                                                       const ModelTransformer::Input &,
                                                       LayerCreationHandler *handler);
-
-    /**
-     * Indicate that the async layer creation task associated with the
-     * given handle should be cancelled. There is no guarantee about
-     * what this will mean, and the handler callback may still be
-     * called.
-     */
-    void cancelAsyncLayerCreation(LayerCreationAsyncHandle handle);
 
     /**
      * Delete the given layer, and also its associated model if no
@@ -196,7 +188,11 @@ public:
     
     std::vector<ModelId> getTransformInputModels();
 
-    //??? investigate & document
+    /**
+     * Return true if the model id is known to be the main model or
+     * one of the other existing models that can be shown in a new
+     * layer.
+     */
     bool isKnownModel(ModelId) const;
 
     /**
