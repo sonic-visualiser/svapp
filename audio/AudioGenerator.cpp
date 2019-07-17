@@ -56,9 +56,9 @@ AudioGenerator::AudioGenerator() :
     initialiseSampleDir();
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playClipIdChanged(const Playable *, QString)),
+            SIGNAL(playClipIdChanged(int, QString)),
             this,
-            SLOT(playClipIdChanged(const Playable *, QString)));
+            SLOT(playClipIdChanged(int, QString)));
 }
 
 AudioGenerator::~AudioGenerator()
@@ -111,16 +111,19 @@ AudioGenerator::initialiseSampleDir()
 }
 
 bool
-AudioGenerator::addModel(Model *model)
+AudioGenerator::addModel(ModelId modelId)
 {
+    auto model = ModelById::get(modelId);
+    if (!model) return false;
+    if (!model->canPlay()) return false;
+    
     if (m_sourceSampleRate == 0) {
 
         m_sourceSampleRate = model->getSampleRate();
 
     } else {
 
-        DenseTimeValueModel *dtvm =
-            dynamic_cast<DenseTimeValueModel *>(model);
+        auto dtvm = std::dynamic_pointer_cast<DenseTimeValueModel>(model);
 
         if (dtvm) {
             m_sourceSampleRate = model->getSampleRate();
@@ -128,28 +131,31 @@ AudioGenerator::addModel(Model *model)
         }
     }
 
-    const Playable *playable = model;
-    if (!playable || !playable->canPlay()) return 0;
+    auto parameters =
+        PlayParameterRepository::getInstance()->getPlayParameters
+        (modelId.untyped);
 
-    PlayParameters *parameters =
-        PlayParameterRepository::getInstance()->getPlayParameters(playable);
+    if (!parameters) {
+        SVCERR << "WARNING: Model with canPlay true is not known to PlayParameterRepository" << endl;
+        return false;
+    }
 
     bool willPlay = !parameters->isPlayMuted();
     
-    if (usesClipMixer(model)) {
-        ClipMixer *mixer = makeClipMixerFor(model);
+    if (usesClipMixer(modelId)) {
+        ClipMixer *mixer = makeClipMixerFor(modelId);
         if (mixer) {
             QMutexLocker locker(&m_mutex);
-            m_clipMixerMap[model->getId()] = mixer;
+            m_clipMixerMap[modelId] = mixer;
             return willPlay;
         }
     }
 
-    if (usesContinuousSynth(model)) {
-        ContinuousSynth *synth = makeSynthFor(model);
+    if (usesContinuousSynth(modelId)) {
+        ContinuousSynth *synth = makeSynthFor(modelId);
         if (synth) {
             QMutexLocker locker(&m_mutex);
-            m_continuousSynthMap[model->getId()] = synth;
+            m_continuousSynthMap[modelId] = synth;
             return willPlay;
         }
     }
@@ -158,74 +164,68 @@ AudioGenerator::addModel(Model *model)
 }
 
 void
-AudioGenerator::playClipIdChanged(const Playable *playable, QString)
+AudioGenerator::playClipIdChanged(int playableId, QString)
 {
-    const Model *model = dynamic_cast<const Model *>(playable);
-    if (!model) {
-        cerr << "WARNING: AudioGenerator::playClipIdChanged: playable "
-                  << playable << " is not a supported model type"
-                  << endl;
+    ModelId modelId;
+    modelId.untyped = playableId;
+    
+    if (m_clipMixerMap.find(modelId) == m_clipMixerMap.end()) {
         return;
     }
 
-    if (m_clipMixerMap.find(model->getId()) == m_clipMixerMap.end()) {
-        return;
-    }
-
-    ClipMixer *mixer = makeClipMixerFor(model);
+    ClipMixer *mixer = makeClipMixerFor(modelId);
     if (mixer) {
         QMutexLocker locker(&m_mutex);
-        m_clipMixerMap[model->getId()] = mixer;
+        ClipMixer *oldMixer = m_clipMixerMap[modelId];
+        m_clipMixerMap[modelId] = mixer;
+        delete oldMixer;
     }
 }
 
 bool
-AudioGenerator::usesClipMixer(const Model *model)
+AudioGenerator::usesClipMixer(ModelId modelId)
 {
     bool clip = 
-        (qobject_cast<const SparseOneDimensionalModel *>(model) ||
-         qobject_cast<const NoteModel *>(model));
+        (ModelById::isa<SparseOneDimensionalModel>(modelId) ||
+         ModelById::isa<NoteModel>(modelId));
     return clip;
 }
 
 bool
-AudioGenerator::wantsQuieterClips(const Model *model)
+AudioGenerator::wantsQuieterClips(ModelId modelId)
 {
     // basically, anything that usually has sustain (like notes) or
     // often has multiple sounds at once (like notes) wants to use a
     // quieter level than simple click tracks
-    bool does = (qobject_cast<const NoteModel *>(model));
+    bool does = (ModelById::isa<NoteModel>(modelId));
     return does;
 }
 
 bool
-AudioGenerator::usesContinuousSynth(const Model *model)
+AudioGenerator::usesContinuousSynth(ModelId modelId)
 {
-    bool cont = 
-        (qobject_cast<const SparseTimeValueModel *>(model));
+    bool cont = (ModelById::isa<SparseTimeValueModel>(modelId));
     return cont;
 }
 
 ClipMixer *
-AudioGenerator::makeClipMixerFor(const Model *model)
+AudioGenerator::makeClipMixerFor(ModelId modelId)
 {
     QString clipId;
 
-    const Playable *playable = model;
-    if (!playable || !playable->canPlay()) return nullptr;
-
-    PlayParameters *parameters =
-        PlayParameterRepository::getInstance()->getPlayParameters(playable);
+    auto parameters =
+        PlayParameterRepository::getInstance()->getPlayParameters
+        (modelId.untyped);
     if (parameters) {
         clipId = parameters->getPlayClipId();
     }
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    std::cerr << "AudioGenerator::makeClipMixerFor(" << model << "): sample id = " << clipId << std::endl;
+    std::cerr << "AudioGenerator::makeClipMixerFor(" << modelId << "): sample id = " << clipId << std::endl;
 #endif
 
     if (clipId == "") {
-        SVDEBUG << "AudioGenerator::makeClipMixerFor(" << model << "): no sample, skipping" << endl;
+        SVDEBUG << "AudioGenerator::makeClipMixerFor(" << modelId << "): no sample, skipping" << endl;
         return nullptr;
     }
 
@@ -237,7 +237,7 @@ AudioGenerator::makeClipMixerFor(const Model *model)
 
     QString clipPath = QString("%1/%2.wav").arg(m_sampleDir).arg(clipId);
 
-    double level = wantsQuieterClips(model) ? 0.5 : 1.0;
+    double level = wantsQuieterClips(modelId) ? 0.5 : 1.0;
     if (!mixer->loadClipData(clipPath, clipF0, level)) {
         delete mixer;
         return nullptr;
@@ -251,11 +251,8 @@ AudioGenerator::makeClipMixerFor(const Model *model)
 }
 
 ContinuousSynth *
-AudioGenerator::makeSynthFor(const Model *model)
+AudioGenerator::makeSynthFor(ModelId)
 {
-    const Playable *playable = model;
-    if (!playable || !playable->canPlay()) return nullptr;
-
     ContinuousSynth *synth = new ContinuousSynth(m_targetChannelCount,
                                                  m_sourceSampleRate,
                                                  m_processingBlockSize,
@@ -269,20 +266,16 @@ AudioGenerator::makeSynthFor(const Model *model)
 }
 
 void
-AudioGenerator::removeModel(Model *model)
+AudioGenerator::removeModel(ModelId modelId)
 {
-    SparseOneDimensionalModel *sodm =
-        dynamic_cast<SparseOneDimensionalModel *>(model);
-    if (!sodm) return; // nothing to do
-
     QMutexLocker locker(&m_mutex);
 
-    if (m_clipMixerMap.find(sodm->getId()) == m_clipMixerMap.end()) {
+    if (m_clipMixerMap.find(modelId) == m_clipMixerMap.end()) {
         return;
     }
 
-    ClipMixer *mixer = m_clipMixerMap[sodm->getId()];
-    m_clipMixerMap.erase(sodm->getId());
+    ClipMixer *mixer = m_clipMixerMap[modelId];
+    m_clipMixerMap.erase(modelId);
     delete mixer;
 }
 
@@ -339,7 +332,7 @@ AudioGenerator::getBlockSize() const
 }
 
 void
-AudioGenerator::setSoloModelSet(std::set<Model *> s)
+AudioGenerator::setSoloModelSet(std::set<ModelId> s)
 {
     QMutexLocker locker(&m_mutex);
 
@@ -357,7 +350,7 @@ AudioGenerator::clearSoloModelSet()
 }
 
 sv_frame_t
-AudioGenerator::mixModel(Model *model,
+AudioGenerator::mixModel(ModelId modelId,
                          sv_frame_t startFrame, sv_frame_t frameCount,
                          float **buffer,
                          sv_frame_t fadeIn, sv_frame_t fadeOut)
@@ -369,25 +362,26 @@ AudioGenerator::mixModel(Model *model,
 
     QMutexLocker locker(&m_mutex);
 
-    Playable *playable = model;
-    if (!playable || !playable->canPlay()) return frameCount;
+    auto model = ModelById::get(modelId);
+    if (!model || !model->canPlay()) return frameCount;
 
-    PlayParameters *parameters =
-        PlayParameterRepository::getInstance()->getPlayParameters(playable);
+    auto parameters =
+        PlayParameterRepository::getInstance()->getPlayParameters
+        (modelId.untyped);
     if (!parameters) return frameCount;
 
     bool playing = !parameters->isPlayMuted();
     if (!playing) {
 #ifdef DEBUG_AUDIO_GENERATOR
-        cout << "AudioGenerator::mixModel(" << model << "): muted" << endl;
+        cout << "AudioGenerator::mixModel(" << modelId << "): muted" << endl;
 #endif
         return frameCount;
     }
 
     if (m_soloing) {
-        if (m_soloModelSet.find(model) == m_soloModelSet.end()) {
+        if (m_soloModelSet.find(modelId) == m_soloModelSet.end()) {
 #ifdef DEBUG_AUDIO_GENERATOR
-            cout << "AudioGenerator::mixModel(" << model << "): not one of the solo'd models" << endl;
+            cout << "AudioGenerator::mixModel(" << modelId << "): not one of the solo'd models" << endl;
 #endif
             return frameCount;
         }
@@ -396,35 +390,37 @@ AudioGenerator::mixModel(Model *model,
     float gain = parameters->getPlayGain();
     float pan = parameters->getPlayPan();
 
-    DenseTimeValueModel *dtvm = dynamic_cast<DenseTimeValueModel *>(model);
-    if (dtvm) {
-        return mixDenseTimeValueModel(dtvm, startFrame, frameCount,
+    if (std::dynamic_pointer_cast<DenseTimeValueModel>(model)) {
+        return mixDenseTimeValueModel(modelId, startFrame, frameCount,
                                       buffer, gain, pan, fadeIn, fadeOut);
     }
 
-    if (usesClipMixer(model)) {
-        return mixClipModel(model, startFrame, frameCount,
+    if (usesClipMixer(modelId)) {
+        return mixClipModel(modelId, startFrame, frameCount,
                             buffer, gain, pan);
     }
 
-    if (usesContinuousSynth(model)) {
-        return mixContinuousSynthModel(model, startFrame, frameCount,
+    if (usesContinuousSynth(modelId)) {
+        return mixContinuousSynthModel(modelId, startFrame, frameCount,
                                        buffer, gain, pan);
     }
 
-    std::cerr << "AudioGenerator::mixModel: WARNING: Model " << model << " of type " << model->getTypeName() << " is marked as playable, but I have no mechanism to play it" << std::endl;
+    std::cerr << "AudioGenerator::mixModel: WARNING: Model " << modelId << " of type " << model->getTypeName() << " is marked as playable, but I have no mechanism to play it" << std::endl;
 
     return frameCount;
 }
 
 sv_frame_t
-AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
+AudioGenerator::mixDenseTimeValueModel(ModelId modelId,
                                        sv_frame_t startFrame, sv_frame_t frames,
                                        float **buffer, float gain, float pan,
                                        sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
     sv_frame_t maxFrames = frames + std::max(fadeIn, fadeOut);
 
+    auto dtvm = ModelById::getAs<DenseTimeValueModel>(modelId);
+    if (!dtvm) return 0;
+    
     int modelChannels = dtvm->getChannelCount();
 
     if (m_channelBufSiz < maxFrames || m_channelBufCount < modelChannels) {
@@ -519,13 +515,15 @@ AudioGenerator::mixDenseTimeValueModel(DenseTimeValueModel *dtvm,
 }
   
 sv_frame_t
-AudioGenerator::mixClipModel(Model *model,
+AudioGenerator::mixClipModel(ModelId modelId,
                              sv_frame_t startFrame, sv_frame_t frames,
                              float **buffer, float gain, float pan)
 {
-    ClipMixer *clipMixer = m_clipMixerMap[model->getId()];
+    ClipMixer *clipMixer = m_clipMixerMap[modelId];
     if (!clipMixer) return 0;
 
+    auto exportable = ModelById::getAs<NoteExportable>(modelId);
+    
     int blocks = int(frames / m_processingBlockSize);
     
     //!!! todo: the below -- it matters
@@ -551,7 +549,7 @@ AudioGenerator::mixClipModel(Model *model,
     ClipMixer::NoteStart on;
     ClipMixer::NoteEnd off;
 
-    NoteOffSet &noteOffs = m_noteOffs[model->getId()];
+    NoteOffSet &noteOffs = m_noteOffs[modelId];
 
     float **bufferIndexes = new float *[m_targetChannelCount];
 
@@ -562,7 +560,6 @@ AudioGenerator::mixClipModel(Model *model,
         sv_frame_t reqStart = startFrame + i * m_processingBlockSize;
 
         NoteList notes;
-        NoteExportable *exportable = dynamic_cast<NoteExportable *>(model);
         if (exportable) {
             notes = exportable->getNotesStartingWithin(reqStart,
                                                        m_processingBlockSize);
@@ -677,18 +674,19 @@ AudioGenerator::mixClipModel(Model *model,
 }
 
 sv_frame_t
-AudioGenerator::mixContinuousSynthModel(Model *model,
+AudioGenerator::mixContinuousSynthModel(ModelId modelId,
                                         sv_frame_t startFrame,
                                         sv_frame_t frames,
                                         float **buffer,
                                         float gain, 
                                         float pan)
 {
-    ContinuousSynth *synth = m_continuousSynthMap[model->getId()];
+    ContinuousSynth *synth = m_continuousSynthMap[modelId];
     if (!synth) return 0;
 
     // only type we support here at the moment
-    SparseTimeValueModel *stvm = qobject_cast<SparseTimeValueModel *>(model);
+    auto stvm = ModelById::getAs<SparseTimeValueModel>(modelId);
+    if (!stvm) return 0;
     if (stvm->getScaleUnits() != "Hz") return 0;
 
     int blocks = int(frames / m_processingBlockSize);

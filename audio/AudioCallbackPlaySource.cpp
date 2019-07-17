@@ -100,8 +100,8 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
             m_viewManager, SLOT(playStatusChanged(bool)));
 
     connect(PlayParameterRepository::getInstance(),
-            SIGNAL(playParametersChanged(PlayParameters *)),
-            this, SLOT(playParametersChanged(PlayParameters *)));
+            SIGNAL(playParametersChanged(int)),
+            this, SLOT(playParametersChanged(int)));
 
     connect(Preferences::getInstance(),
             SIGNAL(propertyChanged(PropertyContainer::PropertyName)),
@@ -151,15 +151,19 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 }
 
 void
-AudioCallbackPlaySource::addModel(Model *model)
+AudioCallbackPlaySource::addModel(ModelId modelId)
 {
-    if (m_models.find(model) != m_models.end()) return;
+    if (m_models.find(modelId) != m_models.end()) return;
 
-    bool willPlay = m_audioGenerator->addModel(model);
+    bool willPlay = m_audioGenerator->addModel(modelId);
+
+    auto model = ModelById::get(modelId);
+    if (!model) return;
 
     m_mutex.lock();
 
-    m_models.insert(model);
+    m_models.insert(modelId);
+
     if (model->getEndFrame() > m_lastModelEndFrame) {
         m_lastModelEndFrame = model->getEndFrame();
     }
@@ -167,7 +171,7 @@ AudioCallbackPlaySource::addModel(Model *model)
     bool buffersIncreased = false, srChanged = false;
 
     int modelChannels = 1;
-    ReadOnlyWaveFileModel *rowfm = qobject_cast<ReadOnlyWaveFileModel *>(model);
+    auto rowfm = std::dynamic_pointer_cast<ReadOnlyWaveFileModel>(model);
     if (rowfm) modelChannels = rowfm->getChannelCount();
     if (modelChannels > m_sourceChannelCount) {
         m_sourceChannelCount = modelChannels;
@@ -194,20 +198,19 @@ AudioCallbackPlaySource::addModel(Model *model)
 
             bool conflicting = false;
 
-            for (std::set<Model *>::const_iterator i = m_models.begin();
-                 i != m_models.end(); ++i) {
+            for (ModelId otherId: m_models) {
                 // Only read-only wave file models should be
                 // considered conflicting -- writable wave file models
                 // are derived and we shouldn't take their rates into
                 // account.  Also, don't give any particular weight to
                 // a file that's already playing at the wrong rate
                 // anyway
-                ReadOnlyWaveFileModel *other =
-                    qobject_cast<ReadOnlyWaveFileModel *>(*i);
-                if (other && other != rowfm &&
+                if (otherId == modelId) continue;
+                auto other = ModelById::getAs<ReadOnlyWaveFileModel>(otherId);
+                if (other &&
                     other->getSampleRate() != model->getSampleRate() &&
                     other->getSampleRate() == m_sourceSampleRate) {
-                    SVDEBUG << "AudioCallbackPlaySource::addModel: Conflicting wave file model " << *i << " found" << endl;
+                    SVDEBUG << "AudioCallbackPlaySource::addModel: Conflicting wave file model " << otherId << " found" << endl;
                     conflicting = true;
                     break;
                 }
@@ -291,8 +294,8 @@ AudioCallbackPlaySource::addModel(Model *model)
     SVDEBUG << "AudioCallbackPlaySource::addModel: now have " << m_models.size() << " model(s)" << endl;
 #endif
 
-    connect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
-            this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
+    connect(model.get(), SIGNAL(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)),
+            this, SLOT(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)));
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::addModel: awakening thread" << endl;
@@ -302,7 +305,7 @@ AudioCallbackPlaySource::addModel(Model *model)
 }
 
 void
-AudioCallbackPlaySource::modelChangedWithin(sv_frame_t 
+AudioCallbackPlaySource::modelChangedWithin(ModelId, sv_frame_t 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
                                             startFrame
 #endif
@@ -318,37 +321,31 @@ AudioCallbackPlaySource::modelChangedWithin(sv_frame_t
 }
 
 void
-AudioCallbackPlaySource::removeModel(Model *model)
+AudioCallbackPlaySource::removeModel(ModelId modelId)
 {
+    auto model = ModelById::get(modelId);
+    if (!model) return;
+    
     m_mutex.lock();
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cout << "AudioCallbackPlaySource::removeModel(" << model << ")" << endl;
+    cout << "AudioCallbackPlaySource::removeModel(" << modelId << ")" << endl;
 #endif
 
-    disconnect(model, SIGNAL(modelChangedWithin(sv_frame_t, sv_frame_t)),
-               this, SLOT(modelChangedWithin(sv_frame_t, sv_frame_t)));
+    disconnect(model.get(), SIGNAL(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)),
+               this, SLOT(modelChangedWithin(ModelId, sv_frame_t, sv_frame_t)));
 
-    m_models.erase(model);
-
-    // I don't think we have to do this any more: if a new model is
-    // loaded at a different rate, we'll hit the non-conflicting path
-    // in addModel and the rate will be updated without problems; but
-    // if a new model is loaded at the rate that we were using for the
-    // last one, then we save work by not having reset this here
-    //
-//    if (m_models.empty()) {
-//        m_sourceSampleRate = 0;
-//    }
+    m_models.erase(modelId);
 
     sv_frame_t lastEnd = 0;
-    for (std::set<Model *>::const_iterator i = m_models.begin();
-         i != m_models.end(); ++i) {
+    for (ModelId otherId: m_models) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cout << "AudioCallbackPlaySource::removeModel(" << model << "): checking end frame on model " << *i << endl;
+        cout << "AudioCallbackPlaySource::removeModel(" << modelId << "): checking end frame on model " << otherId << endl;
 #endif
-        if ((*i)->getEndFrame() > lastEnd) {
-            lastEnd = (*i)->getEndFrame();
+        if (auto other = ModelById::get(otherId)) {
+            if (other->getEndFrame() > lastEnd) {
+                lastEnd = other->getEndFrame();
+            }
         }
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
         cout << "(done, lastEnd now " << lastEnd << ")" << endl;
@@ -356,7 +353,7 @@ AudioCallbackPlaySource::removeModel(Model *model)
     }
     m_lastModelEndFrame = lastEnd;
 
-    m_audioGenerator->removeModel(model);
+    m_audioGenerator->removeModel(modelId);
 
     if (m_models.empty()) {
         m_sourceSampleRate = 0;
@@ -579,13 +576,13 @@ AudioCallbackPlaySource::playSelectionModeChanged()
 }
 
 void
-AudioCallbackPlaySource::playParametersChanged(PlayParameters *)
+AudioCallbackPlaySource::playParametersChanged(int)
 {
     clearRingBuffers();
 }
 
 void
-AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName )
+AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName)
 {
 }
 
@@ -1014,7 +1011,7 @@ AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
 }
 
 void
-AudioCallbackPlaySource::setSoloModelSet(std::set<Model *> s)
+AudioCallbackPlaySource::setSoloModelSet(std::set<ModelId> s)
 {
     m_audioGenerator->setSoloModelSet(s);
     clearRingBuffers();
@@ -1664,7 +1661,7 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
             }
         }
 
-        for (std::set<Model *>::iterator mi = m_models.begin();
+        for (std::set<ModelId>::iterator mi = m_models.begin();
              mi != m_models.end(); ++mi) {
             
             (void) m_audioGenerator->mixModel(*mi, chunkStart, 

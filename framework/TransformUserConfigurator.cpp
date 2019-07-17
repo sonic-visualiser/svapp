@@ -60,11 +60,11 @@ bool
 TransformUserConfigurator::configure(ModelTransformer::Input &input,
                                      Transform &transform,
                                      Vamp::PluginBase *plugin,
-                                     Model *&inputModel,
+                                     ModelId &inputModel,
                                      AudioPlaySource *source,
                                      sv_frame_t startFrame,
                                      sv_frame_t duration,
-                                     const QMap<QString, Model *> &modelMap,
+                                     const QMap<QString, ModelId> &modelMap,
                                      QStringList candidateModelNames,
                                      QString defaultModelName)
 {
@@ -121,8 +121,6 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
         std::vector<Vamp::Plugin::OutputDescriptor> od =
             vp->getOutputDescriptors();
 
-//        cerr << "configure: looking for output: " << output << endl;
-
         if (od.size() > 1) {
             for (size_t i = 0; i < od.size(); ++i) {
                 if (od[i].identifier == output.toStdString()) {
@@ -135,9 +133,9 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     }
     
     int sourceChannels = 1;
-    if (dynamic_cast<DenseTimeValueModel *>(inputModel)) {
-        sourceChannels = dynamic_cast<DenseTimeValueModel *>(inputModel)
-            ->getChannelCount();
+
+    if (auto dtvm = ModelById::getAs<DenseTimeValueModel>(inputModel)) {
+        sourceChannels = dtvm->getChannelCount();
     }
 
     int minChannels = 1, maxChannels = sourceChannels;
@@ -203,12 +201,17 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     //around all this misc stuff, but that's for tomorrow
     //(whenever that may be)
 
+    sv_samplerate_t sampleRate = 0;
+    if (auto m = ModelById::get(inputModel)) {
+        sampleRate = m->getSampleRate();
+    }
+    
     if (startFrame != 0 || duration != 0) {
-        if (dialog->getSelectionOnly()) {
-            transform.setStartTime(RealTime::frame2RealTime
-                                   (startFrame, inputModel->getSampleRate()));
-            transform.setDuration(RealTime::frame2RealTime
-                                  (duration, inputModel->getSampleRate()));
+        if (dialog->getSelectionOnly() && sampleRate != 0) {
+            transform.setStartTime
+                (RealTime::frame2RealTime(startFrame, sampleRate));
+            transform.setDuration
+                (RealTime::frame2RealTime(duration, sampleRate));
         }
     }
 

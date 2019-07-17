@@ -23,15 +23,15 @@ public:
     // This is of course absolutely gross
 
     bool configure(ModelTransformer::Input &input,
-                           Transform &transform,
-                           Vamp::PluginBase *plugin,
-                           Model *&inputModel,
-                           AudioPlaySource *source,
-                           sv_frame_t startFrame,
-                           sv_frame_t duration,
-                           const QMap<QString, Model *> &modelMap,
-                           QStringList candidateModelNames,
-                           QString defaultModelName) override;
+                   Transform &transform,
+                   Vamp::PluginBase *plugin,
+                   ModelId &inputModel,
+                   AudioPlaySource *source,
+                   sv_frame_t startFrame,
+                   sv_frame_t duration,
+                   const QMap<QString, ModelId> &modelMap,
+                   QStringList candidateModelNames,
+                   QString defaultModelName) override;
 
     static void setParentWidget(QWidget *);
 
