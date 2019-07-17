@@ -1352,8 +1352,10 @@ MainWindowBase::renumberInstants()
     if (!layer) return;
 
     MultiSelection ms(m_viewManager->getSelection());
+
+    ModelId modelId = layer->getModel();
     
-    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(modelId);
     if (!sodm) return;
 
     if (!m_labeller) return;
@@ -1361,10 +1363,8 @@ MainWindowBase::renumberInstants()
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
-    /*!!!
-    Command *c = labeller.labelAll(sodm->getId().untyped, &ms);
+    Command *c = labeller.labelAll(modelId.untyped, &ms, sodm->getAllEvents());
     if (c) CommandHistory::getInstance()->addCommand(c, false);
-*/
 }
 
 void
@@ -1377,8 +1377,10 @@ MainWindowBase::subdivideInstantsBy(int n)
     if (!layer) return;
 
     MultiSelection ms(m_viewManager->getSelection());
+
+    ModelId modelId = layer->getModel();
     
-    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(modelId);
     if (!sodm) return;
 
     if (!m_labeller) return;
@@ -1386,11 +1388,8 @@ MainWindowBase::subdivideInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
-    (void)n;
-    /*!!!
-    Command *c = labeller.subdivide(sodm->getId().untyped, &ms, n);
+    Command *c = labeller.subdivide(modelId.untyped, &ms, sodm->getAllEvents(), n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
-    */
 }
 
 void
@@ -1403,8 +1402,10 @@ MainWindowBase::winnowInstantsBy(int n)
     if (!layer) return;
 
     MultiSelection ms(m_viewManager->getSelection());
+
+    ModelId modelId = layer->getModel();
     
-    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(layer->getModel());
+    auto sodm = ModelById::getAs<SparseOneDimensionalModel>(modelId);
     if (!sodm) return;
 
     if (!m_labeller) return;
@@ -1412,12 +1413,8 @@ MainWindowBase::winnowInstantsBy(int n)
     Labeller labeller(*m_labeller);
     labeller.setSampleRate(sodm->getSampleRate());
 
-    (void)n;
-    //!!! to update: (and the above two functions)
-    /*
-    Command *c = labeller.winnow(sodm->getId.untyped, &ms, n);
+    Command *c = labeller.winnow(modelId.untyped, &ms, sodm->getAllEvents(), n);
     if (c) CommandHistory::getInstance()->addCommand(c, false);
-    */
 }
 
 MainWindowBase::FileOpenStatus
