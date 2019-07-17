@@ -821,7 +821,7 @@ Document::releaseModel(ModelId modelId)
     for (auto layer: m_layers) {
         if (layer->getModel() == modelId) {
 #ifdef DEBUG_DOCUMENT
-            SVCERR << "Document::releaseModel: It's still in use in at least one layer, ignoring" << endl;
+            SVCERR << "Document::releaseModel: It's still in use in at least one layer (e.g. " << layer << ", \"" << layer->getLayerPresentationName() << "\"), ignoring" << endl;
 #endif
             return;
         }
