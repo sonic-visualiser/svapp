@@ -165,6 +165,14 @@ public:
                                                       LayerCreationHandler *handler);
 
     /**
+     * Indicate that the async layer creation task associated with the
+     * given handle should be cancelled. There is no guarantee about
+     * what this will mean, and the handler callback may still be
+     * called.
+     */
+    void cancelAsyncLayerCreation(LayerCreationAsyncHandle handle);
+
+    /**
      * Delete the given layer, and also its associated model if no
      * longer used by any other layer.  In general, this should be the
      * only method used to delete layers -- doing so directly is a bit

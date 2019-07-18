@@ -291,6 +291,12 @@ public:
         delete this;
     }
 
+    void cancel() {
+        foreach (Layer *layer, m_primary) {
+            m_doc->setModel(layer, {});
+        }
+    }
+
 private:
     Document *m_doc;
     vector<Layer *> m_primary;
@@ -331,6 +337,13 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
     }
 
     return amc;
+}
+
+void
+Document::cancelAsyncLayerCreation(Document::LayerCreationAsyncHandle h)
+{
+    AdditionalModelConverter *conv = static_cast<AdditionalModelConverter *>(h);
+    conv->cancel();
 }
 
 vector<Layer *>
