@@ -229,6 +229,8 @@ Align::alignModelViaTransform(Document *doc,
         alignmentModel->setPathFrom(rec.preparatory);
         
         m_pendingTuningDiffs[tuningDiffOutputModelId] = rec;
+
+        SVDEBUG << "Align::alignModelViaTransform: Made a note of pending tuning diff output model id " << tuningDiffOutputModelId << " with input " << rec.input << ", alignment model " << rec.alignment << ", preparatory model " << rec.preparatory << endl;
     }
 
     return true;
@@ -241,9 +243,10 @@ Align::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 
     if (m_pendingTuningDiffs.find(tuningDiffOutputModelId) ==
         m_pendingTuningDiffs.end()) {
-        SVCERR << "ERROR: Align::tuningDifferenceCompletionChanged: Model "
-               << tuningDiffOutputModelId
-               << " not found in pending tuning diff map!" << endl;
+        SVDEBUG << "NOTE: Align::tuningDifferenceCompletionChanged: Model "
+                << tuningDiffOutputModelId
+                << " not found in pending tuning diff map, probably "
+                << "completed already" << endl;
         return;
     }
 
@@ -290,7 +293,7 @@ Align::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
     } else {
         SVCERR << "Align::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
     }    
-
+    
     ModelById::release(tuningDiffOutputModel);
     
     alignmentModel->setPathFrom({}); // replace preparatoryModel
@@ -298,6 +301,12 @@ Align::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
     rec.preparatory = {};
     
     m_pendingTuningDiffs.erase(tuningDiffOutputModelId);
+
+    SVDEBUG << "Align::tuningDifferenceCompletionChanged: Erasing model "
+            << tuningDiffOutputModelId << " from pending tuning diffs and "
+            << "launching the alignment phase for alignment model "
+            << rec.alignment << " with tuning frequency "
+            << tuningFrequency << endl;
     
     beginTransformDrivenAlignment
         (rec.input, rec.alignment, tuningFrequency);
