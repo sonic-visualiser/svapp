@@ -1356,12 +1356,9 @@ Document::toXml(QTextStream &out, QString indent, QString extraAttributes,
 
         if (i->first && !i->second.empty()) { // Layer exists, is in views
             ModelId modelId = i->first->getModel();
-            if (auto model = ModelById::get(modelId)) {
-                used.insert(modelId);
-                if (!model->getSourceModel().isNone()) {
-                    used.insert(model->getSourceModel());
-                }
-            }
+            ModelId sourceId = i->first->getSourceModel();
+            if (!modelId.isNone()) used.insert(modelId);
+            if (!sourceId.isNone()) used.insert(sourceId);
         }
     }
 
