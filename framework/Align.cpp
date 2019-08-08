@@ -338,8 +338,9 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     transform.setParameter("serialise", 1);
     transform.setParameter("smooth", 0);
     transform.setParameter("zonewidth", 40);
-    transform.setParameter("noise", true);
+//    transform.setParameter("noise", true);
     transform.setParameter("minfreq", 250);
+//    transform.setParameter("usechroma", 1);
 
     if (tuningFrequency != 0.f) {
         transform.setParameter("freq2", tuningFrequency);
