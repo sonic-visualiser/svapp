@@ -105,6 +105,8 @@ private:
                                        ModelId, // an AlignmentModel
                                        float tuningFrequency = 0.f);
 
+    void abandonOngoingAlignment(ModelId otherId);
+
     QMutex m_mutex;
 
     struct TuningDiffRec {
@@ -112,7 +114,7 @@ private:
         ModelId alignment; // an AlignmentModel
         ModelId preparatory; // a SparseTimeValueModel
     };
-
+    
     // tuning-difference output model (a SparseTimeValueModel) -> data
     // needed for subsequent alignment
     std::map<ModelId, TuningDiffRec> m_pendingTuningDiffs;

@@ -88,6 +88,67 @@ Align::canAlign()
         (tdId == "" || factory->haveTransform(tdId));
 }
 
+void
+Align::abandonOngoingAlignment(ModelId otherId)
+{
+    auto other = ModelById::getAs<RangeSummarisableTimeValueModel>(otherId);
+    if (!other) {
+        return;
+    }
+
+    ModelId alignmentModelId = other->getAlignment();
+    if (alignmentModelId.isNone()) {
+        return;
+    }
+
+    SVCERR << "Align::abandonOngoingAlignment: An alignment is ongoing for model "
+           << otherId << " (alignment model id " << alignmentModelId
+           << "), abandoning it..." << endl;
+    
+    other->setAlignment({});
+
+    for (auto pp: m_pendingProcesses) {
+        if (alignmentModelId == pp.second) {
+            QProcess *process = pp.first;
+            m_pendingProcesses.erase(process);
+            SVCERR << "Align::abandonOngoingAlignment: Killing external "
+                   << "alignment process " << process << "..." << endl;
+            delete process; // kills the process itself
+            break;
+        }
+    }
+
+    if (m_pendingAlignments.find(alignmentModelId) !=
+        m_pendingAlignments.end()) {
+        SVCERR << "Align::abandonOngoingAlignment: Releasing path output model "
+               << m_pendingAlignments[alignmentModelId]
+               << "..." << endl;
+        ModelById::release(m_pendingAlignments[alignmentModelId]);
+        SVCERR << "Align::abandonOngoingAlignment: Dropping alignment model "
+               << alignmentModelId
+               << " from pending alignments..." << endl;
+        m_pendingAlignments.erase(alignmentModelId);
+    }
+
+    for (auto ptd: m_pendingTuningDiffs) {
+        if (alignmentModelId == ptd.second.alignment) {
+            SVCERR << "Align::abandonOngoingAlignment: Releasing preparatory model "
+                   << ptd.second.preparatory << "..." << endl;
+            ModelById::release(ptd.second.preparatory);
+            SVCERR << "Align::abandonOngoingAlignment: Releasing pending tuning-diff model "
+                   << ptd.first << "..." << endl;
+            ModelById::release(ptd.first);
+            SVCERR << "Align::abandonOngoingAlignment: Dropping tuning-diff model "
+                   << ptd.first
+                   << " from pending tuning diffs..." << endl;
+            m_pendingTuningDiffs.erase(ptd.first);
+            break;
+        }
+    }
+
+    SVCERR << "Align::abandonOngoingAlignment: done" << endl;
+}
+
 bool
 Align::alignModelViaTransform(Document *doc,
                               ModelId referenceId,
@@ -102,7 +163,12 @@ Align::alignModelViaTransform(Document *doc,
         ModelById::getAs<RangeSummarisableTimeValueModel>(otherId);
 
     if (!reference || !other) return false;
-   
+
+    // There may be an alignment already happening; we should stop it,
+    // which we can do by discarding the output models for its
+    // transforms
+    abandonOngoingAlignment(otherId);
+    
     // This involves creating a number of new models:
     //
     // 1. an AggregateWaveModel to provide the mixdowns of the main
@@ -245,8 +311,8 @@ Align::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
         m_pendingTuningDiffs.end()) {
         SVDEBUG << "NOTE: Align::tuningDifferenceCompletionChanged: Model "
                 << tuningDiffOutputModelId
-                << " not found in pending tuning diff map, probably "
-                << "completed already" << endl;
+                << " not found in pending tuning diff map, presuming "
+                << "completed or abandoned" << endl;
         return;
     }
 
