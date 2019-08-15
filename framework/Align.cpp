@@ -55,7 +55,7 @@ Align::getAlignmentTransformName()
     settings.beginGroup("Alignment");
     TransformId id =
         settings.value("transform-id",
-                       "vamp:match-vamp-plugin:match:path").toString();
+                       "vamp:match-vamp-plugin:match-tipic:path").toString();
     settings.endGroup();
     return id;
 }
@@ -404,8 +404,16 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     transform.setParameter("serialise", 1);
     transform.setParameter("smooth", 0);
     transform.setParameter("zonewidth", 40);
-//    transform.setParameter("noise", true);
+    transform.setParameter("noise", false);
     transform.setParameter("minfreq", 250);
+
+    transform.setParameter("usespecdiff", 0);
+    transform.setParameter("framenorm", 0);
+    transform.setParameter("metric", 0);
+    transform.setParameter("distnorm", 0);
+    transform.setParameter("silencethreshold", 0);
+    
+    transform.setParameter("usechroma", 0);
 //    transform.setParameter("usechroma", 1);
 
     if (tuningFrequency != 0.f) {
