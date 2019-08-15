@@ -408,10 +408,19 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     transform.setParameter("minfreq", 250);
 //    transform.setParameter("usechroma", 1);
 
+    int cents = 0;
+    
     if (tuningFrequency != 0.f) {
         transform.setParameter("freq2", tuningFrequency);
+
+        double centsOffset = 0.f;
+        int pitch = Pitch::getPitchForFrequency(tuningFrequency, &centsOffset);
+        cents = int(round((pitch - 69) * 100 + centsOffset));
+        SVCERR << "frequency " << tuningFrequency << " yields cents offset " << centsOffset << " and pitch " << pitch << " -> cents " << cents << endl;
     }
 
+    alignmentModel->setRelativePitch(cents);
+    
     SVDEBUG << "Align::alignModel: Alignment transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
