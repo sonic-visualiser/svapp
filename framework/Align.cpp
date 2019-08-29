@@ -404,9 +404,8 @@ Align::beginTransformDrivenAlignment(ModelId aggregateModelId,
     transform.setParameter("serialise", 1);
     transform.setParameter("smooth", 0);
     transform.setParameter("zonewidth", 40);
-//    transform.setParameter("noise", true);
-    transform.setParameter("minfreq", 250);
-//    transform.setParameter("usechroma", 1);
+    transform.setParameter("noise", true);
+    transform.setParameter("minfreq", 500);
 
     int cents = 0;
     
