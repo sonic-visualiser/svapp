@@ -606,8 +606,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             READ_MANDATORY(int, yBinCount, toInt);
             
             auto model = std::make_shared<EditableDenseThreeDimensionalModel>
-                (sampleRate, windowSize, yBinCount,
-                 EditableDenseThreeDimensionalModel::NoCompression);
+                (sampleRate, windowSize, yBinCount);
 
             model->setObjectName(name);
             m_models[id] = ModelById::add(model);
