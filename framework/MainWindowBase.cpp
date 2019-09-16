@@ -3350,14 +3350,14 @@ MainWindowBase::ffwd()
 {
     if (!getMainModel()) return;
 
-    sv_frame_t frame = m_viewManager->getPlaybackFrame();
-    ++frame;
+    sv_frame_t playbackFrame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = playbackFrame + 1;
 
     Pane *pane = m_paneStack->getCurrentPane();
     Layer *layer = getSnapLayer();
     sv_samplerate_t sr = getMainModel()->getSampleRate();
 
-    if (!layer) {
+    if (!pane || !layer) {
 
         frame = RealTime::realTime2Frame
             (RealTime::frame2RealTime(frame, sr) + m_defaultFfwdRwdStep, sr);
@@ -3367,11 +3367,22 @@ MainWindowBase::ffwd()
 
     } else {
 
+        sv_frame_t pframe = pane->alignFromReference(frame);
         int resolution = 0;
-        if (pane) frame = pane->alignFromReference(frame);
-        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                      frame, resolution, Layer::SnapRight)) {
-            if (pane) frame = pane->alignToReference(frame);
+        bool success = false;
+
+        while (layer->snapToFeatureFrame(pane, pframe, resolution,
+                                         Layer::SnapRight)) {
+            if (pane->alignToReference(pframe) > playbackFrame) {
+                success = true;
+                break;
+            } else {
+                ++pframe;
+            }
+        }
+
+        if (success) {
+            frame = pane->alignToReference(pframe);
         } else {
             frame = getMainModel()->getEndFrame();
         }
@@ -3385,7 +3396,7 @@ MainWindowBase::ffwd()
     
     m_viewManager->setPlaybackFrame(frame);
 
-    if (frame == getMainModel()->getEndFrame() &&
+    if (frame >= getMainModel()->getEndFrame() &&
         m_playSource &&
         m_playSource->isPlaying() &&
         !m_viewManager->getPlayLoopMode()) {
@@ -3454,7 +3465,8 @@ MainWindowBase::rewind()
 {
     if (!getMainModel()) return;
 
-    sv_frame_t frame = m_viewManager->getPlaybackFrame();
+    sv_frame_t playbackFrame = m_viewManager->getPlaybackFrame();
+    sv_frame_t frame = playbackFrame;
     if (frame > 0) --frame;
 
     Pane *pane = m_paneStack->getCurrentPane();
@@ -3471,7 +3483,7 @@ MainWindowBase::rewind()
         frame = RealTime::realTime2Frame(ct, sr);
     }
 
-    if (!layer) {
+    if (!pane || !layer) {
         
         frame = RealTime::realTime2Frame
             (RealTime::frame2RealTime(frame, sr) - m_defaultFfwdRwdStep, sr);
@@ -3481,11 +3493,23 @@ MainWindowBase::rewind()
 
     } else {
 
+        sv_frame_t pframe = pane->alignFromReference(frame);
         int resolution = 0;
-        if (pane) frame = pane->alignFromReference(frame);
-        if (layer->snapToFeatureFrame(m_paneStack->getCurrentPane(),
-                                      frame, resolution, Layer::SnapLeft)) {
-            if (pane) frame = pane->alignToReference(frame);
+        bool success = false;
+
+        while (layer->snapToFeatureFrame(pane, pframe, resolution,
+                                         Layer::SnapLeft)) {
+            if (pane->alignToReference(pframe) < playbackFrame ||
+                pframe <= 0) {
+                success = true;
+                break;
+            } else {
+                --pframe;
+            }
+        }
+
+        if (success) {
+            frame = pane->alignToReference(pframe);
         } else {
             frame = getMainModel()->getStartFrame();
         }
