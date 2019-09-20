@@ -34,6 +34,7 @@
 #include "data/model/RegionModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
+#include "data/model/TimeFrequencyBoxModel.h"
 #include "data/model/AlignmentModel.h"
 #include "data/model/AggregateWaveModel.h"
 
@@ -686,6 +687,11 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     // Paths are no longer actually models
                     Path *path = new Path(sampleRate, resolution);
                     m_paths[id] = path;
+                } else if (attributes.value("subtype") == "timefrequencybox") {
+                    auto model = std::make_shared<TimeFrequencyBoxModel>
+                        (sampleRate, resolution, notifyOnAdd);
+                    model->setObjectName(name);
+                    m_models[id] = ModelById::add(model);
                 } else {
                     std::shared_ptr<SparseTimeValueModel> model;
                     if (haveMinMax) {
@@ -1057,6 +1063,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
         good =
             (ModelById::isa<SparseTimeValueModel>(modelId) ||
              ModelById::isa<TextModel>(modelId) ||
+             ModelById::isa<TimeFrequencyBoxModel>(modelId) ||
              path);
         break;
 
@@ -1111,18 +1118,15 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     }
 
     if (auto stvm = ModelById::getAs<SparseTimeValueModel>(modelId)) {
-        float value = 0.0;
-        value = attributes.value("value").trimmed().toFloat(&ok);
+        float value = attributes.value("value").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
         stvm->add(Event(frame, value, label));
         return ok;
     }
         
     if (auto nm = ModelById::getAs<NoteModel>(modelId)) {
-        float value = 0.0;
-        value = attributes.value("value").trimmed().toFloat(&ok);
-        int duration = 0;
-        duration = attributes.value("duration").trimmed().toInt(&ok);
+        float value = attributes.value("value").trimmed().toFloat(&ok);
+        int duration = attributes.value("duration").trimmed().toInt(&ok);
         QString label = attributes.value("label");
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
@@ -1134,20 +1138,26 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     }
 
     if (auto rm = ModelById::getAs<RegionModel>(modelId)) {
-        float value = 0.0;
-        value = attributes.value("value").trimmed().toFloat(&ok);
-        int duration = 0;
-        duration = attributes.value("duration").trimmed().toInt(&ok);
+        float value = attributes.value("value").trimmed().toFloat(&ok);
+        int duration = attributes.value("duration").trimmed().toInt(&ok);
         QString label = attributes.value("label");
         rm->add(Event(frame, value, duration, label));
         return ok;
     }
 
     if (auto tm = ModelById::getAs<TextModel>(modelId)) {
-        float height = 0.0;
-        height = attributes.value("height").trimmed().toFloat(&ok);
+        float height = attributes.value("height").trimmed().toFloat(&ok);
         QString label = attributes.value("label");
         tm->add(Event(frame, height, label));
+        return ok;
+    }
+
+    if (auto bm = ModelById::getAs<TimeFrequencyBoxModel>(modelId)) {
+        float frequency = attributes.value("frequency").trimmed().toFloat(&ok);
+        float extent = attributes.value("extent").trimmed().toFloat(&ok);
+        int duration = attributes.value("duration").trimmed().toInt(&ok);
+        QString label = attributes.value("label");
+        bm->add(Event(frame, frequency, duration, extent, label));
         return ok;
     }
 
