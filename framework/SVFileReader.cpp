@@ -34,7 +34,7 @@
 #include "data/model/RegionModel.h"
 #include "data/model/TextModel.h"
 #include "data/model/ImageModel.h"
-#include "data/model/TimeFrequencyBoxModel.h"
+#include "data/model/BoxModel.h"
 #include "data/model/AlignmentModel.h"
 #include "data/model/AggregateWaveModel.h"
 
@@ -687,9 +687,11 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     // Paths are no longer actually models
                     Path *path = new Path(sampleRate, resolution);
                     m_paths[id] = path;
-                } else if (attributes.value("subtype") == "timefrequencybox") {
-                    auto model = std::make_shared<TimeFrequencyBoxModel>
+                } else if (attributes.value("subtype") == "box" ||
+                           attributes.value("subtype") == "timefrequencybox") {
+                    auto model = std::make_shared<BoxModel>
                         (sampleRate, resolution, notifyOnAdd);
+                    model->setScaleUnits(units);
                     model->setObjectName(name);
                     m_models[id] = ModelById::add(model);
                 } else {
@@ -1063,7 +1065,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
         good =
             (ModelById::isa<SparseTimeValueModel>(modelId) ||
              ModelById::isa<TextModel>(modelId) ||
-             ModelById::isa<TimeFrequencyBoxModel>(modelId) ||
+             ModelById::isa<BoxModel>(modelId) ||
              path);
         break;
 
@@ -1152,12 +1154,18 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         return ok;
     }
 
-    if (auto bm = ModelById::getAs<TimeFrequencyBoxModel>(modelId)) {
-        float frequency = attributes.value("frequency").trimmed().toFloat(&ok);
+    if (auto bm = ModelById::getAs<BoxModel>(modelId)) {
+        float value = attributes.value("value").trimmed().toFloat(&ok);
+        if (!ok) {
+            value = attributes.value("frequency").trimmed().toFloat(&ok);
+            if (bm->getScaleUnits() == "") {
+                bm->setScaleUnits("Hz");
+            }
+        }
         float extent = attributes.value("extent").trimmed().toFloat(&ok);
         int duration = attributes.value("duration").trimmed().toInt(&ok);
         QString label = attributes.value("label");
-        bm->add(Event(frame, frequency, duration, extent, label));
+        bm->add(Event(frame, value, duration, extent, label));
         return ok;
     }
 
