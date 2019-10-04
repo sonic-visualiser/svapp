@@ -137,12 +137,13 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #undef Window
 #endif
 
-MainWindowBase::MainWindowBase(SoundOptions options) :
+MainWindowBase::MainWindowBase(SoundOptions soundOptions,
+                               PaneStack::Options paneStackOptions) :
     m_document(nullptr),
     m_paneStack(nullptr),
     m_viewManager(nullptr),
     m_timeRulerLayer(nullptr),
-    m_soundOptions(options),
+    m_soundOptions(soundOptions),
     m_playSource(nullptr),
     m_recordTarget(nullptr),
     m_resamplerWrapper(nullptr),
@@ -170,8 +171,8 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
 
     SVDEBUG << "MainWindowBase::MainWindowBase" << endl;
 
-    if (options & WithAudioInput) {
-        if (!(options & WithAudioOutput)) {
+    if (m_soundOptions & WithAudioInput) {
+        if (!(m_soundOptions & WithAudioOutput)) {
             SVCERR << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
         }
     }
@@ -222,7 +223,7 @@ MainWindowBase::MainWindowBase(SoundOptions options) :
     }
 #endif
 
-    m_paneStack = new PaneStack(nullptr, m_viewManager);
+    m_paneStack = new PaneStack(nullptr, m_viewManager, paneStackOptions);
     connect(m_paneStack, SIGNAL(currentPaneChanged(Pane *)),
             this, SLOT(currentPaneChanged(Pane *)));
     connect(m_paneStack, SIGNAL(currentLayerChanged(Pane *, Layer *)),
@@ -3088,7 +3089,7 @@ MainWindowBase::toggleZoomWheels()
 void
 MainWindowBase::togglePropertyBoxes()
 {
-    if (m_paneStack->getLayoutStyle() == PaneStack::NoPropertyStacks) {
+    if (m_paneStack->getLayoutStyle() == PaneStack::HiddenPropertyStacksLayout) {
         if (Preferences::getInstance()->getPropertyBoxLayout() ==
             Preferences::VerticallyStacked) {
             m_paneStack->setLayoutStyle(PaneStack::PropertyStackPerPaneLayout);
@@ -3096,7 +3097,7 @@ MainWindowBase::togglePropertyBoxes()
             m_paneStack->setLayoutStyle(PaneStack::SinglePropertyStackLayout);
         }
     } else {
-        m_paneStack->setLayoutStyle(PaneStack::NoPropertyStacks);
+        m_paneStack->setLayoutStyle(PaneStack::HiddenPropertyStacksLayout);
     }
 }
 
@@ -3148,7 +3149,7 @@ void
 MainWindowBase::preferenceChanged(PropertyContainer::PropertyName name)
 {
     if (name == "Property Box Layout") {
-        if (m_paneStack->getLayoutStyle() != PaneStack::NoPropertyStacks) {
+        if (m_paneStack->getLayoutStyle() != PaneStack::HiddenPropertyStacksLayout) {
             if (Preferences::getInstance()->getPropertyBoxLayout() ==
                 Preferences::VerticallyStacked) {
                 m_paneStack->setLayoutStyle(PaneStack::PropertyStackPerPaneLayout);

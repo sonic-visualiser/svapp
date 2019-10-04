@@ -25,6 +25,7 @@
 
 #include "base/Command.h"
 #include "view/ViewManager.h"
+#include "view/PaneStack.h"
 #include "base/PropertyContainer.h"
 #include "base/RecentFiles.h"
 #include "base/FrameTimer.h"
@@ -101,7 +102,8 @@ public:
     };
     typedef int SoundOptions;
     
-    MainWindowBase(SoundOptions options = WithEverything);
+    MainWindowBase(SoundOptions soundOptions = WithEverything,
+                   PaneStack::Options paneStackOptions = 0x0);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
