@@ -22,6 +22,7 @@
 
 #include <QDir>
 #include <QTimer>
+#include <QDateTime>
 
 //#define DEBUG_AUDIO_CALLBACK_RECORD_TARGET 1
 
