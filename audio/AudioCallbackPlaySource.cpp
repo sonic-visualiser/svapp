@@ -546,9 +546,14 @@ AudioCallbackPlaySource::stop()
     m_lastRetrievalTimestamp = 0;
     if (changed) {
         emit playStatusChanged(m_playing);
-        emit activity(tr("Stop at %1").arg
-                      (RealTime::frame2RealTime
-                       (m_lastCurrentFrame, m_sourceSampleRate).toText().c_str()));
+        if (m_sourceSampleRate) {
+            emit activity(tr("Stop at %1").arg
+                          (RealTime::frame2RealTime
+                           (m_lastCurrentFrame, m_sourceSampleRate)
+                           .toText().c_str()));
+        } else {
+            emit activity(tr("Stop"));
+        }            
     }
     m_lastCurrentFrame = 0;
 }
