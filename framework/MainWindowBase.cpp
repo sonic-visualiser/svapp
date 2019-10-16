@@ -137,13 +137,15 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
 #undef Window
 #endif
 
-MainWindowBase::MainWindowBase(SoundOptions soundOptions,
+MainWindowBase::MainWindowBase(AudioMode audioMode,
+                               MIDIMode midiMode,
                                PaneStack::Options paneStackOptions) :
     m_document(nullptr),
     m_paneStack(nullptr),
     m_viewManager(nullptr),
     m_timeRulerLayer(nullptr),
-    m_soundOptions(soundOptions),
+    m_audioMode(audioMode),
+    m_midiMode(midiMode),
     m_playSource(nullptr),
     m_recordTarget(nullptr),
     m_resamplerWrapper(nullptr),
@@ -171,12 +173,6 @@ MainWindowBase::MainWindowBase(SoundOptions soundOptions,
 
     SVDEBUG << "MainWindowBase::MainWindowBase" << endl;
 
-    if (m_soundOptions & WithAudioInput) {
-        if (!(m_soundOptions & WithAudioOutput)) {
-            SVCERR << "WARNING: MainWindowBase: WithAudioInput requires WithAudioOutput -- recording will not work" << endl;
-        }
-    }
-    
     qRegisterMetaType<sv_frame_t>("sv_frame_t");
     qRegisterMetaType<sv_samplerate_t>("sv_samplerate_t");
     qRegisterMetaType<ModelId>("ModelId");
@@ -250,7 +246,8 @@ MainWindowBase::MainWindowBase(SoundOptions soundOptions,
     m_playSource = new AudioCallbackPlaySource
         (m_viewManager, QApplication::applicationName());
 
-    if (m_soundOptions & WithAudioInput) {
+    if (m_audioMode == AUDIO_PLAYBACK_NOW_RECORD_LATER ||
+        m_audioMode == AUDIO_PLAYBACK_AND_RECORD) {
         SVDEBUG << "MainWindowBase: Creating record target" << endl;
         m_recordTarget = new AudioCallbackRecordTarget
             (m_viewManager, QApplication::applicationName());
@@ -303,7 +300,7 @@ MainWindowBase::MainWindowBase(SoundOptions soundOptions,
     m_labeller = new Labeller(labellerType);
     m_labeller->setCounterCycleSize(cycle);
 
-    if (m_soundOptions & WithMIDIInput) {
+    if (m_midiMode == MIDI_LISTEN) {
         SVDEBUG << "MainWindowBase: Creating MIDI input" << endl;
         m_midiInput = new MIDIInput(QApplication::applicationName(), this);
     }
@@ -739,12 +736,21 @@ MainWindowBase::updateMenuStates()
     // system play target or I/O exists, we can record even if no
     // record source (i.e. audioIO) exists because we can record into
     // an empty session before the audio device has been
-    // opened. However, if there is no record *target* then recording
-    // was actively disabled (flag not set in m_soundOptions). And if
-    // we have a play target instead of an audioIO, then we must have
-    // tried to open the device but failed to find any capture source.
+    // opened.
+    //
+    // However, if there is no record *target* then recording was
+    // actively disabled via the audio mode setting.
+    // 
+    // If we have a play target instead of an audioIO, then if the
+    // audio mode is AUDIO_PLAYBACK_NOW_RECORD_LATER, we are still
+    // expecting to open the IO on demand, but if it is
+    // AUDIO_PLAYBACK_AND_RECORD then we must have tried to open the
+    // device and failed to find any capture source.
+    // 
     bool recordDisabled = (m_recordTarget == nullptr);
-    bool recordDeviceFailed = (m_playTarget != nullptr && m_audioIO == nullptr);
+    bool recordDeviceFailed = 
+        (m_audioMode == AUDIO_PLAYBACK_AND_RECORD &&
+         (m_playTarget != nullptr && m_audioIO == nullptr));
     emit canRecord(!recordDisabled && !recordDeviceFailed);
 }
 
@@ -2503,8 +2509,8 @@ MainWindowBase::createAudioIO()
 
     static AudioLogCallback audioLogCallback;
     breakfastquay::AudioFactory::setLogCallback(&audioLogCallback);
-    
-    if (!(m_soundOptions & WithAudioOutput)) return;
+
+    if (m_audioMode == AUDIO_NONE) return;
 
     QSettings settings;
     settings.beginGroup("Preferences");
@@ -2541,7 +2547,7 @@ MainWindowBase::createAudioIO()
 
     std::string errorString;
     
-    if (m_soundOptions & WithAudioInput) {
+    if (m_audioMode == AUDIO_PLAYBACK_AND_RECORD) {
         m_audioIO = breakfastquay::AudioFactory::
             createCallbackIO(m_recordTarget, m_resamplerWrapper,
                              preference, errorString);
@@ -2579,7 +2585,8 @@ MainWindowBase::createAudioIO()
             } else {
                 firstBit = tr("<b>No audio available</b><p>Could not open audio device: %1</p>").arg(error);
             }
-            if (m_soundOptions & WithAudioInput) {
+            if (m_audioMode == AUDIO_PLAYBACK_NOW_RECORD_LATER ||
+                m_audioMode == AUDIO_PLAYBACK_AND_RECORD) {
                 secondBit = tr("<p>Automatic audio device detection failed. Audio playback and recording will not be available during this session.</p>");
             } else {
                 secondBit = tr("<p>Automatic audio device detection failed. Audio playback will not be available during this session.</p>");
@@ -2593,7 +2600,8 @@ MainWindowBase::createAudioIO()
             } else {
                 firstBit = tr("<b>No audio available</b><p>Failed to open your preferred audio driver (\"%1\"): %2.</p>").arg(driverName).arg(error);
             }
-            if (m_soundOptions & WithAudioInput) {
+            if (m_audioMode == AUDIO_PLAYBACK_NOW_RECORD_LATER ||
+                m_audioMode == AUDIO_PLAYBACK_AND_RECORD) {
                 secondBit = tr("<p>Audio playback and recording will not be available during this session.</p>");
             } else {
                 secondBit = tr("<p>Audio playback will not be available during this session.</p>");
@@ -3191,7 +3199,7 @@ MainWindowBase::record()
 {
     QAction *action = qobject_cast<QAction *>(sender());
     
-    if (!(m_soundOptions & WithAudioInput)) {
+    if (m_audioMode == AUDIO_NONE || m_audioMode == AUDIO_PLAYBACK_ONLY) {
         if (action) action->setChecked(false);
         return;
     }
@@ -3199,6 +3207,14 @@ MainWindowBase::record()
     if (!m_recordTarget) {
         if (action) action->setChecked(false);
         return;
+    }
+
+    if (m_audioMode == AUDIO_PLAYBACK_NOW_RECORD_LATER) {
+        SVDEBUG << "MainWindowBase::record: upgrading from "
+                << "AUDIO_PLAYBACK_NOW_RECORD_LATER to "
+                << "AUDIO_PLAYBACK_AND_RECORD" << endl;
+        m_audioMode = AUDIO_PLAYBACK_AND_RECORD;
+        deleteAudioIO();
     }
 
     if (!m_audioIO) {
@@ -4090,8 +4106,7 @@ MainWindowBase::mainModelChanged(ModelId modelId)
     updateDescriptionLabel();
     auto model = ModelById::getAs<WaveFileModel>(modelId);
     if (model) m_viewManager->setMainModelSampleRate(model->getSampleRate());
-    if (model && !(m_playTarget || m_audioIO) &&
-        (m_soundOptions & WithAudioOutput)) {
+    if (model && !(m_playTarget || m_audioIO) && (m_audioMode != AUDIO_NONE)) {
         createAudioIO();
     }
 }

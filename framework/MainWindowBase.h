@@ -93,17 +93,39 @@ class MainWindowBase : public QMainWindow,
     Q_OBJECT
 
 public:
-    enum SoundOption {
-        WithAudioOutput = 0x01,
-        WithAudioInput  = 0x02,
-        WithMIDIInput   = 0x04,
-        WithEverything  = 0xff,
-        WithNothing     = 0x00
+    /**
+     * Determine what kind of audio device to open when the first
+     * model is loaded or record() is called.
+     */
+    enum AudioMode {
+
+        /// Open no audio device, ever
+        AUDIO_NONE,
+
+        /// Open for playback, never for recording
+        AUDIO_PLAYBACK_ONLY,
+
+        /// Open for playback when model loaded, switch to I/O if record called
+        AUDIO_PLAYBACK_NOW_RECORD_LATER,
+
+        /// Open for I/O as soon as model loaded or record called
+        AUDIO_PLAYBACK_AND_RECORD
     };
-    typedef int SoundOptions;
-    
-    MainWindowBase(SoundOptions soundOptions = WithEverything,
-                   PaneStack::Options paneStackOptions = 0x0);
+
+    /**
+     * Determine whether to open a MIDI input device.
+     */
+    enum MIDIMode {
+
+        /// Open no MIDI device
+        MIDI_NONE,
+        
+        /// Open a MIDI device and listen for MIDI input
+        MIDI_LISTEN
+    };
+
+    MainWindowBase(AudioMode audioMode, MIDIMode midiMode,
+                   PaneStack::Options paneStackOptions);
     virtual ~MainWindowBase();
     
     enum AudioFileOpenMode {
@@ -365,7 +387,8 @@ protected:
     ViewManager *m_viewManager;
     Layer *m_timeRulerLayer;
 
-    SoundOptions m_soundOptions;
+    AudioMode m_audioMode;
+    MIDIMode m_midiMode;
 
     AudioCallbackPlaySource *m_playSource;
     AudioCallbackRecordTarget *m_recordTarget;
