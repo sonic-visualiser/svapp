@@ -3389,7 +3389,7 @@ MainWindowBase::ffwd()
         bool success = false;
 
         while (layer->snapToFeatureFrame(pane, pframe, resolution,
-                                         Layer::SnapRight)) {
+                                         Layer::SnapRight, -1)) {
             if (pane->alignToReference(pframe) > playbackFrame) {
                 success = true;
                 break;
@@ -3515,7 +3515,7 @@ MainWindowBase::rewind()
         bool success = false;
 
         while (layer->snapToFeatureFrame(pane, pframe, resolution,
-                                         Layer::SnapLeft)) {
+                                         Layer::SnapLeft, -1)) {
             if (pane->alignToReference(pframe) < playbackFrame ||
                 pframe <= 0) {
                 success = true;
