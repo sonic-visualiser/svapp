@@ -525,6 +525,8 @@ Align::alignModelViaProgram(Document *doc,
     other->setAlignment(alignmentModelId);
 
     QProcess *process = new QProcess;
+    process->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+
     QStringList args;
     args << refPath << otherPath;
     
@@ -532,6 +534,14 @@ Align::alignModelViaProgram(Document *doc,
             this, SLOT(alignmentProgramFinished(int, QProcess::ExitStatus)));
 
     m_pendingProcesses[process] = alignmentModelId;
+
+    SVCERR << "Align::alignModelViaProgram: Starting program \""
+           << program << "\" with args: ";
+    for (auto a: args) {
+        SVCERR << "\"" << a << "\" ";
+    }
+    SVCERR << endl;
+
     process->start(program, args);
 
     bool success = process->waitForStarted();
@@ -539,14 +549,15 @@ Align::alignModelViaProgram(Document *doc,
     if (!success) {
         SVCERR << "ERROR: Align::alignModelViaProgram: Program did not start"
                << endl;
-        error = "Alignment program could not be started";
+        error = "Alignment program \"" + program + "\" could not be executed";
         m_pendingProcesses.erase(process);
         other->setAlignment({});
         ModelById::release(alignmentModelId);
         delete process;
+    } else {
+        doc->addNonDerivedModel(alignmentModelId);
     }
 
-    doc->addNonDerivedModel(alignmentModelId);
     return success;
 }
 
