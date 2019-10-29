@@ -505,7 +505,14 @@ Align::alignModelViaProgram(Document *doc,
     }
     
     QString refPath = reference->getLocalFilename();
+    if (refPath == "") {
+        refPath = FileSource(reference->getLocation()).getLocalFilename();
+    }
+    
     QString otherPath = other->getLocalFilename();
+    if (otherPath == "") {
+        otherPath = FileSource(other->getLocation()).getLocalFilename();
+    }
 
     if (refPath == "" || otherPath == "") {
         error = "Failed to find local filepath for wave-file model";
