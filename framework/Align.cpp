@@ -487,8 +487,6 @@ Align::alignModelViaProgram(Document *doc,
                             QString program,
                             QString &error)
 {
-    QMutexLocker locker (&m_mutex);
-    
     // Run an external program, passing to it paths to the main
     // model's audio file and the new model's audio file. It returns
     // the path in CSV form through stdout.
@@ -519,21 +517,31 @@ Align::alignModelViaProgram(Document *doc,
         return false;
     }
 
-    auto alignmentModel =
-        std::make_shared<AlignmentModel>(referenceId, otherId, ModelId());
-    auto alignmentModelId = ModelById::add(alignmentModel);
-    other->setAlignment(alignmentModelId);
+    QProcess *process = nullptr;
+    ModelId alignmentModelId = {};
+    
+    {
+        QMutexLocker locker (&m_mutex);
 
-    QProcess *process = new QProcess;
-    process->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+        auto alignmentModel =
+            std::make_shared<AlignmentModel>(referenceId, otherId, ModelId());
+
+        alignmentModelId = ModelById::add(alignmentModel);
+        other->setAlignment(alignmentModelId);
+
+        process = new QProcess;
+        process->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+
+        connect(process,
+                SIGNAL(finished(int, QProcess::ExitStatus)),
+                this,
+                SLOT(alignmentProgramFinished(int, QProcess::ExitStatus)));
+
+        m_pendingProcesses[process] = alignmentModelId;
+    }
 
     QStringList args;
     args << refPath << otherPath;
-    
-    connect(process, SIGNAL(finished(int, QProcess::ExitStatus)),
-            this, SLOT(alignmentProgramFinished(int, QProcess::ExitStatus)));
-
-    m_pendingProcesses[process] = alignmentModelId;
 
     SVCERR << "Align::alignModelViaProgram: Starting program \""
            << program << "\" with args: ";
@@ -546,16 +554,23 @@ Align::alignModelViaProgram(Document *doc,
 
     bool success = process->waitForStarted();
 
-    if (!success) {
-        SVCERR << "ERROR: Align::alignModelViaProgram: Program did not start"
-               << endl;
-        error = "Alignment program \"" + program + "\" could not be executed";
-        m_pendingProcesses.erase(process);
-        other->setAlignment({});
-        ModelById::release(alignmentModelId);
-        delete process;
-    } else {
-        doc->addNonDerivedModel(alignmentModelId);
+    {
+        QMutexLocker locker(&m_mutex);
+        
+        if (!success) {
+        
+            SVCERR << "ERROR: Align::alignModelViaProgram: "
+                   << "Program did not start" << endl;
+            error = "Alignment program \"" + program + "\" did not start";
+        
+            m_pendingProcesses.erase(process);
+            other->setAlignment({});
+            ModelById::release(alignmentModelId);
+            delete process;
+        
+        } else {
+            doc->addNonDerivedModel(alignmentModelId);
+        }
     }
 
     return success;
