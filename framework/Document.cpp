@@ -777,6 +777,12 @@ Document::releaseModel(ModelId modelId)
     // borrowed-pointer mechanism will at least prevent memory errors,
     // although the other code will have to stop whatever it's doing.
 
+// "warning: expression with side effects will be evaluated despite
+// being used as an operand to 'typeid'"
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wpotentially-evaluated-expression"
+#endif
+
     if (auto model = ModelById::get(modelId)) {
         SVCERR << "Document::releaseModel(" << modelId << "), name "
                << model->objectName() << ", type "
