@@ -1582,7 +1582,10 @@ MainWindowBase::openAudio(FileSource source,
     }
 
     auto newModelId = ModelById::add(newModel);
-    return addOpenedAudioModel(source, newModelId, mode, templateName, true);
+    auto status = addOpenedAudioModel
+        (source, newModelId, mode, templateName, true);
+    m_openingAudioFile = false;
+    return status;
 }
 
 MainWindowBase::FileOpenStatus
@@ -1666,13 +1669,17 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
 
     if (mode == ReplaceSession) {
 
-        if (!checkSaveModified()) return FileOpenCancelled;
+        if (!checkSaveModified()) {
+            m_openingAudioFile = false;
+            return FileOpenCancelled;
+        }
 
         SVDEBUG << "SV looking for template " << templateName << endl;
         if (templateName != "") {
             FileOpenStatus tplStatus = openSessionTemplate(templateName);
             if (tplStatus == FileOpenCancelled) {
                 SVDEBUG << "Template load cancelled" << endl;
+                m_openingAudioFile = false;
                 return FileOpenCancelled;
             }
             if (tplStatus != FileOpenFailed) {
