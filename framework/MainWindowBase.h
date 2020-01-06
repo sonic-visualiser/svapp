@@ -165,7 +165,8 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
-    virtual bool exportLayerTo(Layer *layer, QString path, QString &error);
+    virtual bool exportLayerTo(Layer *layer, View *fromView,
+                               QString toPath, QString &error);
 
     void cueOSCScript(QString filename);
     

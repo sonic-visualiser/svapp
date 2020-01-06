@@ -2797,13 +2797,14 @@ MainWindowBase::saveSessionTemplate(QString path)
 }
 
 bool
-MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
+MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
+                              QString path, QString &error)
 {
     if (QFileInfo(path).suffix() == "") path += ".svl";
 
     QString suffix = QFileInfo(path).suffix().toLower();
 
-    auto model = ModelById::get(layer->getModel());
+    auto model = ModelById::get(layer->getExportModel(fromView));
     if (!model) {
         error = tr("Internal error: unknown model");
         return false;
