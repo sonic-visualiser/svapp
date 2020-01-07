@@ -37,6 +37,7 @@
 #include "layer/NoteLayer.h"
 #include "layer/FlexiNoteLayer.h"
 #include "layer/RegionLayer.h"
+#include "layer/SpectrogramLayer.h"
 
 #include "widgets/ListInputDialog.h"
 #include "widgets/CommandHistory.h"
@@ -686,6 +687,9 @@ MainWindowBase::updateMenuStates()
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
          dynamic_cast<Colour3DPlotLayer *>(currentLayer));
+    bool haveCurrentSpectrogram =
+        (haveCurrentLayer &&
+         dynamic_cast<SpectrogramLayer *>(currentLayer));
     bool haveClipboardContents =
         (m_viewManager &&
          !m_viewManager->getClipboard().empty());
@@ -704,7 +708,9 @@ MainWindowBase::updateMenuStates()
     emit canExportAudio(haveMainModel);
     emit canChangeSessionTemplate(haveMainModel);
     emit canExportLayer(haveMainModel &&
-                        (haveCurrentEditableLayer || haveCurrentColour3DPlot));
+                        (haveCurrentEditableLayer ||
+                         haveCurrentColour3DPlot ||
+                         haveCurrentSpectrogram));
     emit canExportImage(haveMainModel && haveCurrentPane);
     emit canDeleteCurrentLayer(haveCurrentLayer);
     emit canRenameLayer(haveCurrentLayer);
@@ -2862,12 +2868,20 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
 
     } else {
 
-        CSVFileWriter writer(path, model.get(),
+        ProgressDialog dialog {
+            QObject::tr("Exporting layer..."), true, 500, this,
+            Qt::ApplicationModal
+        };
+            
+        CSVFileWriter writer(path, model.get(), &dialog,
                              ((suffix == "csv") ? "," : "\t"));
         writer.write();
 
         if (!writer.isOK()) {
             error = writer.getError();
+            if (error == "") {
+                error = tr("Failed to export layer for an unknown reason");
+            }
         }
     }
 
