@@ -530,7 +530,7 @@ MainWindowBase::oscReady()
         connect(m_oscQueue, SIGNAL(messagesAvailable()), this, SLOT(pollOSC()));
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
-        oscTimer->start(1000);
+        oscTimer->start(2000);
 
         if (m_oscQueue->hasPort()) {
             SVDEBUG << "Finished setting up OSC interface" << endl;
@@ -4215,17 +4215,46 @@ void
 MainWindowBase::pollOSC()
 {
     if (!m_oscQueue || m_oscQueue->isEmpty()) return;
-    SVDEBUG << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << endl;
 
-    if (m_openingAudioFile) return;
+    while (!m_oscQueue->isEmpty()) {
 
-    OSCMessage message = m_oscQueue->readMessage();
+        if (m_openingAudioFile) {
+            SVDEBUG << "MainWindowBase::pollOSC: "
+                    << "waiting for audio to finish loading"
+                    << endl;
+            return;
+        }
 
-    if (message.getTarget() != 0) {
-        return; //!!! for now -- this class is target 0, others not handled yet
+        if (ModelTransformerFactory::getInstance()->haveRunningTransformers()) {
+            SVDEBUG << "MainWindowBase::pollOSC: "
+                    << "waiting for running transforms to complete"
+                    << endl;
+            return;
+        }
+
+        SVDEBUG << "MainWindowBase::pollOSC: have "
+                << m_oscQueue->getMessagesAvailable()
+                << " messages" << endl;
+    
+        OSCMessage message = m_oscQueue->readMessage();
+
+        if (message.getTarget() != 0) {
+            SVCERR << "MainWindowBase::pollOSC: ignoring message with target "
+                   << message.getTarget() << " (we are target 0)" << endl;
+            continue;
+        }
+
+        handleOSCMessage(message);
+
+        disconnect(m_oscQueue, SIGNAL(messagesAvailable()),
+                   this, SLOT(pollOSC()));
+        
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents |
+                                    QEventLoop::ExcludeSocketNotifiers);
+
+        connect(m_oscQueue, SIGNAL(messagesAvailable()),
+                this, SLOT(pollOSC()));
     }
-
-    handleOSCMessage(message);
 }
 
 void
