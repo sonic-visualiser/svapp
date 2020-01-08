@@ -430,7 +430,6 @@ protected:
 
     bool                     m_documentModified;
     bool                     m_openingAudioFile;
-    bool                     m_abandoning;
 
     Labeller                *m_labeller;
 
