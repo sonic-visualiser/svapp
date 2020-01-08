@@ -62,6 +62,8 @@
 #include "rdf/RDFImporter.h"
 #include "rdf/RDFExporter.h"
 
+#include "transform/ModelTransformerFactory.h"
+
 #include "base/RecentFiles.h"
 
 #include "base/XmlExportable.h"
@@ -2804,8 +2806,14 @@ MainWindowBase::saveSessionTemplate(QString path)
 
 bool
 MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
+                              MultiSelection *selectionsToWrite,
                               QString path, QString &error)
 {
+    //!!! should we pull out the whole export logic into another
+    // class?  then we can more reasonably query it for things like
+    // "can we export this layer type to this file format? can we
+    // export selections, or only the whole layer?"
+    
     if (QFileInfo(path).suffix() == "") path += ".svl";
 
     QString suffix = QFileInfo(path).suffix().toLower();
@@ -2818,6 +2826,8 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
 
     if (suffix == "xml" || suffix == "svl") {
 
+        //!!! +selection
+        
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             error = tr("Failed to open file %1 for writing").arg(path);
@@ -2846,8 +2856,27 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
 
         if (!nm) {
             error = tr("Can't export non-note layers to MIDI");
-        } else {
+        } else if (!selectionsToWrite) {
             MIDIFileWriter writer(path, nm.get(), nm->getSampleRate());
+            writer.write();
+            if (!writer.isOK()) {
+                error = writer.getError();
+            }
+        } else {
+            NoteModel temporary(nm->getSampleRate(),
+                                nm->getResolution(),
+                                nm->getValueMinimum(),
+                                nm->getValueMaximum(),
+                                false);
+            temporary.setScaleUnits(nm->getScaleUnits());
+            for (const auto &s: selectionsToWrite->getSelections()) {
+                EventVector ev(nm->getEventsStartingWithin
+                               (s.getStartFrame(), s.getDuration()));
+                for (const auto &e: ev) {
+                    temporary.add(e);
+                }
+            }
+            MIDIFileWriter writer(path, &temporary, temporary.getSampleRate());
             writer.write();
             if (!writer.isOK()) {
                 error = writer.getError();
@@ -2855,6 +2884,8 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
         }
 
     } else if (suffix == "ttl" || suffix == "n3") {
+
+        //!!! +selection
 
         if (!RDFExporter::canExportModel(model.get())) {
             error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
@@ -2875,7 +2906,12 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
             
         CSVFileWriter writer(path, model.get(), &dialog,
                              ((suffix == "csv") ? "," : "\t"));
-        writer.write();
+
+        if (selectionsToWrite) {
+            writer.writeSelection(*selectionsToWrite);
+        } else {
+            writer.write();
+        }
 
         if (!writer.isOK()) {
             error = writer.getError();
