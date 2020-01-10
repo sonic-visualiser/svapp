@@ -105,7 +105,7 @@ public:
                     message.addArg(parts[i]);
                 }
                 SVCERR << "OSCScript: " << reportedFilename << ":" << lineno
-                       << ": invoking: \"" << parts[0] << "\"" << endl;
+                       << ": posting " << message.toString() << endl;
                 m_queue->postMessage(message);
 
             } else {

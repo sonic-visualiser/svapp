@@ -165,7 +165,9 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
-    virtual bool exportLayerTo(Layer *layer, QString path, QString &error);
+    virtual bool exportLayerTo(Layer *layer, View *fromView,
+                               MultiSelection *selectionsToWrite, // or null
+                               QString toPath, QString &error);
 
     void cueOSCScript(QString filename);
     
@@ -428,7 +430,6 @@ protected:
 
     bool                     m_documentModified;
     bool                     m_openingAudioFile;
-    bool                     m_abandoning;
 
     Labeller                *m_labeller;
 

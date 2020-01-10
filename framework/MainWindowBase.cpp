@@ -37,6 +37,7 @@
 #include "layer/NoteLayer.h"
 #include "layer/FlexiNoteLayer.h"
 #include "layer/RegionLayer.h"
+#include "layer/SpectrogramLayer.h"
 
 #include "widgets/ListInputDialog.h"
 #include "widgets/CommandHistory.h"
@@ -60,6 +61,8 @@
 #include "data/fileio/AudioFileReaderFactory.h"
 #include "rdf/RDFImporter.h"
 #include "rdf/RDFExporter.h"
+
+#include "transform/ModelTransformerFactory.h"
 
 #include "base/RecentFiles.h"
 
@@ -159,7 +162,6 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
     m_recentTransforms("RecentTransforms", 20),
     m_documentModified(false),
     m_openingAudioFile(false),
-    m_abandoning(false),
     m_labeller(nullptr),
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
@@ -527,7 +529,7 @@ MainWindowBase::oscReady()
         connect(m_oscQueue, SIGNAL(messagesAvailable()), this, SLOT(pollOSC()));
         QTimer *oscTimer = new QTimer(this);
         connect(oscTimer, SIGNAL(timeout()), this, SLOT(pollOSC()));
-        oscTimer->start(1000);
+        oscTimer->start(2000);
 
         if (m_oscQueue->hasPort()) {
             SVDEBUG << "Finished setting up OSC interface" << endl;
@@ -686,6 +688,9 @@ MainWindowBase::updateMenuStates()
     bool haveCurrentColour3DPlot =
         (haveCurrentLayer &&
          dynamic_cast<Colour3DPlotLayer *>(currentLayer));
+    bool haveCurrentSpectrogram =
+        (haveCurrentLayer &&
+         dynamic_cast<SpectrogramLayer *>(currentLayer));
     bool haveClipboardContents =
         (m_viewManager &&
          !m_viewManager->getClipboard().empty());
@@ -704,7 +709,9 @@ MainWindowBase::updateMenuStates()
     emit canExportAudio(haveMainModel);
     emit canChangeSessionTemplate(haveMainModel);
     emit canExportLayer(haveMainModel &&
-                        (haveCurrentEditableLayer || haveCurrentColour3DPlot));
+                        (haveCurrentEditableLayer ||
+                         haveCurrentColour3DPlot ||
+                         haveCurrentSpectrogram));
     emit canExportImage(haveMainModel && haveCurrentPane);
     emit canDeleteCurrentLayer(haveCurrentLayer);
     emit canRenameLayer(haveCurrentLayer);
@@ -2797,13 +2804,20 @@ MainWindowBase::saveSessionTemplate(QString path)
 }
 
 bool
-MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
+MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
+                              MultiSelection *selectionsToWrite,
+                              QString path, QString &error)
 {
+    //!!! should we pull out the whole export logic into another
+    // class?  then we can more reasonably query it for things like
+    // "can we export this layer type to this file format? can we
+    // export selections, or only the whole layer?"
+    
     if (QFileInfo(path).suffix() == "") path += ".svl";
 
     QString suffix = QFileInfo(path).suffix().toLower();
 
-    auto model = ModelById::get(layer->getModel());
+    auto model = ModelById::get(layer->getExportModel(fromView));
     if (!model) {
         error = tr("Internal error: unknown model");
         return false;
@@ -2839,8 +2853,27 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
         if (!nm) {
             error = tr("Can't export non-note layers to MIDI");
-        } else {
+        } else if (!selectionsToWrite) {
             MIDIFileWriter writer(path, nm.get(), nm->getSampleRate());
+            writer.write();
+            if (!writer.isOK()) {
+                error = writer.getError();
+            }
+        } else {
+            NoteModel temporary(nm->getSampleRate(),
+                                nm->getResolution(),
+                                nm->getValueMinimum(),
+                                nm->getValueMaximum(),
+                                false);
+            temporary.setScaleUnits(nm->getScaleUnits());
+            for (const auto &s: selectionsToWrite->getSelections()) {
+                EventVector ev(nm->getEventsStartingWithin
+                               (s.getStartFrame(), s.getDuration()));
+                for (const auto &e: ev) {
+                    temporary.add(e);
+                }
+            }
+            MIDIFileWriter writer(path, &temporary, temporary.getSampleRate());
             writer.write();
             if (!writer.isOK()) {
                 error = writer.getError();
@@ -2861,12 +2894,25 @@ MainWindowBase::exportLayerTo(Layer *layer, QString path, QString &error)
 
     } else {
 
-        CSVFileWriter writer(path, model.get(),
+        ProgressDialog dialog {
+            QObject::tr("Exporting layer..."), true, 500, this,
+            Qt::ApplicationModal
+        };
+            
+        CSVFileWriter writer(path, model.get(), &dialog,
                              ((suffix == "csv") ? "," : "\t"));
-        writer.write();
+
+        if (selectionsToWrite) {
+            writer.writeSelection(*selectionsToWrite);
+        } else {
+            writer.write();
+        }
 
         if (!writer.isOK()) {
             error = writer.getError();
+            if (error == "") {
+                error = tr("Failed to export layer for an unknown reason");
+            }
         }
     }
 
@@ -4164,17 +4210,46 @@ void
 MainWindowBase::pollOSC()
 {
     if (!m_oscQueue || m_oscQueue->isEmpty()) return;
-    SVDEBUG << "MainWindowBase::pollOSC: have " << m_oscQueue->getMessagesAvailable() << " messages" << endl;
 
-    if (m_openingAudioFile) return;
+    while (!m_oscQueue->isEmpty()) {
 
-    OSCMessage message = m_oscQueue->readMessage();
+        if (m_openingAudioFile) {
+            SVDEBUG << "MainWindowBase::pollOSC: "
+                    << "waiting for audio to finish loading"
+                    << endl;
+            return;
+        }
 
-    if (message.getTarget() != 0) {
-        return; //!!! for now -- this class is target 0, others not handled yet
+        if (ModelTransformerFactory::getInstance()->haveRunningTransformers()) {
+            SVDEBUG << "MainWindowBase::pollOSC: "
+                    << "waiting for running transforms to complete"
+                    << endl;
+            return;
+        }
+
+        SVDEBUG << "MainWindowBase::pollOSC: have "
+                << m_oscQueue->getMessagesAvailable()
+                << " messages" << endl;
+    
+        OSCMessage message = m_oscQueue->readMessage();
+
+        if (message.getTarget() != 0) {
+            SVCERR << "MainWindowBase::pollOSC: ignoring message with target "
+                   << message.getTarget() << " (we are target 0)" << endl;
+            continue;
+        }
+
+        handleOSCMessage(message);
+
+        disconnect(m_oscQueue, SIGNAL(messagesAvailable()),
+                   this, SLOT(pollOSC()));
+        
+        QApplication::processEvents(QEventLoop::ExcludeUserInputEvents |
+                                    QEventLoop::ExcludeSocketNotifiers);
+
+        connect(m_oscQueue, SIGNAL(messagesAvailable()),
+                this, SLOT(pollOSC()));
     }
-
-    handleOSCMessage(message);
 }
 
 void
