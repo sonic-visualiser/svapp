@@ -2825,8 +2825,6 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
 
     if (suffix == "xml" || suffix == "svl") {
 
-        //!!! +selection
-        
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
             error = tr("Failed to open file %1 for writing").arg(path);
@@ -2883,8 +2881,6 @@ MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
         }
 
     } else if (suffix == "ttl" || suffix == "n3") {
-
-        //!!! +selection
 
         if (!RDFExporter::canExportModel(model.get())) {
             error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
