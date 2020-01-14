@@ -70,6 +70,7 @@ class ModelDataTableDialog;
 class QSignalMapper;
 class QShortcut;
 class AlignmentModel;
+class LayerGeometryProvider;
 
 namespace breakfastquay {
     class SystemPlaybackTarget;
@@ -165,10 +166,28 @@ public:
     virtual bool saveSessionFile(QString path);
     virtual bool saveSessionTemplate(QString path);
 
-    virtual bool exportLayerTo(Layer *layer, View *fromView,
+    virtual bool exportLayerToSVL(Layer *layer,
+                                  QString toPath, QString &error);
+
+    virtual bool exportLayerToMIDI(Layer *layer,
+                                   MultiSelection *selectionsToWrite, // or null
+                                   QString toPath, QString &error);
+
+    virtual bool exportLayerToRDF(Layer *layer,
+                                  QString toPath, QString &error);
+
+    virtual bool exportLayerToCSV(Layer *layer, LayerGeometryProvider *provider,
+                                  MultiSelection *selectionsToWrite, // or null
+                                  QString delimiter,
+                                  DataExportOptions options,
+                                  QString toPath, QString &error);
+
+    // Delegate to one of the above depending on extension of path,
+    // using the default export options
+    virtual bool exportLayerTo(Layer *layer, LayerGeometryProvider *provider,
                                MultiSelection *selectionsToWrite, // or null
                                QString toPath, QString &error);
-
+    
     void cueOSCScript(QString filename);
     
     /// Implementation of FrameTimer interface method

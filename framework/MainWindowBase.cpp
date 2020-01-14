@@ -2803,120 +2803,185 @@ MainWindowBase::saveSessionTemplate(QString path)
     }
 }
 
+//!!! should we pull out the whole export logic into another
+// class?  then we can more reasonably query it for things like
+// "can we export this layer type to this file format? can we
+// export selections, or only the whole layer?"
+
 bool
-MainWindowBase::exportLayerTo(Layer *layer, View *fromView,
-                              MultiSelection *selectionsToWrite,
-                              QString path, QString &error)
+MainWindowBase::exportLayerToSVL(Layer *layer,
+                                 QString path, QString &error)
 {
-    //!!! should we pull out the whole export logic into another
-    // class?  then we can more reasonably query it for things like
-    // "can we export this layer type to this file format? can we
-    // export selections, or only the whole layer?"
-    
     if (QFileInfo(path).suffix() == "") path += ".svl";
 
     QString suffix = QFileInfo(path).suffix().toLower();
 
-    auto model = ModelById::get(layer->getExportModel(fromView));
+    auto model = ModelById::get(layer->getExportModel(nullptr));
     if (!model) {
         error = tr("Internal error: unknown model");
         return false;
     }
 
-    if (suffix == "xml" || suffix == "svl") {
-
-        QFile file(path);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            error = tr("Failed to open file %1 for writing").arg(path);
-        } else {
-            QTextStream out(&file);
-            out.setCodec(QTextCodec::codecForName("UTF-8"));
-            out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-                << "<!DOCTYPE sonic-visualiser>\n"
-                << "<sv>\n"
-                << "  <data>\n";
-
-            model->toXml(out, "    ");
-
-            out << "  </data>\n"
-                << "  <display>\n";
-
-            layer->toXml(out, "    ");
-
-            out << "  </display>\n"
-                << "</sv>\n";
-        }
-
-    } else if (suffix == "mid" || suffix == "midi") {
-
-        auto nm = ModelById::getAs<NoteModel>(layer->getModel());
-
-        if (!nm) {
-            error = tr("Can't export non-note layers to MIDI");
-        } else if (!selectionsToWrite) {
-            MIDIFileWriter writer(path, nm.get(), nm->getSampleRate());
-            writer.write();
-            if (!writer.isOK()) {
-                error = writer.getError();
-            }
-        } else {
-            NoteModel temporary(nm->getSampleRate(),
-                                nm->getResolution(),
-                                nm->getValueMinimum(),
-                                nm->getValueMaximum(),
-                                false);
-            temporary.setScaleUnits(nm->getScaleUnits());
-            for (const auto &s: selectionsToWrite->getSelections()) {
-                EventVector ev(nm->getEventsStartingWithin
-                               (s.getStartFrame(), s.getDuration()));
-                for (const auto &e: ev) {
-                    temporary.add(e);
-                }
-            }
-            MIDIFileWriter writer(path, &temporary, temporary.getSampleRate());
-            writer.write();
-            if (!writer.isOK()) {
-                error = writer.getError();
-            }
-        }
-
-    } else if (suffix == "ttl" || suffix == "n3") {
-
-        if (!RDFExporter::canExportModel(model.get())) {
-            error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
-        } else {
-            RDFExporter exporter(path, model.get());
-            exporter.write();
-            if (!exporter.isOK()) {
-                error = exporter.getError();
-            }
-        }
-
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        error = tr("Failed to open file %1 for writing").arg(path);
     } else {
+        QTextStream out(&file);
+        out.setCodec(QTextCodec::codecForName("UTF-8"));
+        out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            << "<!DOCTYPE sonic-visualiser>\n"
+            << "<sv>\n"
+            << "  <data>\n";
+        
+        model->toXml(out, "    ");
+        
+        out << "  </data>\n"
+            << "  <display>\n";
+        
+        layer->toXml(out, "    ");
+        
+        out << "  </display>\n"
+            << "</sv>\n";
+    }
 
-        ProgressDialog dialog {
-            QObject::tr("Exporting layer..."), true, 500, this,
-            Qt::ApplicationModal
-        };
-            
-        CSVFileWriter writer(path, model.get(), &dialog,
-                             ((suffix == "csv") ? "," : "\t"));
+    return (error == "");
+}
 
-        if (selectionsToWrite) {
-            writer.writeSelection(*selectionsToWrite);
-        } else {
-            writer.write();
-        }
+bool
+MainWindowBase::exportLayerToMIDI(Layer *layer,
+                                  MultiSelection *selectionsToWrite,
+                                  QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".mid";
 
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    auto model = ModelById::get(layer->getExportModel(nullptr));
+    if (!model) {
+        error = tr("Internal error: unknown model");
+        return false;
+    }
+
+    auto nm = ModelById::getAs<NoteModel>(layer->getModel());
+        
+    if (!nm) {
+        error = tr("Can't export non-note layers to MIDI");
+    } else if (!selectionsToWrite) {
+        MIDIFileWriter writer(path, nm.get(), nm->getSampleRate());
+        writer.write();
         if (!writer.isOK()) {
             error = writer.getError();
-            if (error == "") {
-                error = tr("Failed to export layer for an unknown reason");
+        }
+    } else {
+        NoteModel temporary(nm->getSampleRate(),
+                            nm->getResolution(),
+                            nm->getValueMinimum(),
+                            nm->getValueMaximum(),
+                            false);
+        temporary.setScaleUnits(nm->getScaleUnits());
+        for (const auto &s: selectionsToWrite->getSelections()) {
+            EventVector ev(nm->getEventsStartingWithin
+                           (s.getStartFrame(), s.getDuration()));
+            for (const auto &e: ev) {
+                temporary.add(e);
             }
+        }
+        MIDIFileWriter writer(path, &temporary, temporary.getSampleRate());
+        writer.write();
+        if (!writer.isOK()) {
+            error = writer.getError();
+        }
+    }
+    
+    return (error == "");
+}
+
+bool
+MainWindowBase::exportLayerToRDF(Layer *layer, 
+                                 QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".ttl";
+
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    auto model = ModelById::get(layer->getExportModel(nullptr));
+    if (!model) {
+        error = tr("Internal error: unknown model");
+        return false;
+    }
+    
+    if (!RDFExporter::canExportModel(model.get())) {
+        error = tr("Sorry, cannot export this layer type to RDF (supported types are: region, note, text, time instants, time values)");
+    } else {
+        RDFExporter exporter(path, model.get());
+        exporter.write();
+        if (!exporter.isOK()) {
+            error = exporter.getError();
         }
     }
 
     return (error == "");
+}
+
+bool
+MainWindowBase::exportLayerToCSV(Layer *layer, LayerGeometryProvider *provider,
+                                 MultiSelection *selectionsToWrite,
+                                 QString delimiter,
+                                 DataExportOptions options,
+                                 QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".csv";
+
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    auto model = ModelById::get(layer->getExportModel(provider));
+    if (!model) {
+        error = tr("Internal error: unknown model");
+        return false;
+    }
+
+    ProgressDialog dialog {
+        QObject::tr("Exporting layer..."), true, 500, this,
+        Qt::ApplicationModal
+    };
+            
+    CSVFileWriter writer(path, model.get(), &dialog, delimiter, options);
+
+    if (selectionsToWrite) {
+        writer.writeSelection(*selectionsToWrite);
+    } else {
+        writer.write();
+    }
+
+    if (!writer.isOK()) {
+        error = writer.getError();
+        if (error == "") {
+            error = tr("Failed to export layer for an unknown reason");
+        }
+    }
+
+    return (error == "");
+}
+
+bool
+MainWindowBase::exportLayerTo(Layer *layer, LayerGeometryProvider *provider,
+                              MultiSelection *selectionsToWrite,
+                              QString path, QString &error)
+{
+    if (QFileInfo(path).suffix() == "") path += ".svl";
+    QString suffix = QFileInfo(path).suffix().toLower();
+
+    if (suffix == "xml" || suffix == "svl") {
+        return exportLayerToSVL(layer, path, error);
+    } else if (suffix == "mid" || suffix == "midi") {
+        return exportLayerToMIDI(layer, selectionsToWrite, path, error);
+    } else if (suffix == "ttl" || suffix == "n3") {
+        return exportLayerToRDF(layer, path, error);
+    } else {
+        return exportLayerToCSV(layer, provider, selectionsToWrite,
+                                (suffix == "csv" ? "," : "\t"),
+                                DataExportDefaults, path, error);
+    }
 }
 
 void
