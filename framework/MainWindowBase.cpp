@@ -2968,7 +2968,7 @@ MainWindowBase::exportLayerTo(Layer *layer, LayerGeometryProvider *provider,
                               MultiSelection *selectionsToWrite,
                               QString path, QString &error)
 {
-    if (QFileInfo(path).suffix() == "") path += ".svl";
+    if (QFileInfo(path).suffix() == "") path += ".csv";
     QString suffix = QFileInfo(path).suffix().toLower();
 
     if (suffix == "xml" || suffix == "svl") {
