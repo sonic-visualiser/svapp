@@ -211,7 +211,7 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
 
     SVDEBUG << "MainWindowBase: View font size is " << viewFontSize << endl;
 
-#ifdef NOT_DEFINED // This no longer works correctly on any platform AFAICS
+#ifndef Q_OS_MAC
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
