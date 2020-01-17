@@ -214,6 +214,9 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
 #ifndef Q_OS_MAC
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
+    if (mode == Preferences::BackgroundFromTheme && OSThemeIsDark()) {
+        mode = Preferences::DarkBackground;
+    }
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
     if (mode != Preferences::BackgroundFromTheme) {
         m_viewManager->setGlobalDarkBackground
