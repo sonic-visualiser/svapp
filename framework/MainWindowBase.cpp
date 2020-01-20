@@ -212,16 +212,27 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
     SVDEBUG << "MainWindowBase: View font size is " << viewFontSize << endl;
 
 #ifndef Q_OS_MAC
+
     Preferences::BackgroundMode mode =
         Preferences::getInstance()->getBackgroundMode();
-    if (mode == Preferences::BackgroundFromTheme && OSThemeIsDark()) {
-        mode = Preferences::DarkBackground;
-    }
+
     m_initialDarkBackground = m_viewManager->getGlobalDarkBackground();
-    if (mode != Preferences::BackgroundFromTheme) {
+
+    if (OSReportsDarkThemeActive()) {
+        // NB !(OSReportsDarkThemeActive()) doesn't necessarily mean
+        // the theme is light - the function also cunningly returns
+        // false if it has no way to tell
+        m_initialDarkBackground = true;
+    }
+    
+    if (mode == Preferences::BackgroundFromTheme) {
+        m_viewManager->setGlobalDarkBackground
+            (m_initialDarkBackground);
+    } else {
         m_viewManager->setGlobalDarkBackground
             (mode == Preferences::DarkBackground);
     }
+    
 #endif
 
     m_paneStack = new PaneStack(nullptr, m_viewManager, paneStackOptions);
