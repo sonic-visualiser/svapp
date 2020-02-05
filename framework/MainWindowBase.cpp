@@ -1509,8 +1509,8 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
             }
         }
 
-        if (audio && (status = openAudio(source, mode)) != FileOpenFailed) {
-            return status;
+        if (audio) {
+            return openAudio(source, mode);
         } else if ((status = openSession(source)) != FileOpenFailed) {
             return status;
         } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
