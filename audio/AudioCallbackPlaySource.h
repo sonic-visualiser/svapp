@@ -371,6 +371,7 @@ protected:
     bool                              m_levelsSet;
     RealTimePluginInstance           *m_auditioningPlugin;
     bool                              m_auditioningPluginBypassed;
+    bool                              m_auditioningPluginFailed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
     sv_frame_t                        m_playStartFrame;
     bool                              m_playStartFramePassed;

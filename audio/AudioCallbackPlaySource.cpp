@@ -75,6 +75,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_levelsSet(false),
     m_auditioningPlugin(nullptr),
     m_auditioningPluginBypassed(false),
+    m_auditioningPluginFailed(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
     m_timeStretcher(nullptr),
@@ -1012,7 +1013,12 @@ AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
     m_mutex.lock();
     m_auditioningPlugin = plugin;
     m_auditioningPluginBypassed = false;
+    m_auditioningPluginFailed = false;
     m_mutex.unlock();
+
+    SVDEBUG << "AudioCallbackPlaySource::setAuditioningEffect: set plugin to "
+            << plugin << " and bypassed to " << m_auditioningPluginBypassed
+            << endl;
 }
 
 void
@@ -1364,26 +1370,44 @@ AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float *const *
     if (m_auditioningPluginBypassed) return;
     RealTimePluginInstance *plugin = m_auditioningPlugin;
     if (!plugin) return;
-    
+
     if ((int)plugin->getAudioInputCount() != getTargetChannelCount()) {
-//        cout << "plugin input count " << plugin->getAudioInputCount() 
-//                  << " != our channel count " << getTargetChannelCount()
-//                  << endl;
+        if (!m_auditioningPluginFailed) {
+            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
+                   << "Can't run plugin: plugin input count "
+                   << plugin->getAudioInputCount() 
+                   << " != our channel count " << getTargetChannelCount()
+                   << " (future errors for this plugin will be suppressed)"
+                   << endl;
+            m_auditioningPluginFailed = true;
+        }
         return;
     }
     if ((int)plugin->getAudioOutputCount() != getTargetChannelCount()) {
-//        cout << "plugin output count " << plugin->getAudioOutputCount() 
-//                  << " != our channel count " << getTargetChannelCount()
-//                  << endl;
+        if (!m_auditioningPluginFailed) {
+            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
+                   << "Can't run plugin: plugin output count "
+                   << plugin->getAudioOutputCount() 
+                   << " != our channel count " << getTargetChannelCount()
+                   << " (future errors for this plugin will be suppressed)"
+                   << endl;
+            m_auditioningPluginFailed = true;
+        }
         return;
     }
     if ((int)plugin->getBufferSize() < count) {
-//        cout << "plugin buffer size " << plugin->getBufferSize() 
-//                  << " < our block size " << count
-//                  << endl;
+        if (!m_auditioningPluginFailed) {
+            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
+                   << "Can't run plugin: plugin buffer size "
+                   << plugin->getBufferSize() 
+                   << " < our block size " << count
+                   << " (future errors for this plugin will be suppressed)"
+                   << endl;
+            m_auditioningPluginFailed = true;
+        }
         return;
     }
-
+    
     float **ib = plugin->getAudioInputBuffers();
     float **ob = plugin->getAudioOutputBuffers();
 
