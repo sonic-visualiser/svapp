@@ -36,10 +36,6 @@
 #include <set>
 #include <map>
 
-namespace RubberBand {
-    class RubberBandStretcher;
-}
-
 namespace breakfastquay {
     class ResamplerWrapper;
 }
@@ -50,6 +46,7 @@ class AudioGenerator;
 class PlayParameters;
 class RealTimePluginInstance;
 class AudioCallbackPlayTarget;
+class TimeStretchWrapper;
 
 /**
  * AudioCallbackPlaySource manages audio data supply to callback-based
@@ -60,6 +57,7 @@ class AudioCallbackPlayTarget;
  */
 class AudioCallbackPlaySource : public QObject,
                                 public AudioPlaySource,
+                                //!!! to remove:
                                 public breakfastquay::ApplicationPlaybackSource
 {
     Q_OBJECT
@@ -67,6 +65,15 @@ class AudioCallbackPlaySource : public QObject,
 public:
     AudioCallbackPlaySource(ViewManagerBase *, QString clientName);
     virtual ~AudioCallbackPlaySource();
+
+    /**
+     * Return an ApplicationPlaybackSource interface to this class.
+     * The returned pointer is only borrowed, and the object continues
+     * to be owned by us. Caller must ensure the lifetime of the
+     * AudioCallbackPlaySource exceeds the scope in which the pointer
+     * is retained.
+     */
+    breakfastquay::ApplicationPlaybackSource *getApplicationPlaybackSource();
     
     /**
      * Add a data model to be played from.  The source can mix
@@ -124,11 +131,6 @@ public:
      * Set the playback target.
      */
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
-
-    /**
-     * Set the resampler wrapper, if one is in use.
-     */
-    virtual void setResamplerWrapper(breakfastquay::ResamplerWrapper *);
     
     /**
      * Set the block size of the target audio device.  This should be
@@ -315,7 +317,6 @@ signals:
     void channelCountIncreased(int count); // target channel count (see getTargetChannelCount())
 
     void audioOverloadPluginDisabled();
-    void audioTimeStretchMultiChannelDisabled();
 
     void activity(QString);
 
@@ -397,15 +398,6 @@ protected:
     void clearRingBuffers(bool haveLock = false, int count = 0);
     void unifyRingBuffers();
 
-    RubberBand::RubberBandStretcher *m_timeStretcher;
-    RubberBand::RubberBandStretcher *m_monoStretcher;
-    double m_stretchRatio;
-    bool m_stretchMono;
-    
-    int m_stretcherInputCount;
-    float **m_stretcherInputs;
-    sv_frame_t *m_stretcherInputSizes;
-
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done
     bool fillBuffers();
@@ -442,9 +434,10 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    breakfastquay::ResamplerWrapper *m_resamplerWrapper; // I don't own this
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
+    TimeStretchWrapper *m_timeStretchWrapper;
+    void checkWrappers();
 };
 
 #endif
-
 
