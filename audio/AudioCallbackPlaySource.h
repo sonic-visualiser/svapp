@@ -47,6 +47,7 @@ class PlayParameters;
 class RealTimePluginInstance;
 class AudioCallbackPlayTarget;
 class TimeStretchWrapper;
+class EffectWrapper;
 
 /**
  * AudioCallbackPlaySource manages audio data supply to callback-based
@@ -290,7 +291,8 @@ public:
      * Pass a null pointer to remove the current auditioning plugin,
      * if any.
      */
-    virtual void setAuditioningEffect(Auditionable *plugin) override;
+    virtual void setAuditioningEffect(std::shared_ptr<Auditionable> plugin)
+        override;
 
     /**
      * Specify that only the given set of models should be played.
@@ -370,9 +372,6 @@ protected:
     float                             m_outputLeft;
     float                             m_outputRight;
     bool                              m_levelsSet;
-    RealTimePluginInstance           *m_auditioningPlugin;
-    bool                              m_auditioningPluginBypassed;
-    bool                              m_auditioningPluginFailed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
     sv_frame_t                        m_playStartFrame;
     bool                              m_playStartFramePassed;
@@ -408,9 +407,6 @@ protected:
     // frame argument passed in, in the case of looping).
     sv_frame_t mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers);
 
-    // Called from getSourceSamples.
-    void applyAuditioningEffect(sv_frame_t count, float *const *buffers);
-
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
     std::vector<RealTime> m_rangeDurations;
@@ -436,6 +432,7 @@ protected:
     FillThread *m_fillThread;
     breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     TimeStretchWrapper *m_timeStretchWrapper;
+    EffectWrapper *m_auditioningEffectWrapper;
     void checkWrappers();
 };
 

@@ -17,6 +17,7 @@
 
 #include "AudioGenerator.h"
 #include "TimeStretchWrapper.h"
+#include "EffectWrapper.h"
 
 #include "data/model/Model.h"
 #include "base/ViewManagerBase.h"
@@ -71,14 +72,12 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_levelsSet(false),
-    m_auditioningPlugin(nullptr),
-    m_auditioningPluginBypassed(false),
-    m_auditioningPluginFailed(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
     m_fillThread(nullptr),
     m_resamplerWrapper(nullptr),
-    m_timeStretchWrapper(nullptr)
+    m_timeStretchWrapper(nullptr),
+    m_auditioningEffectWrapper(nullptr)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -127,6 +126,10 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 
     delete m_audioGenerator;
 
+    delete m_timeStretchWrapper;
+    delete m_auditioningEffectWrapper;
+    delete m_resamplerWrapper;
+
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -155,8 +158,11 @@ AudioCallbackPlaySource::checkWrappers()
     if (!m_resamplerWrapper) {
         m_resamplerWrapper = new breakfastquay::ResamplerWrapper(this);
     }
+    if (!m_auditioningEffectWrapper) {
+        m_auditioningEffectWrapper = new EffectWrapper(m_resamplerWrapper);
+    }
     if (!m_timeStretchWrapper) {
-        m_timeStretchWrapper = new TimeStretchWrapper(m_resamplerWrapper);
+        m_timeStretchWrapper = new TimeStretchWrapper(m_auditioningEffectWrapper);
     }
 }
 
@@ -595,9 +601,9 @@ AudioCallbackPlaySource::audioProcessingOverload()
 
     if (!m_playing) return;
 
-    RealTimePluginInstance *ap = m_auditioningPlugin;
-    if (ap && !m_auditioningPluginBypassed) {
-        m_auditioningPluginBypassed = true;
+    if (m_auditioningEffectWrapper &&
+        !m_auditioningEffectWrapper->isBypassed()) {
+        m_auditioningEffectWrapper->setBypassed(true);
         emit audioOverloadPluginDisabled();
         return;
     }
@@ -980,22 +986,20 @@ AudioCallbackPlaySource::setSystemPlaybackChannelCount(int count)
 }
 
 void
-AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
+AudioCallbackPlaySource::setAuditioningEffect(std::shared_ptr<Auditionable> a)
 {
-    RealTimePluginInstance *plugin = dynamic_cast<RealTimePluginInstance *>(a);
+    auto plugin = std::dynamic_pointer_cast<RealTimePluginInstance>(a);
     if (a && !plugin) {
         SVCERR << "WARNING: AudioCallbackPlaySource::setAuditioningEffect: auditionable object " << a << " is not a real-time plugin instance" << endl;
     }
 
     m_mutex.lock();
-    m_auditioningPlugin = plugin;
-    m_auditioningPluginBypassed = false;
-    m_auditioningPluginFailed = false;
+    m_auditioningEffectWrapper->setEffect(plugin);
+    m_auditioningEffectWrapper->setBypassed(false);
     m_mutex.unlock();
 
     SVDEBUG << "AudioCallbackPlaySource::setAuditioningEffect: set plugin to "
-            << plugin << " and bypassed to " << m_auditioningPluginBypassed
-            << endl;
+            << plugin << endl;
 }
 
 void
@@ -1190,8 +1194,6 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
         }
     }
 
-    applyAuditioningEffect(count, buffer);
-
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::getSamples: awakening thread" << endl;
 #endif
@@ -1200,68 +1202,6 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
 
     return got;
 }
-
-void
-AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float *const *buffers)
-{
-    if (m_auditioningPluginBypassed) return;
-    RealTimePluginInstance *plugin = m_auditioningPlugin;
-    if (!plugin) return;
-
-    if ((int)plugin->getAudioInputCount() != getTargetChannelCount()) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin input count "
-                   << plugin->getAudioInputCount() 
-                   << " != our channel count " << getTargetChannelCount()
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    if ((int)plugin->getAudioOutputCount() != getTargetChannelCount()) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin output count "
-                   << plugin->getAudioOutputCount() 
-                   << " != our channel count " << getTargetChannelCount()
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    if ((int)plugin->getBufferSize() < count) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin buffer size "
-                   << plugin->getBufferSize() 
-                   << " < our block size " << count
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    
-    float **ib = plugin->getAudioInputBuffers();
-    float **ob = plugin->getAudioOutputBuffers();
-
-    for (int c = 0; c < getTargetChannelCount(); ++c) {
-        for (int i = 0; i < count; ++i) {
-            ib[c][i] = buffers[c][i];
-        }
-    }
-
-    plugin->run(Vamp::RealTime::zeroTime, int(count));
-    
-    for (int c = 0; c < getTargetChannelCount(); ++c) {
-        for (int i = 0; i < count; ++i) {
-            buffers[c][i] = ob[c][i];
-        }
-    }
-}    
 
 // Called from fill thread, m_playing true, mutex held
 bool

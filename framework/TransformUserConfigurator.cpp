@@ -109,7 +109,11 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
         if (effect && source) {
             SVDEBUG << "Setting auditioning effect" << endl;
-            source->setAuditioningEffect(rtp);
+            //!!! This requires a shared_ptr, but we don't manage our
+            //!!! plugin using shared_ptrs yet. Do this as a stopgap.
+            std::shared_ptr<Auditionable> auditionable
+                (std::make_shared<bool>(true), rtp);
+            source->setAuditioningEffect(auditionable);
         }
 
     } else {
@@ -229,7 +233,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     delete dialog;
 
     if (effect && source) {
-        source->setAuditioningEffect(nullptr);
+        source->setAuditioningEffect({});
     }
 
     return ok;

@@ -205,8 +205,11 @@ TimeStretchWrapper::getApplicationChannelCount() const
 }
 
 void
-TimeStretchWrapper::setSystemPlaybackBlockSize(int)
+TimeStretchWrapper::setSystemPlaybackBlockSize(int sz)
 {
+    SVDEBUG << "NOTE: TimeStretchWrapper::setSystemPlaybackBlockSize called "
+            << "with size = " << sz << "; not passing to wrapped source, as "
+            << "actual block size will vary" << endl;
 }
 
 void
