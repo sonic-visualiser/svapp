@@ -18,6 +18,8 @@
 
 #include "base/Debug.h"
 
+//#define DEBUG_EFFECT_WRAPPER 1
+
 using namespace std;
 
 static const int DEFAULT_RING_BUFFER_SIZE = 131071;
@@ -39,6 +41,11 @@ EffectWrapper::setEffect(weak_ptr<RealTimePluginInstance> effect)
 {
     lock_guard<mutex> guard(m_mutex);
 
+#ifdef DEBUG_EFFECT_WRAPPER
+    SVCERR << "EffectWrapper[" << this
+           << "]::setEffect(" << effect.lock() << ")" << endl;
+#endif
+    
     m_effect = effect;
     m_failed = false;
 }
@@ -47,6 +54,11 @@ void
 EffectWrapper::setBypassed(bool bypassed)
 {
     lock_guard<mutex> guard(m_mutex);
+
+#ifdef DEBUG_EFFECT_WRAPPER
+    SVCERR << "EffectWrapper[" << this
+           << "]::setBypassed(" << bypassed << ")" << endl;
+#endif
 
     m_bypassed = bypassed;
 }
@@ -64,9 +76,15 @@ EffectWrapper::reset()
 {
     lock_guard<mutex> guard(m_mutex);
 
+#ifdef DEBUG_EFFECT_WRAPPER
+    SVCERR << "EffectWrapper[" << this << "]::reset" << endl;
+#endif
+
     for (auto &rb: m_effectOutputBuffers) {
         rb.reset();
     }
+
+    m_failed = false;
 }
 
 int
@@ -75,16 +93,33 @@ EffectWrapper::getSourceSamples(float *const *samples,
 {
     lock_guard<mutex> guard(m_mutex);
 
+#ifdef DEBUG_EFFECT_WRAPPER
+    SVCERR << "EffectWrapper[" << this << "]::getSourceSamples: " << nframes
+           << " frames across " << nchannels << " channels" << endl;
+#endif
+    
     auto effect(m_effect.lock());
     
-    if (!effect || m_bypassed || m_failed) {
+    if (!effect) {
+#ifdef DEBUG_EFFECT_WRAPPER
+        SVCERR << "EffectWrapper::getSourceSamples: "
+               << "no effect is set" << endl;
+#endif
         return m_source->getSourceSamples(samples, nchannels, nframes);
     }
 
+    if (m_bypassed || m_failed) {
+#ifdef DEBUG_EFFECT_WRAPPER
+        SVCERR << "EffectWrapper::getSourceSamples: "
+               << "effect is bypassed or has failed" << endl;
+#endif
+        return m_source->getSourceSamples(samples, nchannels, nframes);
+    }
+    
     static int warnings = 0;
     if (nchannels != m_channelCount) {
         if (warnings >= 0) {
-            SVCERR << "WARNING: getSourceSamples called for a number of channels different from that set with setSystemPlaybackChannelCount ("
+            SVCERR << "WARNING: EffectWrapper::getSourceSamples called for a number of channels different from that set with setSystemPlaybackChannelCount ("
                    << nchannels << " vs " << m_channelCount << ")" << endl;
             if (++warnings == 6) {
                 SVCERR << "(further warnings will be suppressed)" << endl;
@@ -126,13 +161,13 @@ EffectWrapper::getSourceSamples(float *const *samples,
     int blockSize = effect->getBufferSize();
     
     int got = 0;
-    int offset = 0;
 
     while (got < nframes) {
 
         int read = 0;
         for (int c = 0; c < nchannels; ++c) {
-            read = m_effectOutputBuffers[c].read(samples[c], nframes - got);
+            read = m_effectOutputBuffers[c].read(samples[c] + got,
+                                                 nframes - got);
         }
 
         got += read;
@@ -142,6 +177,10 @@ EffectWrapper::getSourceSamples(float *const *samples,
             int toRun = m_source->getSourceSamples(ib, nchannels, blockSize);
             if (toRun <= 0) break;
 
+#ifdef DEBUG_EFFECT_WRAPPER
+            SVCERR << "EffectWrapper::getSourceSamples: Running effect "
+                   << "for " << toRun << " frames" << endl;
+#endif
             effect->run(Vamp::RealTime::zeroTime, toRun);
 
             for (int c = 0; c < nchannels; ++c) {
@@ -158,6 +197,10 @@ EffectWrapper::setSystemPlaybackChannelCount(int count)
 {
     {
         lock_guard<mutex> guard(m_mutex);
+#ifdef DEBUG_EFFECT_WRAPPER
+        SVCERR << "EffectWrapper[" << this
+               << "]::setSystemPlaybackChannelCount(" << count << ")" << endl;
+#endif
         m_effectOutputBuffers.resize
             (count, RingBuffer<float>(DEFAULT_RING_BUFFER_SIZE));
         m_channelCount = count;

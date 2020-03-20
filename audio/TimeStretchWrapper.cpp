@@ -85,9 +85,6 @@ TimeStretchWrapper::getSourceSamples(float *const *samples,
         return m_source->getSourceSamples(samples, nchannels, nframes);
     }
 
-    sv_frame_t available;
-    sv_frame_t fedToStretcher = 0;
-
     vector<float *> inputPtrs(m_channelCount, nullptr);
     for (int i = 0; i < m_channelCount; ++i) {
         inputPtrs[i] = m_inputs[i].data();
@@ -96,11 +93,12 @@ TimeStretchWrapper::getSourceSamples(float *const *samples,
     // The input block for a given output is approx output / ratio,
     // but we can't predict it exactly, for an adaptive timestretcher.
 
+    sv_frame_t available;
+
     while ((available = m_stretcher->available()) < nframes) {
         
-        sv_frame_t reqd = sv_frame_t
-            (ceil(double(nframes - available) / m_timeRatio));
-        reqd = std::max(reqd, sv_frame_t(m_stretcher->getSamplesRequired()));
+        int reqd = int(ceil(double(nframes - available) / m_timeRatio));
+        reqd = std::max(reqd, int(m_stretcher->getSamplesRequired()));
         reqd = std::min(reqd, m_stretcherInputSize);
         if (reqd == 0) reqd = 1;
         
@@ -126,12 +124,11 @@ TimeStretchWrapper::checkStretcher()
     lock_guard<mutex> guard(m_mutex);
 
     if (m_timeRatio == 1.0 || !m_channelCount || !m_sampleRate) {
-        SVDEBUG << "TimeStretchWrapper::checkStretcher: m_timeRatio = "
-                << m_timeRatio << ", m_channelCount = " << m_channelCount
-                << ", m_sampleRate = " << m_sampleRate
-                << ", no need for stretcher" << endl;
         if (m_stretcher) {
-            SVDEBUG << "(Deleting existing one)" << endl;
+            SVDEBUG << "TimeStretchWrapper::checkStretcher: m_timeRatio = "
+                    << m_timeRatio << ", m_channelCount = " << m_channelCount
+                    << ", m_sampleRate = " << m_sampleRate
+                    << ", deleting existing stretcher" << endl;
             delete m_stretcher;
             m_stretcher = nullptr;
         }
@@ -147,7 +144,7 @@ TimeStretchWrapper::checkStretcher()
     SVDEBUG << "TimeStretchWrapper::checkStretcher: creating stretcher with ratio " << m_timeRatio << endl;
     
     m_stretcher = new RubberBandStretcher
-        (m_sampleRate,
+        (size_t(round(m_sampleRate)),
          m_channelCount,
          RubberBandStretcher::OptionProcessRealTime,
          m_timeRatio);

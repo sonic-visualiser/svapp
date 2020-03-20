@@ -93,7 +93,7 @@ private:
     double m_timeRatio;
     std::vector<std::vector<float>> m_inputs;
     std::mutex m_mutex;
-    sv_frame_t m_stretcherInputSize;
+    int m_stretcherInputSize;
     int m_channelCount;
     sv_samplerate_t m_sampleRate;
 

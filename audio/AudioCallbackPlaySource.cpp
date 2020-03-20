@@ -988,6 +988,9 @@ AudioCallbackPlaySource::setSystemPlaybackChannelCount(int count)
 void
 AudioCallbackPlaySource::setAuditioningEffect(std::shared_ptr<Auditionable> a)
 {
+    SVDEBUG << "AudioCallbackPlaySource::setAuditioningEffect(" << a << ")"
+            << endl;
+    
     auto plugin = std::dynamic_pointer_cast<RealTimePluginInstance>(a);
     if (a && !plugin) {
         SVCERR << "WARNING: AudioCallbackPlaySource::setAuditioningEffect: auditionable object " << a << " is not a real-time plugin instance" << endl;
