@@ -58,7 +58,6 @@ class EffectWrapper;
  */
 class AudioCallbackPlaySource : public QObject,
                                 public AudioPlaySource,
-                                //!!! to remove:
                                 public breakfastquay::ApplicationPlaybackSource
 {
     Q_OBJECT
@@ -68,11 +67,14 @@ public:
     virtual ~AudioCallbackPlaySource();
 
     /**
-     * Return an ApplicationPlaybackSource interface to this class.
-     * The returned pointer is only borrowed, and the object continues
-     * to be owned by us. Caller must ensure the lifetime of the
-     * AudioCallbackPlaySource exceeds the scope in which the pointer
-     * is retained.
+     * Return an ApplicationPlaybackSource interface to this
+     * class. Although this class implements ApplicationPlaybackSource
+     * itself, the object returned here may be a wrapper which
+     * provides facilities not implemented in this class, such as
+     * time-stretching, resampling, and an auditioning effect.  The
+     * returned pointer points to an object which is owned by this
+     * object. Caller must ensure the lifetime of this object exceeds
+     * the scope which the returned pointer is retained.
      */
     breakfastquay::ApplicationPlaybackSource *getApplicationPlaybackSource();
     

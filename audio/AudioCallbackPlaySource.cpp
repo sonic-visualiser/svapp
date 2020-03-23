@@ -612,8 +612,6 @@ AudioCallbackPlaySource::audioProcessingOverload()
 void
 AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *target)
 {
-    //!!! This should go, we should be using the ApplicationPlaybackSource callbacks
-    
     if (target == nullptr) {
         // reset target-related facts and figures
         m_deviceSampleRate = 0;
@@ -625,16 +623,16 @@ AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTa
 void
 AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
 {
-    cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
+    SVDEBUG << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
     if (size != 0) {
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cout << "AudioCallbackPlaySource::setTarget: Buffer size "
-             << size << " > a quarter of ring buffer size "
-             << m_ringBufferSize << ", calling for more ring buffer"
-             << endl;
+        SVCERR << "AudioCallbackPlaySource::setTarget: Buffer size "
+               << size << " > a quarter of ring buffer size "
+               << m_ringBufferSize << ", calling for more ring buffer"
+               << endl;
 #endif
         m_ringBufferSize = size * 4;
         if (m_writeBuffers && !m_writeBuffers->empty()) {
@@ -721,17 +719,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 
     RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, rate);
 
-    /*!!!
-    sv_frame_t stretchlat = 0;
-    double timeRatio = 1.0;
-
-    if (m_timeStretcher) {
-        stretchlat = m_timeStretcher->getLatency();
-        timeRatio = m_timeStretcher->getTimeRatio();
-    }
-
-    RealTime stretchlat_t = RealTime::frame2RealTime(stretchlat, rate);
-    */
     // When the target has just requested a block from us, the last
     // sample it obtained was our buffer fill frame count minus the
     // amount of read space (converted back to source sample rate)
@@ -785,7 +772,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     if (m_rangeStarts.empty()) {
         // this code is only used in case of error in rebuildRangeLists
         RealTime playing_t = bufferedto_t
-//!!!            - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
             - latency_t - lastretrieved_t - inbuffer_t
             + sincerequest_t;
         if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
@@ -812,7 +798,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     RealTime playing_t = bufferedto_t;
 
     playing_t = playing_t
-//!!!        - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
         - latency_t - lastretrieved_t - inbuffer_t
         + sincerequest_t;
 
@@ -831,9 +816,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         if (playing_t < playstart_t) {
 //            cout << "playing_t " << playing_t << " < playstart_t " 
 //                      << playstart_t << endl;
-            if (/*!!! sincerequest_t > RealTime::zeroTime && */
-//!!!                m_playStartedAt + latency_t + stretchlat_t <
-                m_playStartedAt + latency_t <
+            if (m_playStartedAt + latency_t <
                 RealTime::fromSeconds(currentTime)) {
 //                cout << "but we've been playing for long enough that I think we should disregard it (it probably results from loop wrapping)" << endl;
                 m_playStartFramePassed = true;
