@@ -791,7 +791,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-    cout << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", time ratio " << timeRatio << "\n  stretcher latency: " << stretchlat_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved quantity: " << lastretrieved_t << endl;
+    cout << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved quantity: " << lastretrieved_t << endl;
 #endif
 
     // Normally the range lists should contain at least one item each
