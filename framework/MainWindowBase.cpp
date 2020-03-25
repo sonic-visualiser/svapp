@@ -240,8 +240,12 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
             this, SLOT(currentPaneChanged(Pane *)));
     connect(m_paneStack, SIGNAL(currentLayerChanged(Pane *, Layer *)),
             this, SLOT(currentLayerChanged(Pane *, Layer *)));
-    connect(m_paneStack, SIGNAL(rightButtonMenuRequested(Pane *, QPoint)),
-            this, SLOT(rightButtonMenuRequested(Pane *, QPoint)));
+    connect(m_paneStack, SIGNAL(paneRightButtonMenuRequested(Pane *, QPoint)),
+            this, SLOT(paneRightButtonMenuRequested(Pane *, QPoint)));
+    connect(m_paneStack, SIGNAL(panePropertiesRightButtonMenuRequested(Pane *, QPoint)),
+            this, SLOT(panePropertiesRightButtonMenuRequested(Pane *, QPoint)));
+    connect(m_paneStack, SIGNAL(layerPropertiesRightButtonMenuRequested(Pane *, Layer *, QPoint)),
+            this, SLOT(layerPropertiesRightButtonMenuRequested(Pane *, Layer *, QPoint)));
     connect(m_paneStack, SIGNAL(contextHelpChanged(const QString &)),
             this, SLOT(contextHelpChanged(const QString &)));
     connect(m_paneStack, SIGNAL(paneAdded(Pane *)),

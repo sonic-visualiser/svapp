@@ -364,7 +364,9 @@ protected slots:
     virtual void alignmentComplete(ModelId);
     virtual void alignmentFailed(QString) = 0;
 
-    virtual void rightButtonMenuRequested(Pane *, QPoint point) = 0;
+    virtual void paneRightButtonMenuRequested(Pane *, QPoint point) = 0;
+    virtual void panePropertiesRightButtonMenuRequested(Pane *, QPoint point) = 0;
+    virtual void layerPropertiesRightButtonMenuRequested(Pane *, Layer *, QPoint point) = 0;
 
     virtual void paneAdded(Pane *) = 0;
     virtual void paneHidden(Pane *) = 0;
