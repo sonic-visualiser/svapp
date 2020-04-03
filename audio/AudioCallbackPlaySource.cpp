@@ -687,9 +687,8 @@ sv_frame_t
 AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 {
     // The ring buffers contain data at the source sample rate and all
-    // processing (including time stretching) happens at this
-    // rate. Resampling only happens after the audio data leaves this
-    // class.
+    // processing here happens at this rate. Resampling only happens
+    // after the audio data leaves this class.
     
     // (But because historically more than one sample rate could have
     // been involved here, we do latency calculations using RealTime
