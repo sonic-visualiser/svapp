@@ -1,12 +1,12 @@
 
 SVAPP_HEADERS += \
+           align/Align.h \
            audio/AudioCallbackPlaySource.h \
            audio/AudioCallbackRecordTarget.h \
            audio/AudioGenerator.h \
            audio/ClipMixer.h \
            audio/ContinuousSynth.h \
            audio/PlaySpeedRangeMapper.h \
-           framework/Align.h \
 	   framework/Document.h \
            framework/MainWindowBase.h \
            framework/OSCScript.h \
@@ -15,13 +15,13 @@ SVAPP_HEADERS += \
            framework/VersionTester.h
 
 SVAPP_SOURCES += \
+	   align/Align.cpp \
            audio/AudioCallbackPlaySource.cpp \
            audio/AudioCallbackRecordTarget.cpp \
            audio/AudioGenerator.cpp \
            audio/ClipMixer.cpp \
            audio/ContinuousSynth.cpp \
            audio/PlaySpeedRangeMapper.cpp \
-	   framework/Align.cpp \
 	   framework/Document.cpp \
            framework/MainWindowBase.cpp \
            framework/SVFileReader.cpp \

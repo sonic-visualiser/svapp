@@ -13,7 +13,7 @@
 */
 
 #include "Align.h"
-#include "Document.h"
+#include "framework/Document.h"
 
 #include "data/model/WaveFileModel.h"
 #include "data/model/ReadOnlyWaveFileModel.h"

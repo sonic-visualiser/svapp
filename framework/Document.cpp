@@ -15,8 +15,6 @@
 
 #include "Document.h"
 
-#include "Align.h"
-
 #include "data/model/WaveFileModel.h"
 #include "data/model/WritableWaveFileModel.h"
 #include "data/model/DenseThreeDimensionalModel.h"
@@ -39,7 +37,7 @@
 #include <typeinfo>
 
 #include "data/model/AlignmentModel.h"
-#include "Align.h"
+#include "align/Align.h"
 
 using std::vector;
 
