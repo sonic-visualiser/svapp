@@ -82,7 +82,6 @@
 #include <bqaudioio/SystemPlaybackTarget.h>
 #include <bqaudioio/SystemAudioIO.h>
 #include <bqaudioio/AudioFactory.h>
-#include <bqaudioio/ResamplerWrapper.h>
 
 #include <QApplication>
 #include <QMessageBox>
@@ -151,7 +150,6 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
     m_midiMode(midiMode),
     m_playSource(nullptr),
     m_recordTarget(nullptr),
-    m_resamplerWrapper(nullptr),
     m_playTarget(nullptr),
     m_audioIO(nullptr),
     m_oscQueue(nullptr),
@@ -2572,17 +2570,14 @@ MainWindowBase::createAudioIO()
     SVCERR << "createAudioIO: Preferred record device = \""
             << preference.recordDevice << "\"" << endl;
 
-    if (!m_resamplerWrapper) {
-        m_resamplerWrapper = new breakfastquay::ResamplerWrapper(m_playSource);
-        m_playSource->setResamplerWrapper(m_resamplerWrapper);
-    }
+    breakfastquay::ApplicationPlaybackSource *source =
+        m_playSource->getApplicationPlaybackSource();
 
     std::string errorString;
     
     if (m_audioMode == AUDIO_PLAYBACK_AND_RECORD) {
         m_audioIO = breakfastquay::AudioFactory::
-            createCallbackIO(m_recordTarget, m_resamplerWrapper,
-                             preference, errorString);
+            createCallbackIO(m_recordTarget, source, preference, errorString);
         if (m_audioIO) {
             SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_audioIO->suspend(); // start in suspended state
@@ -2597,8 +2592,7 @@ MainWindowBase::createAudioIO()
 
     if (!m_audioIO) {
         m_playTarget = breakfastquay::AudioFactory::
-            createCallbackPlayTarget(m_resamplerWrapper,
-                                     preference, errorString);
+            createCallbackPlayTarget(source, preference, errorString);
         if (m_playTarget) {
             SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_playTarget->suspend(); // start in suspended state
@@ -2652,7 +2646,6 @@ MainWindowBase::deleteAudioIO()
     // First prevent this trying to call target.
     if (m_playSource) {
         m_playSource->setSystemPlaybackTarget(nullptr);
-        m_playSource->setResamplerWrapper(nullptr);
     }
 
     // Then delete the breakfastquay::System object.
@@ -2660,14 +2653,8 @@ MainWindowBase::deleteAudioIO()
     delete m_audioIO;
     delete m_playTarget;
 
-    // And the breakfastquay resampler wrapper. We need to
-    // delete/recreate this if the channel count changes, which is one
-    // of the use cases for recreateAudioIO() calling this
-    delete m_resamplerWrapper;
-
     m_audioIO = nullptr;
     m_playTarget = nullptr;
-    m_resamplerWrapper = nullptr;
 }
 
 void

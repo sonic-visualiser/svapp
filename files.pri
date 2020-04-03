@@ -5,7 +5,9 @@ SVAPP_HEADERS += \
            audio/AudioGenerator.h \
            audio/ClipMixer.h \
            audio/ContinuousSynth.h \
+           audio/EffectWrapper.h \
            audio/PlaySpeedRangeMapper.h \
+           audio/TimeStretchWrapper.h \
            framework/Align.h \
 	   framework/Document.h \
            framework/MainWindowBase.h \
@@ -20,7 +22,9 @@ SVAPP_SOURCES += \
            audio/AudioGenerator.cpp \
            audio/ClipMixer.cpp \
            audio/ContinuousSynth.cpp \
+           audio/EffectWrapper.cpp \
            audio/PlaySpeedRangeMapper.cpp \
+           audio/TimeStretchWrapper.cpp \
 	   framework/Align.cpp \
 	   framework/Document.cpp \
            framework/MainWindowBase.cpp \

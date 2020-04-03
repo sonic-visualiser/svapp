@@ -17,6 +17,8 @@
 
 #include "transform/ModelTransformerFactory.h"
 
+#include <memory>
+
 class TransformUserConfigurator : public ModelTransformerFactory::UserConfigurator
 {
 public:
@@ -24,7 +26,7 @@ public:
 
     bool configure(ModelTransformer::Input &input,
                    Transform &transform,
-                   Vamp::PluginBase *plugin,
+                   std::shared_ptr<Vamp::PluginBase> plugin,
                    ModelId &inputModel,
                    AudioPlaySource *source,
                    sv_frame_t startFrame,
@@ -37,7 +39,8 @@ public:
 
 private:
     bool getChannelRange(TransformId identifier,
-                         Vamp::PluginBase *plugin, int &min, int &max);
+                         std::shared_ptr<Vamp::PluginBase> plugin,
+                         int &min, int &max);
 
 };
 
