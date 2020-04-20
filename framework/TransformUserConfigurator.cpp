@@ -158,7 +158,8 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
         (plugin, parentWidget);
 
     dialog->setMoreInfoUrl(TransformFactory::getInstance()->
-                           getTransformInfoUrl(transform.getIdentifier()));
+                           getTransformProvider(transform.getIdentifier())
+                           .infoUrl);
 
     if (candidateModelNames.size() > 1 && !generator) {
         dialog->setCandidateInputModels(candidateModelNames,
