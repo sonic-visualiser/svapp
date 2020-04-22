@@ -602,6 +602,7 @@ AudioCallbackPlaySource::audioProcessingOverload()
     if (!m_playing) return;
 
     if (m_auditioningEffectWrapper &&
+        m_auditioningEffectWrapper->haveEffect() &&
         !m_auditioningEffectWrapper->isBypassed()) {
         m_auditioningEffectWrapper->setBypassed(true);
         emit audioOverloadPluginDisabled();
