@@ -16,6 +16,8 @@
 #include "AudioCallbackPlaySource.h"
 
 #include "AudioGenerator.h"
+#include "TimeStretchWrapper.h"
+#include "EffectWrapper.h"
 
 #include "data/model/Model.h"
 #include "base/ViewManagerBase.h"
@@ -31,9 +33,6 @@
 #include "bqaudioio/ResamplerWrapper.h"
 
 #include "bqvec/VectorOps.h"
-
-#include <rubberband/RubberBandStretcher.h>
-using namespace RubberBand;
 
 using breakfastquay::v_zero_channels;
 
@@ -73,20 +72,12 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_levelsSet(false),
-    m_auditioningPlugin(nullptr),
-    m_auditioningPluginBypassed(false),
-    m_auditioningPluginFailed(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
-    m_timeStretcher(nullptr),
-    m_monoStretcher(nullptr),
-    m_stretchRatio(1.0),
-    m_stretchMono(false),
-    m_stretcherInputCount(0),
-    m_stretcherInputs(nullptr),
-    m_stretcherInputSizes(nullptr),
     m_fillThread(nullptr),
-    m_resamplerWrapper(nullptr)
+    m_resamplerWrapper(nullptr),
+    m_timeStretchWrapper(nullptr),
+    m_auditioningEffectWrapper(nullptr)
 {
     m_viewManager->setAudioPlaySource(this);
 
@@ -135,20 +126,44 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
 
     delete m_audioGenerator;
 
-    for (int i = 0; i < m_stretcherInputCount; ++i) {
-        delete[] m_stretcherInputs[i];
-    }
-    delete[] m_stretcherInputSizes;
-    delete[] m_stretcherInputs;
-
-    delete m_timeStretcher;
-    delete m_monoStretcher;
+    delete m_timeStretchWrapper;
+    delete m_auditioningEffectWrapper;
+    delete m_resamplerWrapper;
 
     m_bufferScavenger.scavenge(true);
     m_pluginScavenger.scavenge(true);
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     SVDEBUG << "AudioCallbackPlaySource::~AudioCallbackPlaySource finishing" << endl;
 #endif
+}
+
+breakfastquay::ApplicationPlaybackSource *
+AudioCallbackPlaySource::getApplicationPlaybackSource()
+{
+    QMutexLocker locker(&m_mutex);
+    
+    if (m_timeStretchWrapper) {
+        return m_timeStretchWrapper;
+    }
+
+    checkWrappers();
+    return m_timeStretchWrapper;
+}
+
+void
+AudioCallbackPlaySource::checkWrappers()
+{
+    // to be called only with m_mutex held
+
+    if (!m_resamplerWrapper) {
+        m_resamplerWrapper = new breakfastquay::ResamplerWrapper(this);
+    }
+    if (!m_auditioningEffectWrapper) {
+        m_auditioningEffectWrapper = new EffectWrapper(m_resamplerWrapper);
+    }
+    if (!m_timeStretchWrapper) {
+        m_timeStretchWrapper = new TimeStretchWrapper(m_auditioningEffectWrapper);
+    }
 }
 
 void
@@ -250,24 +265,14 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
 
     if (srChanged) {
 
-        SVCERR << "AudioCallbackPlaySource: Source rate changed" << endl;
+        checkWrappers();
 
-        if (m_resamplerWrapper) {
-            SVCERR << "AudioCallbackPlaySource: Source sample rate changed to "
-                << m_sourceSampleRate << ", updating resampler wrapper" << endl;
-            m_resamplerWrapper->changeApplicationSampleRate
-                (int(round(m_sourceSampleRate)));
-            m_resamplerWrapper->reset();
-        }
-
-        delete m_timeStretcher;
-        delete m_monoStretcher;
-        m_timeStretcher = nullptr;
-        m_monoStretcher = nullptr;
-        
-        if (m_stretchRatio != 1.f) {
-            setTimeStretch(m_stretchRatio);
-        }
+        SVCERR << "AudioCallbackPlaySource: Source sample rate changed to "
+               << m_sourceSampleRate << ", updating resampler wrapper"
+               << endl;
+        m_resamplerWrapper->changeApplicationSampleRate
+            (int(round(m_sourceSampleRate)));
+        m_resamplerWrapper->reset();
     }
 
     rebuildRangeLists();
@@ -483,11 +488,8 @@ AudioCallbackPlaySource::play(sv_frame_t startFrame)
 
     m_mutex.lock();
 
-    if (m_timeStretcher) {
-        m_timeStretcher->reset();
-    }
-    if (m_monoStretcher) {
-        m_monoStretcher->reset();
+    if (m_timeStretchWrapper) {
+        m_timeStretchWrapper->reset();
     }
 
     m_readBufferFill = m_writeBufferFill = startFrame;
@@ -599,19 +601,11 @@ AudioCallbackPlaySource::audioProcessingOverload()
 
     if (!m_playing) return;
 
-    RealTimePluginInstance *ap = m_auditioningPlugin;
-    if (ap && !m_auditioningPluginBypassed) {
-        m_auditioningPluginBypassed = true;
+    if (m_auditioningEffectWrapper &&
+        m_auditioningEffectWrapper->haveEffect() &&
+        !m_auditioningEffectWrapper->isBypassed()) {
+        m_auditioningEffectWrapper->setBypassed(true);
         emit audioOverloadPluginDisabled();
-        return;
-    }
-
-    if (m_timeStretcher &&
-        m_timeStretcher->getTimeRatio() < 1.0 &&
-        m_stretcherInputCount > 1 &&
-        m_monoStretcher && !m_stretchMono) {
-        m_stretchMono = true;
-        emit audioTimeStretchMultiChannelDisabled();
         return;
     }
 }
@@ -628,28 +622,18 @@ AudioCallbackPlaySource::setSystemPlaybackTarget(breakfastquay::SystemPlaybackTa
 }
 
 void
-AudioCallbackPlaySource::setResamplerWrapper(breakfastquay::ResamplerWrapper *w)
-{
-    m_resamplerWrapper = w;
-    if (m_resamplerWrapper && m_sourceSampleRate != 0) {
-        m_resamplerWrapper->changeApplicationSampleRate
-            (int(round(m_sourceSampleRate)));
-    }
-}
-
-void
 AudioCallbackPlaySource::setSystemPlaybackBlockSize(int size)
 {
-    cout << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
+    SVDEBUG << "AudioCallbackPlaySource::setTarget: Block size -> " << size << endl;
     if (size != 0) {
         m_blockSize = size;
     }
     if (size * 4 > m_ringBufferSize) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-        cout << "AudioCallbackPlaySource::setTarget: Buffer size "
-             << size << " > a quarter of ring buffer size "
-             << m_ringBufferSize << ", calling for more ring buffer"
-             << endl;
+        SVCERR << "AudioCallbackPlaySource::setTarget: Buffer size "
+               << size << " > a quarter of ring buffer size "
+               << m_ringBufferSize << ", calling for more ring buffer"
+               << endl;
 #endif
         m_ringBufferSize = size * 4;
         if (m_writeBuffers && !m_writeBuffers->empty()) {
@@ -704,9 +688,8 @@ sv_frame_t
 AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 {
     // The ring buffers contain data at the source sample rate and all
-    // processing (including time stretching) happens at this
-    // rate. Resampling only happens after the audio data leaves this
-    // class.
+    // processing here happens at this rate. Resampling only happens
+    // after the audio data leaves this class.
     
     // (But because historically more than one sample rate could have
     // been involved here, we do latency calculations using RealTime
@@ -735,16 +718,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     bool looping = m_viewManager->getPlayLoopMode();
 
     RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, rate);
-
-    sv_frame_t stretchlat = 0;
-    double timeRatio = 1.0;
-
-    if (m_timeStretcher) {
-        stretchlat = m_timeStretcher->getLatency();
-        timeRatio = m_timeStretcher->getTimeRatio();
-    }
-
-    RealTime stretchlat_t = RealTime::frame2RealTime(stretchlat, rate);
 
     // When the target has just requested a block from us, the last
     // sample it obtained was our buffer fill frame count minus the
@@ -784,12 +757,6 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
 
     RealTime bufferedto_t = RealTime::frame2RealTime(readBufferFill, rate);
 
-    if (timeRatio != 1.0) {
-        lastretrieved_t = lastretrieved_t / timeRatio;
-        sincerequest_t = sincerequest_t / timeRatio;
-        latency_t = latency_t / timeRatio;
-    }
-
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
     cout << "\nbuffered to: " << bufferedto_t << ", in buffer: " << inbuffer_t << ", device latency: " << latency_t << "\n  since request: " << sincerequest_t << ", last retrieved quantity: " << lastretrieved_t << endl;
 #endif
@@ -805,7 +772,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     if (m_rangeStarts.empty()) {
         // this code is only used in case of error in rebuildRangeLists
         RealTime playing_t = bufferedto_t
-            - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
+            - latency_t - lastretrieved_t - inbuffer_t
             + sincerequest_t;
         if (playing_t < RealTime::zeroTime) playing_t = RealTime::zeroTime;
         sv_frame_t frame = RealTime::realTime2Frame(playing_t, rate);
@@ -831,7 +798,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     RealTime playing_t = bufferedto_t;
 
     playing_t = playing_t
-        - latency_t - stretchlat_t - lastretrieved_t - inbuffer_t
+        - latency_t - lastretrieved_t - inbuffer_t
         + sincerequest_t;
 
     // This rather gross little hack is used to ensure that latency
@@ -849,8 +816,7 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
         if (playing_t < playstart_t) {
 //            cout << "playing_t " << playing_t << " < playstart_t " 
 //                      << playstart_t << endl;
-            if (/*!!! sincerequest_t > RealTime::zeroTime && */
-                m_playStartedAt + latency_t + stretchlat_t <
+            if (m_playStartedAt + latency_t <
                 RealTime::fromSeconds(currentTime)) {
 //                cout << "but we've been playing for long enough that I think we should disregard it (it probably results from loop wrapping)" << endl;
                 m_playStartFramePassed = true;
@@ -1003,22 +969,23 @@ AudioCallbackPlaySource::setSystemPlaybackChannelCount(int count)
 }
 
 void
-AudioCallbackPlaySource::setAuditioningEffect(Auditionable *a)
+AudioCallbackPlaySource::setAuditioningEffect(std::shared_ptr<Auditionable> a)
 {
-    RealTimePluginInstance *plugin = dynamic_cast<RealTimePluginInstance *>(a);
+    SVDEBUG << "AudioCallbackPlaySource::setAuditioningEffect(" << a << ")"
+            << endl;
+    
+    auto plugin = std::dynamic_pointer_cast<RealTimePluginInstance>(a);
     if (a && !plugin) {
         SVCERR << "WARNING: AudioCallbackPlaySource::setAuditioningEffect: auditionable object " << a << " is not a real-time plugin instance" << endl;
     }
 
     m_mutex.lock();
-    m_auditioningPlugin = plugin;
-    m_auditioningPluginBypassed = false;
-    m_auditioningPluginFailed = false;
+    m_auditioningEffectWrapper->setEffect(plugin);
+    m_auditioningEffectWrapper->setBypassed(false);
     m_mutex.unlock();
 
     SVDEBUG << "AudioCallbackPlaySource::setAuditioningEffect: set plugin to "
-            << plugin << " and bypassed to " << m_auditioningPluginBypassed
-            << endl;
+            << plugin << endl;
 }
 
 void
@@ -1069,35 +1036,10 @@ AudioCallbackPlaySource::getSourceSampleRate() const
 void
 AudioCallbackPlaySource::setTimeStretch(double factor)
 {
-    m_stretchRatio = factor;
+    checkWrappers();
 
-    int rate = int(getSourceSampleRate());
-    if (!rate) return; // have to make our stretcher later
-
-    if (m_timeStretcher || (factor == 1.0)) {
-        // stretch ratio will be set in next process call if appropriate
-    } else {
-        m_stretcherInputCount = getTargetChannelCount();
-        RubberBandStretcher *stretcher = new RubberBandStretcher
-            (rate,
-             m_stretcherInputCount,
-             RubberBandStretcher::OptionProcessRealTime,
-             factor);
-        RubberBandStretcher *monoStretcher = new RubberBandStretcher
-            (rate,
-             1,
-             RubberBandStretcher::OptionProcessRealTime,
-             factor);
-        m_stretcherInputs = new float *[m_stretcherInputCount];
-        m_stretcherInputSizes = new sv_frame_t[m_stretcherInputCount];
-        for (int c = 0; c < m_stretcherInputCount; ++c) {
-            m_stretcherInputSizes[c] = 16384;
-            m_stretcherInputs[c] = new float[m_stretcherInputSizes[c]];
-        }
-        m_monoStretcher = monoStretcher;
-        m_timeStretcher = stretcher;
-    }
-
+    m_timeStretchWrapper->setTimeStretchRatio(factor);
+    
     emit activity(tr("Change time-stretch factor to %1").arg(factor));
 }
 
@@ -1202,229 +1144,50 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
 
     if (count == 0) return 0;
 
-    RubberBandStretcher *ts = m_timeStretcher;
-    RubberBandStretcher *ms = m_monoStretcher;
-
-    double ratio = ts ? ts->getTimeRatio() : 1.0;
-
-    if (ratio != m_stretchRatio) {
-        if (!ts) {
-            SVCERR << "WARNING: AudioCallbackPlaySource::getSourceSamples: Time ratio change to " << m_stretchRatio << " is pending, but no stretcher is set" << endl;
-            m_stretchRatio = 1.0;
-        } else {
-            ts->setTimeRatio(m_stretchRatio);
-            if (ms) ms->setTimeRatio(m_stretchRatio);
-            if (m_stretchRatio >= 1.0) m_stretchMono = false;
-        }
-    }
-
-    int stretchChannels = m_stretcherInputCount;
-    if (m_stretchMono) {
-        if (ms) {
-            ts = ms;
-            stretchChannels = 1;
-        } else {
-            m_stretchMono = false;
-        }
-    }
-
     if (m_target) {
         m_lastRetrievedBlockSize = count;
         m_lastRetrievalTimestamp = m_target->getCurrentTime();
     }
 
-    if (!ts || ratio == 1.f) {
-
-        int got = 0;
+    int got = 0;
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-        cout << "channels == " << channels << endl;
+    cout << "channels == " << channels << endl;
 #endif
         
-        for (int ch = 0; ch < channels; ++ch) {
+    for (int ch = 0; ch < channels; ++ch) {
 
-            RingBuffer<float> *rb = getReadRingBuffer(ch);
+        RingBuffer<float> *rb = getReadRingBuffer(ch);
 
-            if (rb) {
+        if (rb) {
 
-                // this is marginally more likely to leave our channels in
-                // sync after a processing failure than just passing "count":
-                sv_frame_t request = count;
-                if (ch > 0) request = got;
+            // this is marginally more likely to leave our channels in
+            // sync after a processing failure than just passing "count":
+            sv_frame_t request = count;
+            if (ch > 0) request = got;
 
-                got = rb->read(buffer[ch], int(request));
+            got = rb->read(buffer[ch], int(request));
             
 #ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-                cout << "AudioCallbackPlaySource::getSamples: got " << got << " (of " << count << ") samples on channel " << ch << ", signalling for more (possibly)" << endl;
+            cout << "AudioCallbackPlaySource::getSamples: got " << got << " (of " << count << ") samples on channel " << ch << ", signalling for more (possibly)" << endl;
 #endif
-            }
-
-            for (int ch = 0; ch < channels; ++ch) {
-                for (int i = got; i < count; ++i) {
-                    buffer[ch][i] = 0.0;
-                }
-            }
         }
 
-        applyAuditioningEffect(count, buffer);
+        for (int ch = 0; ch < channels; ++ch) {
+            for (int i = got; i < count; ++i) {
+                buffer[ch][i] = 0.0;
+            }
+        }
+    }
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
     cout << "AudioCallbackPlaySource::getSamples: awakening thread" << endl;
 #endif
 
-        m_condition.wakeAll();
-
-        return got;
-    }
-
-    sv_frame_t available;
-    sv_frame_t fedToStretcher = 0;
-    int warned = 0;
-
-    // The input block for a given output is approx output / ratio,
-    // but we can't predict it exactly, for an adaptive timestretcher.
-
-    while ((available = ts->available()) < count) {
-
-        sv_frame_t reqd = lrint(double(count - available) / ratio);
-        reqd = std::max(reqd, sv_frame_t(ts->getSamplesRequired()));
-        if (reqd == 0) reqd = 1;
-                
-        sv_frame_t got = reqd;
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-        cout << "reqd = " <<reqd << ", channels = " << channels << ", ic = " << m_stretcherInputCount << endl;
-#endif
-
-        for (int c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputCount) continue;
-            if (reqd > m_stretcherInputSizes[c]) {
-                if (c == 0) {
-                    SVDEBUG << "NOTE: resizing stretcher input buffer from " << m_stretcherInputSizes[c] << " to " << (reqd * 2) << endl;
-                }
-                delete[] m_stretcherInputs[c];
-                m_stretcherInputSizes[c] = reqd * 2;
-                m_stretcherInputs[c] = new float[m_stretcherInputSizes[c]];
-            }
-        }
-
-        for (int c = 0; c < channels; ++c) {
-            if (c >= m_stretcherInputCount) continue;
-            RingBuffer<float> *rb = getReadRingBuffer(c);
-            if (rb) {
-                sv_frame_t gotHere;
-                if (stretchChannels == 1 && c > 0) {
-                    gotHere = rb->readAdding(m_stretcherInputs[0], int(got));
-                } else {
-                    gotHere = rb->read(m_stretcherInputs[c], int(got));
-                }
-                if (gotHere < got) got = gotHere;
-                
-#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
-                if (c == 0) {
-                    cout << "feeding stretcher: got " << gotHere
-                              << ", " << rb->getReadSpace() << " remain" << endl;
-                }
-#endif
-                
-            } else {
-                SVCERR << "WARNING: No ring buffer available for channel " << c << " in stretcher input block" << endl;
-            }
-        }
-
-        if (got < reqd) {
-            SVCERR << "WARNING: Read underrun in playback ("
-                      << got << " < " << reqd << ")" << endl;
-        }
-
-        ts->process(m_stretcherInputs, size_t(got), false);
-
-        fedToStretcher += got;
-
-        if (got == 0) break;
-
-        if (ts->available() == available) {
-            SVCERR << "WARNING: AudioCallbackPlaySource::getSamples: Added " << got << " samples to time stretcher, created no new available output samples (warned = " << warned << ")" << endl;
-            if (++warned == 5) break;
-        }
-    }
-
-    ts->retrieve(buffer, size_t(count));
-
-    v_zero_channels(buffer + stretchChannels, channels - stretchChannels, count);
-
-    applyAuditioningEffect(count, buffer);
-
-#ifdef DEBUG_AUDIO_PLAY_SOURCE
-    cout << "AudioCallbackPlaySource::getSamples [stretched]: awakening thread" << endl;
-#endif
-
     m_condition.wakeAll();
 
-    return count;
+    return got;
 }
-
-void
-AudioCallbackPlaySource::applyAuditioningEffect(sv_frame_t count, float *const *buffers)
-{
-    if (m_auditioningPluginBypassed) return;
-    RealTimePluginInstance *plugin = m_auditioningPlugin;
-    if (!plugin) return;
-
-    if ((int)plugin->getAudioInputCount() != getTargetChannelCount()) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin input count "
-                   << plugin->getAudioInputCount() 
-                   << " != our channel count " << getTargetChannelCount()
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    if ((int)plugin->getAudioOutputCount() != getTargetChannelCount()) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin output count "
-                   << plugin->getAudioOutputCount() 
-                   << " != our channel count " << getTargetChannelCount()
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    if ((int)plugin->getBufferSize() < count) {
-        if (!m_auditioningPluginFailed) {
-            SVCERR << "AudioCallbackPlaySource::applyAuditioningEffect: "
-                   << "Can't run plugin: plugin buffer size "
-                   << plugin->getBufferSize() 
-                   << " < our block size " << count
-                   << " (future errors for this plugin will be suppressed)"
-                   << endl;
-            m_auditioningPluginFailed = true;
-        }
-        return;
-    }
-    
-    float **ib = plugin->getAudioInputBuffers();
-    float **ob = plugin->getAudioOutputBuffers();
-
-    for (int c = 0; c < getTargetChannelCount(); ++c) {
-        for (int i = 0; i < count; ++i) {
-            ib[c][i] = buffers[c][i];
-        }
-    }
-
-    plugin->run(Vamp::RealTime::zeroTime, int(count));
-    
-    for (int c = 0; c < getTargetChannelCount(); ++c) {
-        for (int i = 0; i < count; ++i) {
-            buffers[c][i] = ob[c][i];
-        }
-    }
-}    
 
 // Called from fill thread, m_playing true, mutex held
 bool

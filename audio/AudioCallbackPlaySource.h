@@ -36,10 +36,6 @@
 #include <set>
 #include <map>
 
-namespace RubberBand {
-    class RubberBandStretcher;
-}
-
 namespace breakfastquay {
     class ResamplerWrapper;
 }
@@ -50,6 +46,8 @@ class AudioGenerator;
 class PlayParameters;
 class RealTimePluginInstance;
 class AudioCallbackPlayTarget;
+class TimeStretchWrapper;
+class EffectWrapper;
 
 /**
  * AudioCallbackPlaySource manages audio data supply to callback-based
@@ -67,6 +65,18 @@ class AudioCallbackPlaySource : public QObject,
 public:
     AudioCallbackPlaySource(ViewManagerBase *, QString clientName);
     virtual ~AudioCallbackPlaySource();
+
+    /**
+     * Return an ApplicationPlaybackSource interface to this
+     * class. Although this class implements ApplicationPlaybackSource
+     * itself, the object returned here may be a wrapper which
+     * provides facilities not implemented in this class, such as
+     * time-stretching, resampling, and an auditioning effect.  The
+     * returned pointer points to an object which is owned by this
+     * object. Caller must ensure the lifetime of this object exceeds
+     * the scope which the returned pointer is retained.
+     */
+    breakfastquay::ApplicationPlaybackSource *getApplicationPlaybackSource();
     
     /**
      * Add a data model to be played from.  The source can mix
@@ -124,11 +134,6 @@ public:
      * Set the playback target.
      */
     virtual void setSystemPlaybackTarget(breakfastquay::SystemPlaybackTarget *);
-
-    /**
-     * Set the resampler wrapper, if one is in use.
-     */
-    virtual void setResamplerWrapper(breakfastquay::ResamplerWrapper *);
     
     /**
      * Set the block size of the target audio device.  This should be
@@ -288,7 +293,8 @@ public:
      * Pass a null pointer to remove the current auditioning plugin,
      * if any.
      */
-    virtual void setAuditioningEffect(Auditionable *plugin) override;
+    virtual void setAuditioningEffect(std::shared_ptr<Auditionable> plugin)
+        override;
 
     /**
      * Specify that only the given set of models should be played.
@@ -315,7 +321,6 @@ signals:
     void channelCountIncreased(int count); // target channel count (see getTargetChannelCount())
 
     void audioOverloadPluginDisabled();
-    void audioTimeStretchMultiChannelDisabled();
 
     void activity(QString);
 
@@ -369,9 +374,6 @@ protected:
     float                             m_outputLeft;
     float                             m_outputRight;
     bool                              m_levelsSet;
-    RealTimePluginInstance           *m_auditioningPlugin;
-    bool                              m_auditioningPluginBypassed;
-    bool                              m_auditioningPluginFailed;
     Scavenger<RealTimePluginInstance> m_pluginScavenger;
     sv_frame_t                        m_playStartFrame;
     bool                              m_playStartFramePassed;
@@ -397,15 +399,6 @@ protected:
     void clearRingBuffers(bool haveLock = false, int count = 0);
     void unifyRingBuffers();
 
-    RubberBand::RubberBandStretcher *m_timeStretcher;
-    RubberBand::RubberBandStretcher *m_monoStretcher;
-    double m_stretchRatio;
-    bool m_stretchMono;
-    
-    int m_stretcherInputCount;
-    float **m_stretcherInputs;
-    sv_frame_t *m_stretcherInputSizes;
-
     // Called from fill thread, m_playing true, mutex held
     // Return true if work done
     bool fillBuffers();
@@ -415,9 +408,6 @@ protected:
     // new buffered frame position (which may be earlier than the
     // frame argument passed in, in the case of looping).
     sv_frame_t mixModels(sv_frame_t &frame, sv_frame_t count, float **buffers);
-
-    // Called from getSourceSamples.
-    void applyAuditioningEffect(sv_frame_t count, float *const *buffers);
 
     // Ranges of current selections, if play selection is active
     std::vector<RealTime> m_rangeStarts;
@@ -442,9 +432,11 @@ protected:
     QMutex m_mutex;
     QWaitCondition m_condition;
     FillThread *m_fillThread;
-    breakfastquay::ResamplerWrapper *m_resamplerWrapper; // I don't own this
+    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
+    TimeStretchWrapper *m_timeStretchWrapper;
+    EffectWrapper *m_auditioningEffectWrapper;
+    void checkWrappers();
 };
 
 #endif
-
 

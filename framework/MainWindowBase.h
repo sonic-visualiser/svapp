@@ -50,6 +50,7 @@ class Layer;
 class WaveformLayer;
 class WaveFileModel;
 class AudioCallbackPlaySource;
+class TimeStretchWrapper;
 class AudioCallbackRecordTarget;
 class CommandHistory;
 class QMenu;
@@ -75,7 +76,6 @@ class LayerGeometryProvider;
 namespace breakfastquay {
     class SystemPlaybackTarget;
     class SystemAudioIO;
-    class ResamplerWrapper;
 }
 
 /**
@@ -307,7 +307,6 @@ protected slots:
 
     virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
-    virtual void audioTimeStretchMultiChannelDisabled() = 0;
 
     virtual void playbackFrameChanged(sv_frame_t);
     virtual void globalCentreFrameChanged(sv_frame_t);
@@ -415,7 +414,6 @@ protected:
 
     AudioCallbackPlaySource *m_playSource;
     AudioCallbackRecordTarget *m_recordTarget;
-    breakfastquay::ResamplerWrapper *m_resamplerWrapper;
     breakfastquay::SystemPlaybackTarget *m_playTarget; // only one of this...
     breakfastquay::SystemAudioIO *m_audioIO;           // ... and this exists
 

@@ -40,15 +40,20 @@ TransformUserConfigurator::setParentWidget(QWidget *w)
 
 bool
 TransformUserConfigurator::getChannelRange(TransformId identifier,
-                                           Vamp::PluginBase *plugin,
+                                           std::shared_ptr<Vamp::PluginBase> plugin,
                                            int &minChannels, int &maxChannels)
 {
     if (plugin && plugin->getType() == "Feature Extraction Plugin") {
-        Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
-        SVDEBUG << "TransformUserConfigurator::getChannelRange: is a Vamp plugin" << endl;
-        minChannels = int(vp->getMinChannelCount());
-        maxChannels = int(vp->getMaxChannelCount());
-        return true;
+        auto vp = std::dynamic_pointer_cast<Vamp::Plugin>(plugin);
+        if (vp) {
+            SVDEBUG << "TransformUserConfigurator::getChannelRange: is a Vamp plugin" << endl;
+            minChannels = int(vp->getMinChannelCount());
+            maxChannels = int(vp->getMaxChannelCount());
+            return true;
+        } else {
+            SVCERR << "TransformUserConfigurator::getChannelRange: inconsistent plugin identity!" << endl;
+            return false;
+        }
     } else {
         SVDEBUG << "TransformUserConfigurator::getChannelRange: is not a Vamp plugin" << endl;
         return TransformFactory::getInstance()->
@@ -59,7 +64,7 @@ TransformUserConfigurator::getChannelRange(TransformId identifier,
 bool
 TransformUserConfigurator::configure(ModelTransformer::Input &input,
                                      Transform &transform,
-                                     Vamp::PluginBase *plugin,
+                                     std::shared_ptr<Vamp::PluginBase> plugin,
                                      ModelId &inputModel,
                                      AudioPlaySource *source,
                                      sv_frame_t startFrame,
@@ -85,36 +90,35 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     if (RealTimePluginFactory::instanceFor(id)) {
 
         RealTimePluginFactory *factory = RealTimePluginFactory::instanceFor(id);
-        const RealTimePluginDescriptor *desc = factory->getPluginDescriptor(id);
+        RealTimePluginDescriptor desc = factory->getPluginDescriptor(id);
 
-        if (desc->audioInputPortCount > 0 && 
-            desc->audioOutputPortCount > 0 &&
-            !desc->isSynth) {
+        if (desc.audioInputPortCount > 0 && 
+            desc.audioOutputPortCount > 0 &&
+            !desc.isSynth) {
             effect = true;
         }
 
-        if (desc->audioInputPortCount == 0) {
+        if (desc.audioInputPortCount == 0) {
             generator = true;
         }
 
         if (output != "A") {
             int outputNo = output.toInt();
-            if (outputNo >= 0 && outputNo < int(desc->controlOutputPortCount)) {
-                outputLabel = desc->controlOutputPortNames[outputNo].c_str();
+            if (outputNo >= 0 && outputNo < int(desc.controlOutputPortCount)) {
+                outputLabel = desc.controlOutputPortNames[outputNo].c_str();
             }
         }
 
-        RealTimePluginInstance *rtp =
-            static_cast<RealTimePluginInstance *>(plugin);
-
-        if (effect && source) {
+        auto auditionable = std::dynamic_pointer_cast<Auditionable>(plugin);
+        
+        if (effect && source && auditionable) {
             SVDEBUG << "Setting auditioning effect" << endl;
-            source->setAuditioningEffect(rtp);
+            source->setAuditioningEffect(auditionable);
         }
 
     } else {
 
-        Vamp::Plugin *vp = static_cast<Vamp::Plugin *>(plugin);
+        auto vp = std::dynamic_pointer_cast<Vamp::Plugin>(plugin);
 
         frequency = (vp->getInputDomain() == Vamp::Plugin::FrequencyDomain);
 
@@ -154,7 +158,8 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
         (plugin, parentWidget);
 
     dialog->setMoreInfoUrl(TransformFactory::getInstance()->
-                           getTransformInfoUrl(transform.getIdentifier()));
+                           getTransformProvider(transform.getIdentifier())
+                           .infoUrl);
 
     if (candidateModelNames.size() > 1 && !generator) {
         dialog->setCandidateInputModels(candidateModelNames,
@@ -229,7 +234,7 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
     delete dialog;
 
     if (effect && source) {
-        source->setAuditioningEffect(nullptr);
+        source->setAuditioningEffect({});
     }
 
     return ok;
