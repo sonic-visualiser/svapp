@@ -281,8 +281,6 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
             this,           SLOT(audioChannelCountIncreased(int)));
     connect(m_playSource, SIGNAL(audioOverloadPluginDisabled()),
             this,           SLOT(audioOverloadPluginDisabled()));
-    connect(m_playSource, SIGNAL(audioTimeStretchMultiChannelDisabled()),
-            this,           SLOT(audioTimeStretchMultiChannelDisabled()));
 
     connect(m_viewManager, SIGNAL(monitoringLevelsChanged(float, float)),
             this, SLOT(monitoringLevelsChanged(float, float)));

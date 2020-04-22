@@ -307,7 +307,6 @@ protected slots:
 
     virtual void sampleRateMismatch(sv_samplerate_t, sv_samplerate_t, bool) = 0;
     virtual void audioOverloadPluginDisabled() = 0;
-    virtual void audioTimeStretchMultiChannelDisabled() = 0;
 
     virtual void playbackFrameChanged(sv_frame_t);
     virtual void globalCentreFrameChanged(sv_frame_t);
