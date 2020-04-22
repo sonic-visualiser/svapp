@@ -55,6 +55,11 @@ public:
     void setEffect(std::weak_ptr<RealTimePluginInstance>);
 
     /**
+     * Return true if an effect is currently set to be applied.
+     */
+    bool haveEffect() const;
+    
+    /**
      * Remove any applied effect without setting another one.
      */
     void clearEffect();

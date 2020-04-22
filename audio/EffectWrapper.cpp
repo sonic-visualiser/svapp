@@ -50,6 +50,18 @@ EffectWrapper::setEffect(weak_ptr<RealTimePluginInstance> effect)
     m_failed = false;
 }
 
+bool
+EffectWrapper::haveEffect() const
+{
+    return m_effect.lock() != nullptr;
+}
+
+void
+EffectWrapper::clearEffect()
+{
+    m_effect = {};
+}
+
 void
 EffectWrapper::setBypassed(bool bypassed)
 {
