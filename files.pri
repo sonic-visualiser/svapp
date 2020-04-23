@@ -1,6 +1,8 @@
 
 SVAPP_HEADERS += \
            align/Align.h \
+           align/ExternalProgramAligner.h \
+           align/TransformAligner.h \
            audio/AudioCallbackPlaySource.h \
            audio/AudioCallbackRecordTarget.h \
            audio/AudioGenerator.h \
@@ -18,6 +20,8 @@ SVAPP_HEADERS += \
 
 SVAPP_SOURCES += \
 	   align/Align.cpp \
+           align/ExternalProgramAligner.cpp \
+           align/TransformAligner.cpp \
            audio/AudioCallbackPlaySource.cpp \
            audio/AudioCallbackRecordTarget.cpp \
            audio/AudioGenerator.cpp \
