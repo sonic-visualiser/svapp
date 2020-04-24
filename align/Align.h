@@ -12,8 +12,8 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef ALIGN_H
-#define ALIGN_H
+#ifndef SV_ALIGN_H
+#define SV_ALIGN_H
 
 #include <QString>
 #include <QObject>
