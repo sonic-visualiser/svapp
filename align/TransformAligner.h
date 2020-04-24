@@ -15,14 +15,12 @@
 #ifndef SV_TRANSFORM_ALIGNER_H
 #define SV_TRANSFORM_ALIGNER_H
 
-#include <QString>
-
-#include "data/model/Model.h"
+#include "Aligner.h"
 
 class AlignmentModel;
 class Document;
 
-class TransformAligner : public QObject
+class TransformAligner : public Aligner
 {
     Q_OBJECT
 
@@ -34,16 +32,9 @@ public:
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~TransformAligner();
 
-    bool begin(QString &error);
+    bool begin(QString &error) override;
 
     static bool isAvailable();
-
-signals:
-    /**
-     * Emitted when alignment is successfully completed. The reference
-     * and toAlign models can be queried from the alignment model.
-     */
-    void complete(ModelId alignmentModel); // an AlignmentModel
 
 private slots:
     void alignmentCompletionChanged(ModelId);

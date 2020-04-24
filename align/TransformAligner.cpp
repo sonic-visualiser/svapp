@@ -189,12 +189,12 @@ TransformAligner::begin(QString &error)
         ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
         QString message;
-        ModelId tuningDiffOutputModelId = mtf->transform(transform,
-                                                         m_aggregateModel,
-                                                         message);
+        m_tuningDiffOutputModel = mtf->transform(transform,
+                                                 m_aggregateModel,
+                                                 message);
 
         auto tuningDiffOutputModel =
-            ModelById::getAs<SparseTimeValueModel>(tuningDiffOutputModelId);
+            ModelById::getAs<SparseTimeValueModel>(m_tuningDiffOutputModel);
         if (!tuningDiffOutputModel) {
             SVCERR << "Align::alignModel: ERROR: Failed to create tuning-difference output model (no Tuning Difference plugin?)" << endl;
             error = message;
@@ -227,8 +227,9 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
 {
     if (tuningDiffOutputModelId != m_tuningDiffOutputModel) {
         SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
-                << tuningDiffOutputModelId
-                << " is not ours!" << endl;
+               << tuningDiffOutputModelId
+               << " is not ours! (ours is "
+               << m_tuningDiffOutputModel << ")" << endl;
         return;
     }
 
@@ -289,6 +290,9 @@ TransformAligner::beginAlignmentPhase()
 {
     TransformId id = getAlignmentTransformName();
     
+    SVDEBUG << "TransformAligner::beginAlignmentPhase: transform is "
+            << id << endl;
+    
     TransformFactory *tf = TransformFactory::getInstance();
 
     auto aggregateModel =
@@ -327,24 +331,24 @@ TransformAligner::beginAlignmentPhase()
 
     alignmentModel->setRelativePitch(cents);
     
-    SVDEBUG << "Align::alignModel: Alignment transform step size "
+    SVDEBUG << "TransformAligner: Alignment transform step size "
             << transform.getStepSize() << ", block size "
             << transform.getBlockSize() << endl;
 
     ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
     QString message;
-    ModelId pathOutputModelId = mtf->transform
+    m_pathOutputModel = mtf->transform
         (transform, m_aggregateModel, message);
 
-    if (pathOutputModelId.isNone()) {
+    if (m_pathOutputModel.isNone()) {
         transform.setStepSize(0);
-        pathOutputModelId = mtf->transform
+        m_pathOutputModel = mtf->transform
             (transform, m_aggregateModel, message);
     }
 
     auto pathOutputModel =
-        ModelById::getAs<SparseTimeValueModel>(pathOutputModelId);
+        ModelById::getAs<SparseTimeValueModel>(m_pathOutputModel);
 
     //!!! callers will need to be updated to get error from
     //!!! alignment model after initial call
@@ -369,8 +373,9 @@ TransformAligner::alignmentCompletionChanged(ModelId alignmentModelId)
 {
     if (alignmentModelId != m_alignmentModel) {
         SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Model "
-                << alignmentModelId
-                << " is not ours!" << endl;
+               << alignmentModelId
+               << " is not ours! (ours is "
+               << m_alignmentModel << ")" << endl;
         return;
     }
 

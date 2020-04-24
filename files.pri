@@ -1,6 +1,7 @@
 
 SVAPP_HEADERS += \
            align/Align.h \
+           align/Aligner.h \
            align/ExternalProgramAligner.h \
            align/TransformAligner.h \
            audio/AudioCallbackPlaySource.h \

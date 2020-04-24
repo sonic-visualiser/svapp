@@ -21,11 +21,9 @@
 #include <QMutex>
 #include <set>
 
-#include "data/model/Model.h"
+#include "Aligner.h"
 
 class AlignmentModel;
-class SparseTimeValueModel;
-class AggregateWaveModel;
 class Document;
 
 class Align : public QObject
@@ -66,17 +64,6 @@ public:
                     ModelId reference,
                     ModelId toAlign,
                     QString &error);
-    
-    bool alignModelViaTransform(Document *doc,
-                                ModelId reference,
-                                ModelId toAlign,
-                                QString &error);
-
-    bool alignModelViaProgram(Document *doc,
-                              ModelId reference,
-                              ModelId toAlign,
-                              QString program,
-                              QString &error);
 
     /**
      * Return true if the alignment facility is available (relevant
@@ -93,38 +80,18 @@ signals:
     void alignmentComplete(ModelId alignmentModel); // an AlignmentModel
 
 private slots:
-    void alignmentCompletionChanged(ModelId);
-    void tuningDifferenceCompletionChanged(ModelId);
-    void alignmentProgramFinished(int, QProcess::ExitStatus);
+    void alignerComplete(ModelId alignmentModel); // an AlignmentModel
     
 private:
-    static QString getAlignmentTransformName();
-    static QString getTuningDifferenceTransformName();
-
-    bool beginTransformDrivenAlignment(ModelId, // an AggregateWaveModel
-                                       ModelId, // an AlignmentModel
-                                       float tuningFrequency = 0.f);
-
-    void abandonOngoingAlignment(ModelId otherId);
-
     QMutex m_mutex;
 
-    struct TuningDiffRec {
-        ModelId input; // an AggregateWaveModel
-        ModelId alignment; // an AlignmentModel
-        ModelId preparatory; // a SparseTimeValueModel
-    };
-    
-    // tuning-difference output model (a SparseTimeValueModel) -> data
-    // needed for subsequent alignment
-    std::map<ModelId, TuningDiffRec> m_pendingTuningDiffs;
+    // maps toAlign -> aligner for ongoing alignment - note that
+    // although we can calculate alignments with different references,
+    // we can only have one alignment on any given toAlign model, so
+    // we don't key this on the whole (reference, toAlign) pair
+    std::map<ModelId, std::shared_ptr<Aligner>> m_aligners;
 
-    // alignment model id -> path output model id
-    std::map<ModelId, ModelId> m_pendingAlignments;
-    
-    // external alignment subprocess -> model into which to stuff the
-    // results (an AlignmentModel)
-    std::map<QProcess *, ModelId> m_pendingProcesses;
+    static void getAlignerPreference(bool useProgram, QString program);
 };
 
 #endif

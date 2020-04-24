@@ -15,15 +15,15 @@
 #ifndef SV_EXTERNAL_PROGRAM_ALIGNER_H
 #define SV_EXTERNAL_PROGRAM_ALIGNER_H
 
+#include "Aligner.h"
+
 #include <QProcess>
 #include <QString>
-
-#include "data/model/Model.h"
 
 class AlignmentModel;
 class Document;
 
-class ExternalProgramAligner : public QObject
+class ExternalProgramAligner : public Aligner
 {
     Q_OBJECT
 
@@ -36,16 +36,9 @@ public:
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~ExternalProgramAligner();
 
-    bool begin(QString &error);
+    bool begin(QString &error) override;
 
     static bool isAvailable(QString program);
-    
-signals:
-    /**
-     * Emitted when alignment is successfully completed. The reference
-     * and toAlign models can be queried from the alignment model.
-     */
-    void complete(ModelId alignmentModel); // an AlignmentModel
 
 private slots:
     void programFinished(int, QProcess::ExitStatus);
