@@ -61,7 +61,7 @@ Align::alignModel(Document *doc,
 }
 
 void
-Align::getAlignerPreference(bool useProgram, QString program)
+Align::getAlignerPreference(bool &useProgram, QString &program)
 {
     QSettings settings;
     settings.beginGroup("Preferences");

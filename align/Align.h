@@ -91,7 +91,7 @@ private:
     // we don't key this on the whole (reference, toAlign) pair
     std::map<ModelId, std::shared_ptr<Aligner>> m_aligners;
 
-    static void getAlignerPreference(bool useProgram, QString program);
+    static void getAlignerPreference(bool &useProgram, QString &program);
 };
 
 #endif
