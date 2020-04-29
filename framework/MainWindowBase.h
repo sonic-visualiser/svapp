@@ -449,6 +449,7 @@ protected:
 
     bool                     m_documentModified;
     bool                     m_openingAudioFile;
+    bool                     m_handlingOSC;
 
     Labeller                *m_labeller;
 

@@ -160,6 +160,7 @@ MainWindowBase::MainWindowBase(AudioMode audioMode,
     m_recentTransforms("RecentTransforms", 20),
     m_documentModified(false),
     m_openingAudioFile(false),
+    m_handlingOSC(false),
     m_labeller(nullptr),
     m_lastPlayStatusSec(0),
     m_initialDarkBackground(false),
@@ -1565,9 +1566,9 @@ MainWindowBase::openAudio(FileSource source,
         }
     }
 
-    source.waitForData();
-
     m_openingAudioFile = true;
+
+    source.waitForData();
 
     sv_samplerate_t rate = 0;
 
@@ -4279,12 +4280,22 @@ MainWindowBase::pollOSC()
 {
     if (!m_oscQueue || m_oscQueue->isEmpty()) return;
 
+    if (m_handlingOSC) {
+        SVDEBUG << "MainWindowBase::pollOSC: "
+                << "not making nested invocations, waiting"
+                << endl;
+        return;
+    }
+    
+    m_handlingOSC = true;
+
     while (!m_oscQueue->isEmpty()) {
 
         if (m_openingAudioFile) {
             SVDEBUG << "MainWindowBase::pollOSC: "
                     << "waiting for audio to finish loading"
                     << endl;
+            m_handlingOSC = false;
             return;
         }
 
@@ -4292,6 +4303,7 @@ MainWindowBase::pollOSC()
             SVDEBUG << "MainWindowBase::pollOSC: "
                     << "waiting for running transforms to complete"
                     << endl;
+            m_handlingOSC = false;
             return;
         }
 
@@ -4304,6 +4316,7 @@ MainWindowBase::pollOSC()
         if (message.getTarget() != 0) {
             SVCERR << "MainWindowBase::pollOSC: ignoring message with target "
                    << message.getTarget() << " (we are target 0)" << endl;
+            m_handlingOSC = false;
             continue;
         }
 
@@ -4314,10 +4327,12 @@ MainWindowBase::pollOSC()
         
         QApplication::processEvents(QEventLoop::ExcludeUserInputEvents |
                                     QEventLoop::ExcludeSocketNotifiers);
-
-        connect(m_oscQueue, SIGNAL(messagesAvailable()),
-                this, SLOT(pollOSC()));
     }
+
+    m_handlingOSC = false;
+
+    connect(m_oscQueue, SIGNAL(messagesAvailable()),
+            this, SLOT(pollOSC()));
 }
 
 void
