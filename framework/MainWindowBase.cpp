@@ -1682,8 +1682,13 @@ MainWindowBase::addOpenedAudioModel(FileSource source,
         }
     }
 
+    if (mode != ReplaceSession && !m_document) {
+        SVDEBUG << "File open mode requested is something other than ReplaceSession, but we have no document at all yet, so we must use ReplaceSession mode" << endl;
+        mode = ReplaceSession;
+    }
+
     if (mode == CreateAdditionalModel && getMainModelId().isNone()) {
-        SVDEBUG << "Mode is CreateAdditionalModel but we have no main model, switching to ReplaceSession mode" << endl;
+        SVDEBUG << "File open mode requested is CreateAdditionalModel, but we have no main model, so switching to ReplaceSession mode" << endl;
         mode = ReplaceSession;
     }
 
