@@ -1466,18 +1466,17 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
                            m_paneStack != nullptr &&
                            m_paneStack->getCurrentPane() != nullptr);
 
-    bool rdf = (source.getExtension().toLower() == "rdf" ||
-                source.getExtension().toLower() == "n3" ||
-                source.getExtension().toLower() == "ttl");
-
-    bool audio = AudioFileReaderFactory::getKnownExtensions().contains
-        (source.getExtension().toLower());
+    QString extension = source.getExtension().toLower();
+    
+    bool rdf = (extension == "rdf" || extension == "n3" || extension == "ttl");
+    bool audio =
+        AudioFileReaderFactory::getKnownExtensions().contains(extension);
 
     bool rdfSession = false;
     if (rdf) {
         RDFImporter::RDFDocumentType rdfType = 
             RDFImporter::identifyDocumentType
-            (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+            (QUrl::fromLocalFile(source.getLocalFilename()));
         if (rdfType == RDFImporter::AudioRefAndAnnotations ||
             rdfType == RDFImporter::AudioRef) {
             rdfSession = true;
@@ -1910,7 +1909,7 @@ MainWindowBase::openLayer(FileSource source)
     QString path = source.getLocalFilename();
 
     RDFImporter::RDFDocumentType rdfType = 
-        RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path).toString());
+        RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path));
 
 //    cerr << "RDF type:  (in layer) " << (int) rdfType << endl;
 
@@ -2139,22 +2138,29 @@ MainWindowBase::openSession(FileSource source)
     QString sessionExt = 
         InteractiveFileFinder::getInstance()->getApplicationSessionExtension();
 
-    if (source.getExtension().toLower() != sessionExt) {
+    QString extension = source.getExtension().toLower();
+    
+    bool rdf = (extension == "rdf" || extension == "n3" || extension == "ttl");
 
-        RDFImporter::RDFDocumentType rdfType = 
-            RDFImporter::identifyDocumentType
-            (QUrl::fromLocalFile(source.getLocalFilename()).toString());
+    if (extension != sessionExt) {
+
+        if (rdf) {
+        
+            RDFImporter::RDFDocumentType rdfType = 
+                RDFImporter::identifyDocumentType
+                (QUrl::fromLocalFile(source.getLocalFilename()));
 
 //        cerr << "RDF type: " << (int)rdfType << endl;
 
-        if (rdfType == RDFImporter::AudioRefAndAnnotations ||
-            rdfType == RDFImporter::AudioRef) {
-            return openSessionFromRDF(source);
-        } else if (rdfType != RDFImporter::NotRDF) {
-            return FileOpenFailed;
-        }
+            if (rdfType == RDFImporter::AudioRefAndAnnotations ||
+                rdfType == RDFImporter::AudioRef) {
+                return openSessionFromRDF(source);
+            } else if (rdfType != RDFImporter::NotRDF) {
+                return FileOpenFailed;
+            }
 
-        if (source.getExtension().toLower() == "xml") {
+        } else if (extension == "xml") {
+            
             if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
                 SVFileReader::SVSessionFile) {
                 cerr << "This XML file looks like a session file, attempting to open it as a session" << endl;
@@ -2170,7 +2176,7 @@ MainWindowBase::openSession(FileSource source)
     BZipFileDevice *bzFile = nullptr;
     QFile *rawFile = nullptr;
 
-    if (source.getExtension().toLower() == sessionExt) {
+    if (extension == sessionExt) {
         bzFile = new BZipFileDevice(source.getLocalFilename());
         if (!bzFile->open(QIODevice::ReadOnly)) {
             delete bzFile;
