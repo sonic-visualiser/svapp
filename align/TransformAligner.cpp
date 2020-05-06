@@ -93,15 +93,15 @@ TransformAligner::isAvailable()
         (tdId == "" || factory->haveTransform(tdId));
 }
 
-bool
-TransformAligner::begin(QString &error)
+void
+TransformAligner::begin()
 {
     auto reference =
         ModelById::getAs<RangeSummarisableTimeValueModel>(m_reference);
     auto other =
         ModelById::getAs<RangeSummarisableTimeValueModel>(m_toAlign);
 
-    if (!reference || !other) return false;
+    if (!reference || !other) return;
 
     // This involves creating a number of new models:
     //
@@ -165,9 +165,10 @@ TransformAligner::begin(QString &error)
             other->setAlignment(m_alignmentModel);
             m_document->addNonDerivedModel(m_alignmentModel);
         } else {
-            error = alignmentModel->getError();
+            QString error = alignmentModel->getError();
             ModelById::release(alignmentModel);
-            return false;
+            emit failed(m_toAlign, error);
+            return;
         }
 
     } else {
@@ -197,9 +198,9 @@ TransformAligner::begin(QString &error)
             ModelById::getAs<SparseTimeValueModel>(m_tuningDiffOutputModel);
         if (!tuningDiffOutputModel) {
             SVCERR << "Align::alignModel: ERROR: Failed to create tuning-difference output model (no Tuning Difference plugin?)" << endl;
-            error = message;
             ModelById::release(alignmentModel);
-            return false;
+            emit failed(m_toAlign, message);
+            return;
         }
 
         other->setAlignment(m_alignmentModel);
@@ -218,13 +219,16 @@ TransformAligner::begin(QString &error)
         progressModel->setCompletion(0);
         alignmentModel->setPathFrom(m_tuningDiffProgressModel);
     }
-
-    return true;
 }
 
 void
 TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 {
+    if (m_tuningDiffOutputModel.isNone()) {
+        // we're done, this is probably a spurious queued event
+        return;
+    }
+        
     if (tuningDiffOutputModelId != m_tuningDiffOutputModel) {
         SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
                << tuningDiffOutputModelId
@@ -252,6 +256,10 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     int completion = 0;
     bool done = tuningDiffOutputModel->isReady(&completion);
 
+    SVDEBUG << "TransformAligner::tuningDifferenceCompletionChanged: model "
+            << m_tuningDiffOutputModel << ", completion = " << completion
+            << ", done = " << done << endl;
+    
     if (!done) {
         // This will be the completion the alignment model reports,
         // before the alignment actually begins. It goes up from 0 to

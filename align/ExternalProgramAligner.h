@@ -36,7 +36,7 @@ public:
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~ExternalProgramAligner();
 
-    bool begin(QString &error) override;
+    void begin() override;
 
     static bool isAvailable(QString program);
 

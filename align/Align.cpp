@@ -18,12 +18,35 @@
 #include "framework/Document.h"
 
 #include <QSettings>
+#include <QTimer>
 
-bool
+void
 Align::alignModel(Document *doc,
                   ModelId reference,
-                  ModelId toAlign,
-                  QString &error)
+                  ModelId toAlign)
+{
+    addAligner(doc, reference, toAlign);
+    m_aligners[toAlign]->begin();
+}
+
+void
+Align::scheduleAlignment(Document *doc,
+                         ModelId reference,
+                         ModelId toAlign)
+{
+    addAligner(doc, reference, toAlign);
+    int delay = 500 + 500 * int(m_aligners.size());
+    if (delay > 3500) {
+        delay = 3500;
+    }
+    SVCERR << "Align::scheduleAlignment: delaying " << delay << "ms" << endl;
+    QTimer::singleShot(delay, m_aligners[toAlign].get(), SLOT(begin()));
+}
+
+void
+Align::addAligner(Document *doc,
+                  ModelId reference,
+                  ModelId toAlign)
 {
     bool useProgram;
     QString program;
@@ -56,8 +79,9 @@ Align::alignModel(Document *doc,
 
     connect(aligner.get(), SIGNAL(complete(ModelId)),
             this, SLOT(alignerComplete(ModelId)));
-    
-    return aligner->begin(error);
+
+    connect(aligner.get(), SIGNAL(failed(ModelId, QString)),
+            this, SLOT(alignerFailed(ModelId, QString)));
 }
 
 void
@@ -87,23 +111,33 @@ Align::canAlign()
 void
 Align::alignerComplete(ModelId alignmentModel)
 {
-    Aligner *aligner = qobject_cast<Aligner *>(sender());
+    removeAligner(sender());
+    emit alignmentComplete(alignmentModel);
+}
+
+void
+Align::alignerFailed(ModelId toAlign, QString error)
+{
+    removeAligner(sender());
+    emit alignmentFailed(toAlign, error);
+}
+
+void
+Align::removeAligner(QObject *obj)
+{
+    Aligner *aligner = qobject_cast<Aligner *>(obj);
     if (!aligner) {
-        SVCERR << "ERROR: Align::alignerComplete: Caller is not an Aligner"
-               << endl;
+        SVCERR << "ERROR: Align::removeAligner: Not an Aligner" << endl;
         return;
     }
 
-    {
-        QMutexLocker locker (&m_mutex);
+    QMutexLocker locker (&m_mutex);
 
-        for (auto p: m_aligners) {
-            if (aligner == p.second.get()) {
-                m_aligners.erase(p.first);
-                break;
-            }
+    for (auto p: m_aligners) {
+        if (aligner == p.second.get()) {
+            m_aligners.erase(p.first);
+            break;
         }
     }
-
-    emit alignmentComplete(alignmentModel);
 }
+

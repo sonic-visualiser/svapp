@@ -331,7 +331,7 @@ signals:
                                   QString message);
 
     void alignmentComplete(ModelId); // an AlignmentModel
-    void alignmentFailed(QString message);
+    void alignmentFailed(ModelId, QString message); // an AlignmentModel
 
     void activity(QString);
 

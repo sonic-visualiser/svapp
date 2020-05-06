@@ -57,6 +57,9 @@ Document::Document() :
 
     connect(m_align, SIGNAL(alignmentComplete(ModelId)),
             this, SIGNAL(alignmentComplete(ModelId)));
+
+    connect(m_align, SIGNAL(alignmentFailed(ModelId, QString)),
+            this, SIGNAL(alignmentFailed(ModelId, QString)));
 }
 
 Document::~Document()
@@ -555,7 +558,7 @@ Document::setMainModel(ModelId modelId)
     }
 
     if (m_autoAlignment) {
-        SVDEBUG << "Document::setMainModel: auto-alignment is on, aligning model if possible" << endl;
+        SVDEBUG << "Document::setMainModel: auto-alignment is on, aligning main model if applicable" << endl;
         alignModel(m_mainModel);
     } else {
         SVDEBUG << "Document::setMainModel: auto-alignment is off" << endl;
@@ -1145,11 +1148,7 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
                 << endl;
     }
 
-    QString err;
-    if (!m_align->alignModel(this, m_mainModel, modelId, err)) {
-        SVCERR << "Alignment failed: " << err << endl;
-        emit alignmentFailed(err);
-    }
+    m_align->scheduleAlignment(this, m_mainModel, modelId);
 }
 
 void

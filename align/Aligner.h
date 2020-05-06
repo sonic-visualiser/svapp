@@ -26,7 +26,8 @@ class Aligner : public QObject
 public:
     virtual ~Aligner() { }
 
-    virtual bool begin(QString &error) = 0;
+public slots:
+    virtual void begin() = 0;
 
 signals:
     /**
@@ -34,6 +35,11 @@ signals:
      * and toAlign models can be queried from the alignment model.
      */
     void complete(ModelId alignmentModel); // an AlignmentModel
+
+    /**
+     * Emitted when alignment fails.
+     */
+    void failed(ModelId toAlign, QString errorText); // the toAlign model
 };
 
 #endif

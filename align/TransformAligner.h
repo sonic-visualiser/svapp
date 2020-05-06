@@ -32,7 +32,7 @@ public:
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~TransformAligner();
 
-    bool begin(QString &error) override;
+    void begin() override;
 
     static bool isAvailable();
 

@@ -49,8 +49,8 @@ ExternalProgramAligner::isAvailable(QString program)
     return file.exists() && file.isExecutable();
 }
 
-bool
-ExternalProgramAligner::begin(QString &error)
+void
+ExternalProgramAligner::begin()
 {
     // Run an external program, passing to it paths to the main
     // model's audio file and the new model's audio file. It returns
@@ -60,7 +60,7 @@ ExternalProgramAligner::begin(QString &error)
     auto other = ModelById::getAs<ReadOnlyWaveFileModel>(m_toAlign);
     if (!reference || !other) {
         SVCERR << "ERROR: ExternalProgramAligner: Can't align non-read-only models via program (no local filename available)" << endl;
-        return false;
+        return;
     }
 
     while (!reference->isReady(nullptr) || !other->isReady(nullptr)) {
@@ -78,8 +78,9 @@ ExternalProgramAligner::begin(QString &error)
     }
 
     if (refPath == "" || otherPath == "") {
-        error = "Failed to find local filepath for wave-file model";
-        return false;
+        emit failed(m_toAlign,
+                    tr("Failed to find local filepath for wave-file model"));
+        return;
     }
 
     auto alignmentModel =
@@ -113,7 +114,9 @@ ExternalProgramAligner::begin(QString &error)
     if (!success) {
         
         SVCERR << "ERROR: ExternalProgramAligner: Program did not start" << endl;
-        error = "Alignment program \"" + m_program + "\" did not start";
+        emit failed(m_toAlign,
+                    tr("Alignment program \"%1\" did not start")
+                    .arg(m_program));
         
         other->setAlignment({});
         ModelById::release(m_alignmentModel);
@@ -123,8 +126,6 @@ ExternalProgramAligner::begin(QString &error)
     } else {
         m_document->addNonDerivedModel(m_alignmentModel);
     }
-
-    return success;
 }
 
 void
@@ -169,9 +170,10 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         if (!reader.isOK()) {
             SVCERR << "ERROR: ExternalProgramAligner: Failed to parse output"
                    << endl;
-            alignmentModel->setError
-                (QString("Failed to parse output of program: %1")
-                 .arg(reader.getError()));
+            QString error = tr("Failed to parse output of program: %1")
+                .arg(reader.getError());
+            alignmentModel->setError(error);
+            emit failed(m_toAlign, error);
             goto done;
         }
 
@@ -184,18 +186,22 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         if (!path) {
             SVCERR << "ERROR: ExternalProgramAligner: Output did not convert to sparse time-value model"
                    << endl;
-            alignmentModel->setError
-                ("Output of program did not produce sparse time-value model");
+            QString error =
+                tr("Output of alignment program was not in the proper format");
+            alignmentModel->setError(error);
             delete csvOutput;
+            emit failed(m_toAlign, error);
             goto done;
         }
                        
         if (path->isEmpty()) {
             SVCERR << "ERROR: ExternalProgramAligner: Output contained no mappings"
                    << endl;
-            alignmentModel->setError
-                ("Output of alignment program contained no mappings");
+            QString error = 
+                tr("Output of alignment program contained no mappings");
+            alignmentModel->setError(error);
             delete path;
+            emit failed(m_toAlign, error);
             goto done;
         }
 
@@ -214,8 +220,9 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         SVCERR << "ERROR: ExternalProgramAligner: Aligner program "
                << "failed: exit code " << exitCode << ", status " << status
                << endl;
-        alignmentModel->setError
-            ("Aligner process returned non-zero exit status");
+        QString error = tr("Aligner process returned non-zero exit status");
+        alignmentModel->setError(error);
+        emit failed(m_toAlign, error);
     }
 
 done:

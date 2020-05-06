@@ -39,16 +39,15 @@ public:
      * configured in the user preferences (either a plugin transform
      * or an external process) and is done asynchronously. 
      *
-     * The return value indicates whether the alignment procedure
-     * started successfully. If it is true, then an AlignmentModel has
+     * Any errors are reported by firing the alignmentFailed
+     * signal. Note that the signal may be fired during the call to
+     * this function, if the aligner fails to start at all.
+     *
+     * If alignment starts successfully, then an AlignmentModel has
      * been constructed and attached to the toAlign model, and you can
      * query that model to discover the alignment progress, eventual
-     * outcome, and any error message generated during alignment. (The
-     * AlignmentModel is subsequently owned by the toAlign model.)
-     * Conversely if alignModel returns false, no AlignmentModel has
-     * been created, and the error return argument will contain an
-     * error report about whatever problem prevented this from
-     * happening.
+     * outcome, and also (separately from the alignmentFailed signal
+     * here) any error message generated during alignment.
      *
      * A single Align object may carry out many simultanous alignment
      * calls -- you do not need to create a new Align object each
@@ -60,11 +59,25 @@ public:
      * Align object will simply share the process or document
      * lifespan.
      */
-    bool alignModel(Document *doc,
+    void alignModel(Document *doc,
                     ModelId reference,
-                    ModelId toAlign,
-                    QString &error);
+                    ModelId toAlign);
 
+    /**
+     * As alignModel, except that the alignment does not begin
+     * immediately, but is instead placed behind an event callback
+     * with a small delay. Useful to avoid an unresponsive GUI when
+     * firing off alignments while doing something else as well. Any
+     * error is reported by firing the alignmentFailed signal.
+     *
+     * Scheduled alignments are not queued or serialised - many could
+     * happen at once. They are just delayed a little for UI
+     * responsiveness.
+     */
+    void scheduleAlignment(Document *doc,
+                           ModelId reference,
+                           ModelId toAlign);
+    
     /**
      * Return true if the alignment facility is available (relevant
      * plugin installed, etc).
@@ -79,8 +92,15 @@ signals:
      */
     void alignmentComplete(ModelId alignmentModel); // an AlignmentModel
 
+    /**
+     * Emitted when an alignment fails. The model is the toAlign model
+     * that was passed to the call to alignModel or scheduleAlignment.
+     */
+    void alignmentFailed(ModelId toAlign, QString errorText);
+
 private slots:
     void alignerComplete(ModelId alignmentModel); // an AlignmentModel
+    void alignerFailed(ModelId toAlign, QString errorText);
     
 private:
     QMutex m_mutex;
@@ -90,6 +110,9 @@ private:
     // we can only have one alignment on any given toAlign model, so
     // we don't key this on the whole (reference, toAlign) pair
     std::map<ModelId, std::shared_ptr<Aligner>> m_aligners;
+
+    void addAligner(Document *doc, ModelId reference, ModelId toAlign);
+    void removeAligner(QObject *);
 
     static void getAlignerPreference(bool &useProgram, QString &program);
 };
