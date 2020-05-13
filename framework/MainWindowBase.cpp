@@ -59,6 +59,7 @@
 #include "data/fileio/BZipFileDevice.h"
 #include "data/fileio/FileSource.h"
 #include "data/fileio/AudioFileReaderFactory.h"
+#include "data/fileio/TextTest.h"
 #include "rdf/RDFImporter.h"
 #include "rdf/RDFExporter.h"
 
@@ -1516,7 +1517,20 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
         } else if ((status = openPlaylist(source, mode)) != FileOpenFailed) {
             return status;
         } else if (!canImportLayer) {
-            return FileOpenWrongMode;
+            // We already checked whether the file is RDF: we know
+            // it's not. But if it's another format that might be
+            // supported as a layer, reply that we can't open a layer
+            // here - otherwise assume it's an unknown file format
+            if (ImageLayer::isImageFileSupported(source.getLocation())) {
+                return FileOpenWrongMode;
+            }
+            if (extension == "mid" || extension == "midi") {
+                return FileOpenWrongMode;
+            }                
+            if (TextTest::isApparentTextDocument(source)) {
+                return FileOpenWrongMode;
+            }                
+            return FileOpenFailed;
         } else if ((status = openImage(source)) != FileOpenFailed) {
             return status;
         } else if ((status = openLayer(source)) != FileOpenFailed) {
@@ -2057,7 +2071,7 @@ MainWindowBase::openImage(FileSource source)
 
     // We don't put the image file in Recent Files
 
-    cerr << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << endl;
+    SVCERR << "openImage: trying location \"" << source.getLocation() << "\" in image layer" << endl;
 
     if (!il->addImage(m_viewManager->getGlobalCentreFrame(), source.getLocation())) {
         if (newLayer) {
