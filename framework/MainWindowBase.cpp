@@ -2726,8 +2726,8 @@ MainWindowBase::createDocument()
             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
     connect(m_document, SIGNAL(alignmentComplete(ModelId)),
             this, SLOT(alignmentComplete(ModelId)));
-    connect(m_document, SIGNAL(alignmentFailed(QString)),
-            this, SLOT(alignmentFailed(QString)));
+    connect(m_document, SIGNAL(alignmentFailed(ModelId, QString)),
+            this, SLOT(alignmentFailed(ModelId, QString)));
 
     m_document->setAutoAlignment(m_viewManager->getAlignMode());
 
