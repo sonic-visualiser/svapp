@@ -171,6 +171,8 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
 {
     if (m_models.find(modelId) != m_models.end()) return;
 
+    Profiler profiler("AudioCallbackPlaySource::addModel");
+    
     bool willPlay = m_audioGenerator->addModel(modelId);
 
     auto model = ModelById::get(modelId);
@@ -200,7 +202,7 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
     if (m_sourceSampleRate == 0) {
 
         SVDEBUG << "AudioCallbackPlaySource::addModel: Source rate changing from 0 to "
-            << model->getSampleRate() << endl;
+                << model->getSampleRate() << endl;
 
         m_sourceSampleRate = model->getSampleRate();
         srChanged = true;
@@ -332,6 +334,8 @@ AudioCallbackPlaySource::removeModel(ModelId modelId)
     auto model = ModelById::get(modelId);
     if (!model) return;
     
+    Profiler profiler("AudioCallbackPlaySource::removeModel");
+
     m_mutex.lock();
 
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
@@ -885,6 +889,8 @@ cout << "Not looping, inRange " << inRange << " == rangeStarts.size()-1, playing
 void
 AudioCallbackPlaySource::rebuildRangeLists()
 {
+    Profiler profiler("AudioCallbackPlaySource::rebuildRangeLists");
+    
     bool constrained = (m_viewManager->getPlaySelectionMode());
 
     m_rangeStarts.clear();

@@ -399,8 +399,7 @@ protected:
     void clearRingBuffers(bool haveLock = false, int count = 0);
     void unifyRingBuffers();
 
-    // Called from fill thread, m_playing true, mutex held
-    // Return true if work done
+    // Called from fill thread, mutex held.  Return true if work done
     bool fillBuffers();
     
     // Called from fillBuffers.  Return the number of frames written,
