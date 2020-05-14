@@ -64,6 +64,8 @@ Document::Document() :
 
 Document::~Document()
 {
+    Profiler profiler("Document::~Document");
+    
     //!!! Document should really own the command history.  atm we
     //still refer to it in various places that don't have access to
     //the document, be nice to fix that
@@ -115,6 +117,8 @@ Document::~Document()
 Layer *
 Document::createLayer(LayerFactory::LayerType type)
 {
+    Profiler profiler("Document::createLayer");
+    
     Layer *newLayer = LayerFactory::getInstance()->createLayer(type);
     if (!newLayer) return nullptr;
 
@@ -135,6 +139,8 @@ Document::createLayer(LayerFactory::LayerType type)
 Layer *
 Document::createMainModelLayer(LayerFactory::LayerType type)
 {
+    Profiler profiler("Document::createMainModelLayer");
+    
     Layer *newLayer = createLayer(type);
     if (!newLayer) return nullptr;
     setModel(newLayer, m_mainModel);
@@ -144,6 +150,8 @@ Document::createMainModelLayer(LayerFactory::LayerType type)
 Layer *
 Document::createImportedLayer(ModelId modelId)
 {
+    Profiler profiler("Document::createImportedLayer");
+    
     LayerFactory::LayerTypeSet types =
         LayerFactory::getInstance()->getValidLayerTypes(modelId);
 
@@ -180,6 +188,8 @@ Document::createImportedLayer(ModelId modelId)
 Layer *
 Document::createEmptyLayer(LayerFactory::LayerType type)
 {
+    Profiler profiler("Document::createEmptyLayer");
+    
     if (m_mainModel.isNone()) return nullptr;
 
     auto newModel =
@@ -202,6 +212,8 @@ Layer *
 Document::createDerivedLayer(LayerFactory::LayerType type,
                              TransformId transform)
 {
+    Profiler profiler("Document::createDerivedLayer (type)");
+    
     Layer *newLayer = createLayer(type);
     if (!newLayer) return nullptr;
 
@@ -216,6 +228,8 @@ Layer *
 Document::createDerivedLayer(const Transform &transform,
                              const ModelTransformer::Input &input)
 {
+    Profiler profiler("Document::createDerivedLayer (transform)");
+    
     Transforms transforms;
     transforms.push_back(transform);
     vector<Layer *> layers = createDerivedLayers(transforms, input);
@@ -227,6 +241,8 @@ vector<Layer *>
 Document::createDerivedLayers(const Transforms &transforms,
                               const ModelTransformer::Input &input)
 {
+    Profiler profiler("Document::createDerivedLayers");
+    
     QString message;
     vector<ModelId> newModels =
         addDerivedModels(transforms, input, message, nullptr);
@@ -309,6 +325,8 @@ Document::createDerivedLayersAsync(const Transforms &transforms,
                                    const ModelTransformer::Input &input,
                                    LayerCreationHandler *handler)
 {
+    Profiler profiler("Document::createDerivedLayersAsync");
+    
     QString message;
 
     AdditionalModelConverter *amc = new AdditionalModelConverter(this, handler);
@@ -351,6 +369,8 @@ vector<Layer *>
 Document::createLayersForDerivedModels(vector<ModelId> newModels, 
                                        QStringList names)
 {
+    Profiler profiler("Document::createLayersForDerivedModels");
+    
     vector<Layer *> layers;
     
     for (int i = 0; in_range_for(newModels, i); ++i) {
@@ -400,6 +420,8 @@ Document::createLayersForDerivedModels(vector<ModelId> newModels,
 void
 Document::setMainModel(ModelId modelId)
 {
+    Profiler profiler("Document::setMainModel");
+    
     ModelId oldMainModel = m_mainModel;
     m_mainModel = modelId;
     
@@ -583,6 +605,8 @@ Document::addAlreadyDerivedModel(const Transform &transform,
                                  const ModelTransformer::Input &input,
                                  ModelId outputModelToAdd)
 {
+    Profiler profiler("Document::addAlreadyDerivedModel");
+    
     if (m_models.find(outputModelToAdd) != m_models.end()) {
         SVCERR << "WARNING: Document::addAlreadyDerivedModel: Model already added"
                << endl;
@@ -620,6 +644,8 @@ Document::addAlreadyDerivedModel(const Transform &transform,
 void
 Document::addNonDerivedModel(ModelId modelId)
 {
+    Profiler profiler("Document::addNonDerivedModel");
+    
     if (ModelById::isa<AggregateWaveModel>(modelId)) {
 #ifdef DEBUG_DOCUMENT
         SVCERR << "Document::addNonDerivedModel: Model " << modelId << " is an aggregate model, adding it to aggregates" << endl;
@@ -670,6 +696,8 @@ Document::addNonDerivedModel(ModelId modelId)
 void
 Document::addAdditionalModel(ModelId modelId)
 {
+    Profiler profiler("Document::addAdditionalModel");
+    
     if (m_models.find(modelId) != m_models.end()) {
         SVCERR << "WARNING: Document::addAdditionalModel: Model already added"
                << endl;
@@ -706,6 +734,8 @@ Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
                           QString &message)
 {
+    Profiler profiler("Document::addDerivedModel");
+    
     for (auto &rec : m_models) {
         if (rec.second.transform == transform &&
             rec.second.source == input.getModel() && 
@@ -728,6 +758,8 @@ Document::addDerivedModels(const Transforms &transforms,
                            QString &message,
                            AdditionalModelConverter *amc)
 {
+    Profiler profiler("Document::addDerivedModels");
+    
     vector<ModelId> mm = 
         ModelTransformerFactory::getInstance()->transformMultiple
         (transforms, input, message, amc);
@@ -768,6 +800,8 @@ Document::addDerivedModels(const Transforms &transforms,
 void
 Document::releaseModel(ModelId modelId)
 {
+    Profiler profiler("Document::releaseModel");
+    
     // This is called when a layer has been deleted or has replaced
     // its model, in order to reclaim storage for the old model. It
     // could be a no-op without making any functional difference, as
@@ -854,6 +888,8 @@ Document::releaseModel(ModelId modelId)
 void
 Document::deleteLayer(Layer *layer, bool force)
 {
+    Profiler profiler("Document::deleteLayer");
+    
     if (m_layerViewMap.find(layer) != m_layerViewMap.end() &&
         m_layerViewMap[layer].size() > 0) {
 
@@ -914,6 +950,8 @@ Document::deleteLayer(Layer *layer, bool force)
 void
 Document::setModel(Layer *layer, ModelId modelId)
 {
+    Profiler profiler("Document::setModel");
+    
     if (!modelId.isNone() && 
         modelId != m_mainModel &&
         m_models.find(modelId) == m_models.end()) {

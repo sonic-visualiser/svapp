@@ -4167,6 +4167,7 @@ MainWindowBase::layerAdded(Layer *)
 void
 MainWindowBase::layerRemoved(Layer *)
 {
+    Profiler profiler("MainWindowBase::layerRemoved");
 //    SVDEBUG << "MainWindowBase::layerRemoved(" << layer << ")" << endl;
     updateMenuStates();
 }
