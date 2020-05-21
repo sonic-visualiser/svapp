@@ -27,7 +27,10 @@ class TransformAligner : public Aligner
 public:
     TransformAligner(Document *doc,
                      ModelId reference,
-                     ModelId toAlign);
+                     ModelId toAlign,
+                     bool withTuningDifference);
+
+    //!!! pass in transform id
 
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~TransformAligner();
@@ -54,6 +57,7 @@ private:
     ModelId m_tuningDiffProgressModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_tuningDiffOutputModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_pathOutputModel; // SparseTimeValueModel, unreg'd with doc
+    bool m_withTuningDifference;
     float m_tuningFrequency;
     bool m_incomplete;
 };

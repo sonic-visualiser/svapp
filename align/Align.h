@@ -33,6 +33,26 @@ class Align : public QObject
 public:
     Align() { }
 
+    enum AlignmentType {
+        NoAlignment,
+        LinearAlignment,
+        TrimmedLinearAlignment,
+        MATCHAlignment,
+        MATCHAlignmentWithPitchCompare,
+        SungPitchContourAlignment,
+        TransformDrivenDTWAlignment,
+        ExternalProgramAlignment,
+
+        LastAlignmentType = ExternalProgramAlignment
+    };
+
+    static QString getAlignmentTypeTag(AlignmentType type);
+    static AlignmentType getAlignmentTypeForTag(QString tag);
+
+    static AlignmentType getAlignmentPreference(QString &additionalData);
+    static void setAlignmentPreference(AlignmentType type,
+                                       QString additionalData = "");
+    
     /**
      * Align the "other" model to the reference, attaching an
      * AlignmentModel to it. Alignment is carried out by the method
@@ -84,6 +104,8 @@ public:
      */
     static bool canAlign();
 
+    //!!! + check whether specific alignment types are available
+
 signals:
     /**
      * Emitted when an alignment is successfully completed. The
@@ -111,10 +133,8 @@ private:
     // we don't key this on the whole (reference, toAlign) pair
     std::map<ModelId, std::shared_ptr<Aligner>> m_aligners;
 
-    void addAligner(Document *doc, ModelId reference, ModelId toAlign);
+    bool addAligner(Document *doc, ModelId reference, ModelId toAlign);
     void removeAligner(QObject *);
-
-    static void getAlignerPreference(bool &useProgram, QString &program);
 };
 
 #endif

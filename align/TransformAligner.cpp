@@ -29,10 +29,12 @@
 
 TransformAligner::TransformAligner(Document *doc,
                                    ModelId reference,
-                                   ModelId toAlign) :
+                                   ModelId toAlign,
+                                   bool withTuningDifference) :
     m_document(doc),
     m_reference(reference),
     m_toAlign(toAlign),
+    m_withTuningDifference(withTuningDifference),
     m_tuningFrequency(440.f),
     m_incomplete(true)
 {
@@ -58,9 +60,9 @@ TransformAligner::getAlignmentTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-    TransformId id =
-        settings.value("transform-id",
-                       "vamp:match-vamp-plugin:match:path").toString();
+    TransformId id = settings.value
+        ("transform-id",
+         "vamp:match-vamp-plugin:match:path").toString();
     settings.endGroup();
     return id;
 }
@@ -70,15 +72,10 @@ TransformAligner::getTuningDifferenceTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-    bool performPitchCompensation =
-        settings.value("align-pitch-aware", false).toBool();
-    QString id = "";
-    if (performPitchCompensation) {
-        id = settings.value
-            ("tuning-difference-transform-id",
-             "vamp:tuning-difference:tuning-difference:tuningfreq")
-            .toString();
-    }
+    TransformId id = settings.value
+        ("tuning-difference-transform-id",
+         "vamp:tuning-difference:tuning-difference:tuningfreq")
+        .toString();
     settings.endGroup();
     return id;
 }
@@ -157,7 +154,10 @@ TransformAligner::begin()
         (m_reference, m_toAlign, ModelId());
     m_alignmentModel = ModelById::add(alignmentModel);
 
-    TransformId tdId = getTuningDifferenceTransformName();
+    TransformId tdId;
+    if (m_withTuningDifference) {
+        tdId = getTuningDifferenceTransformName();
+    }
 
     if (tdId == "") {
         
