@@ -50,7 +50,6 @@ TransformAligner::~TransformAligner()
         }
     }
 
-    ModelById::release(m_tuningDiffProgressModel);
     ModelById::release(m_tuningDiffOutputModel);
     ModelById::release(m_pathOutputModel);
 }
@@ -117,11 +116,6 @@ TransformAligner::begin()
     // plugin to perform alignment (so containing the alignment path).
     // This is m_pathOutputModel.
     //
-    // 2c. a SparseTimeValueModel used solely to provide faked
-    // completion information to the AlignmentModel while a
-    // TuningDifference calculation is going on. We call this
-    // m_tuningDiffProgressModel.
-    //
     // 3. an AlignmentModel, which stores the path and carries out
     // alignment lookups on it. This one is m_alignmentModel.
     //
@@ -130,12 +124,9 @@ TransformAligner::begin()
     // the case where an activity fails before the point where we
     // would otherwise have registered them with the document.
     //
-    // Models 2a (m_tuningDiffOutputModel), 2b (m_pathOutputModel) and
-    // 2c (m_tuningDiffProgressModel) are not registered with the
-    // document, because they are not intended to persist, and also
-    // Model 2c (m_tuningDiffProgressModel) is a bodge that we are
-    // embarrassed about, so we try to manage it ourselves without
-    // anyone else noticing. These have to be released by us when
+    // Models 2a (m_tuningDiffOutputModel) and 2b (m_pathOutputModel)
+    // are not registered with the document, because they are not
+    // intended to persist. These have to be released by us when
     // finished with, but their lifespans do not extend beyond the end
     // of the alignment procedure, so this should be ok.
 
@@ -209,15 +200,6 @@ TransformAligner::begin()
         connect(tuningDiffOutputModel.get(),
                 SIGNAL(completionChanged(ModelId)),
                 this, SLOT(tuningDifferenceCompletionChanged(ModelId)));
-
-        // This model exists only so that the AlignmentModel can get a
-        // completion value from somewhere while the tuning difference
-        // calculation is going on
-        auto progressModel = std::make_shared<SparseTimeValueModel>
-            (aggregateModel->getSampleRate(), 1);
-        m_tuningDiffProgressModel = ModelById::add(progressModel);
-        progressModel->setCompletion(0);
-        alignmentModel->setPathFrom(m_tuningDiffProgressModel);
     }
 }
 
@@ -266,11 +248,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
         // 99 (not 100!) and then back to 0 again when we start
         // calculating the actual path in the following phase
         int clamped = (completion == 100 ? 99 : completion);
-        auto progressModel =
-            ModelById::getAs<SparseTimeValueModel>(m_tuningDiffProgressModel);
-        if (progressModel) {
-            progressModel->setCompletion(clamped);
-        }
+        alignmentModel->setCompletion(clamped);
         return;
     }
 
@@ -286,10 +264,6 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     ModelById::release(tuningDiffOutputModel);
     m_tuningDiffOutputModel = {};
     
-    alignmentModel->setPathFrom({}); // replace m_tuningDiffProgressModel
-    ModelById::release(m_tuningDiffProgressModel);
-    m_tuningDiffProgressModel = {};
-
     beginAlignmentPhase();
 }
 

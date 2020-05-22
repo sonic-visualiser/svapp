@@ -19,6 +19,8 @@
 
 #include "transform/Transform.h"
 
+#include <functional>
+
 class AlignmentModel;
 class Document;
 
@@ -37,6 +39,13 @@ public:
                         ModelId toAlign,
                         Transform transform,
                         DTWType dtwType);
+    
+    TransformDTWAligner(Document *doc,
+                        ModelId reference,
+                        ModelId toAlign,
+                        Transform transform,
+                        DTWType dtwType,
+                        std::function<double(double)> outputPreprocessor);
 
     // Destroy the aligner, cleanly cancelling any ongoing alignment
     ~TransformDTWAligner();
@@ -58,13 +67,11 @@ private:
     ModelId m_toAlign;
     ModelId m_referenceOutputModel;
     ModelId m_toAlignOutputModel;
-    ModelId m_alignmentProgressModel;
     ModelId m_alignmentModel;
-    bool m_referenceTransformComplete;
-    bool m_toAlignTransformComplete;
     Transform m_transform;
     DTWType m_dtwType;
     bool m_incomplete;
+    std::function<double(double)> m_outputPreprocessor;
 };
 
 #endif

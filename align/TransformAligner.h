@@ -54,7 +54,6 @@ private:
     ModelId m_toAlign;
     ModelId m_aggregateModel; // an AggregateWaveModel
     ModelId m_alignmentModel; // an AlignmentModel
-    ModelId m_tuningDiffProgressModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_tuningDiffOutputModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_pathOutputModel; // SparseTimeValueModel, unreg'd with doc
     bool m_withTuningDifference;

@@ -24,6 +24,8 @@
 #include "transform/Transform.h"
 #include "transform/TransformFactory.h"
 
+#include "base/Pitch.h"
+
 #include <QSettings>
 #include <QTimer>
 
@@ -151,7 +153,14 @@ Align::addAligner(Document *doc,
                  reference,
                  toAlign,
                  transform,
-                 TransformDTWAligner::RiseFall);
+                 TransformDTWAligner::RiseFall,
+                 [](double freq) {
+                     if (freq < 0.0) {
+                         return 0.0;
+                     } else {
+                         return double(Pitch::getPitchForFrequency(freq));
+                     }
+                 });
             break;
         }
         
