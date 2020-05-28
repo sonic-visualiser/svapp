@@ -43,6 +43,8 @@ private:
     ModelId m_reference;
     ModelId m_toAlign;
     bool m_trimmed;
+
+    bool getTrimmedExtents(ModelId model, sv_frame_t &start, sv_frame_t &end);
 };
 
 #endif

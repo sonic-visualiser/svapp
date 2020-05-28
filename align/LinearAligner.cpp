@@ -21,6 +21,10 @@
 
 #include "framework/Document.h"
 
+#include "svcore/data/model/DenseTimeValueModel.h"
+
+#include <QApplication>
+
 LinearAligner::LinearAligner(Document *doc,
                              ModelId reference,
                              ModelId toAlign,
@@ -48,11 +52,13 @@ LinearAligner::begin()
                 !toAlign || !toAlign->isOK()) {
                 return;
             }
-            ready = reference->isReady() && toAlign->isReady();
+            ready = (reference->isReady() && toAlign->isReady());
         }
         if (!ready) {
             SVDEBUG << "LinearAligner: Waiting for models..." << endl;
-            usleep(500000);
+            QApplication::processEvents(QEventLoop::ExcludeUserInputEvents |
+                                        QEventLoop::ExcludeSocketNotifiers,
+                                        500);
         }
     }
 
@@ -63,9 +69,20 @@ LinearAligner::begin()
         !toAlign || !toAlign->isOK()) {
         return;
     }
-    
-    sv_frame_t s0 = reference->getStartFrame(), s1 = toAlign->getStartFrame();
-    sv_frame_t e0 = reference->getEndFrame(), e1 = toAlign->getEndFrame();
+
+    sv_frame_t s0, e0, s1, e1;
+    s0 = reference->getStartFrame();
+    e0 = reference->getEndFrame();
+    s1 = toAlign->getStartFrame();
+    e1 = toAlign->getEndFrame();
+
+    if (m_trimmed) {
+        getTrimmedExtents(m_reference, s0, e0);
+        getTrimmedExtents(m_toAlign, s1, e1);
+        SVCERR << "Trimmed extents: reference: " << s0 << " to " << e0
+               << ", toAlign: " << s1 << " to " << e1 << endl;
+    }
+
     sv_frame_t d0 = e0 - s0, d1 = e1 - s1;
 
     if (d1 == 0) {
@@ -73,12 +90,12 @@ LinearAligner::begin()
     }
     
     double ratio = double(d0) / double(d1);
-    sv_frame_t resolution = 1024;
+    int resolution = 1024;
     
     Path path(reference->getSampleRate(), resolution);
 
     for (sv_frame_t f = s1; f < e1; f += resolution) {
-        sv_frame_t target = sv_frame_t(double(f - s1) * ratio);
+        sv_frame_t target = s0 + sv_frame_t(double(f - s1) * ratio);
         path.add(PathPoint(f, target));
     }
 
@@ -91,6 +108,64 @@ LinearAligner::begin()
     alignment->setPath(path);
     toAlign->setAlignment(alignmentModelId);
     m_document->addNonDerivedModel(alignmentModelId);
+
+    emit complete(alignmentModelId);
 }
 
-//!!! + trimmed
+bool
+LinearAligner::getTrimmedExtents(ModelId modelId,
+                                 sv_frame_t &start,
+                                 sv_frame_t &end)
+{
+    auto model = ModelById::getAs<DenseTimeValueModel>(modelId);
+    if (!model) return false;
+
+    sv_frame_t chunksize = 1024;
+    double threshold = 1e-2;
+
+    auto rms = [](const floatvec_t &samples) {
+                   double rms = 0.0;
+                   for (auto s: samples) {
+                       rms += s * s;
+                   }
+                   rms /= double(samples.size());
+                   rms = sqrt(rms);
+                   return rms;
+               };
+    
+    while (start < end) {
+        floatvec_t samples = model->getData(-1, start, chunksize);
+        if (samples.empty()) {
+            return false; // no non-silent content found
+        }
+        if (rms(samples) > threshold) {
+            for (auto s: samples) {
+                if (fabsf(s) > threshold) {
+                    break;
+                }
+                ++start;
+            }
+            break;
+        }
+        start += chunksize;
+    }
+    
+    if (start >= end) {
+        return false;
+    }
+
+    while (end > start) {
+        sv_frame_t probe = end - chunksize;
+        if (probe < 0) probe = 0;
+        floatvec_t samples = model->getData(-1, probe, chunksize);
+        if (samples.empty()) {
+            break;
+        }
+        if (rms(samples) > threshold) {
+            break;
+        }
+        end = probe;
+    }
+
+    return (end > start);
+}
