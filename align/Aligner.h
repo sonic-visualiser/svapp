@@ -32,12 +32,16 @@ public slots:
 signals:
     /**
      * Emitted when alignment is successfully completed. The reference
-     * and toAlign models can be queried from the alignment model.
+     * and toAlign models can be queried from the alignment
+     * model. This should be emitted as the last thing the aligner
+     * does, as the recipient may delete the aligner during the call.
      */
     void complete(ModelId alignmentModel); // an AlignmentModel
 
     /**
-     * Emitted when alignment fails.
+     * Emitted when alignment fails. This should be emitted as the
+     * last thing the aligner does, as the recipient may delete the
+     * aligner during the call.
      */
     void failed(ModelId toAlign, QString errorText); // the toAlign model
 };

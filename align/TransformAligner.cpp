@@ -244,11 +244,8 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     
     if (!done) {
         // This will be the completion the alignment model reports,
-        // before the alignment actually begins. It goes up from 0 to
-        // 99 (not 100!) and then back to 0 again when we start
-        // calculating the actual path in the following phase
-        int clamped = (completion == 100 ? 99 : completion);
-        alignmentModel->setCompletion(clamped);
+        // before the alignment actually begins
+        alignmentModel->setCompletion(completion / 2);
         return;
     }
 
@@ -344,35 +341,55 @@ TransformAligner::beginAlignmentPhase()
     pathOutputModel->setCompletion(0);
     alignmentModel->setPathFrom(m_pathOutputModel);
 
-    connect(alignmentModel.get(), SIGNAL(completionChanged(ModelId)),
+    connect(pathOutputModel.get(), SIGNAL(completionChanged(ModelId)),
             this, SLOT(alignmentCompletionChanged(ModelId)));
 
     return true;
 }
 
 void
-TransformAligner::alignmentCompletionChanged(ModelId alignmentModelId)
+TransformAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
 {
-    if (alignmentModelId != m_alignmentModel) {
+    if (pathOutputModelId != m_pathOutputModel) {
         SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Model "
-               << alignmentModelId
+               << pathOutputModelId
                << " is not ours! (ours is "
-               << m_alignmentModel << ")" << endl;
+               << m_pathOutputModel << ")" << endl;
         return;
     }
 
-    auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
+    auto pathOutputModel =
+        ModelById::getAs<SparseTimeValueModel>(m_pathOutputModel);
+    if (!pathOutputModel) {
+        SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Path output model "
+               << m_pathOutputModel << " no longer exists" << endl;
+        return;
+    }
+        
+    int completion = 0;
+    bool done = pathOutputModel->isReady(&completion);
 
-    if (alignmentModel && alignmentModel->isReady()) {
+    if (m_withTuningDifference) {
+        if (auto alignmentModel =
+            ModelById::getAs<AlignmentModel>(m_alignmentModel)) {
+            if (!done) {
+                int adjustedCompletion = 50 + completion/2;
+                if (adjustedCompletion > 99) {
+                    adjustedCompletion = 99;
+                }
+                alignmentModel->setCompletion(adjustedCompletion);
+            } else {
+                alignmentModel->setCompletion(100);
+            }
+        }
+    }
 
+    if (done) {
         m_incomplete = false;
         
         ModelById::release(m_pathOutputModel);
         m_pathOutputModel = {};
 
-        disconnect(alignmentModel.get(),
-                   SIGNAL(completionChanged(ModelId)),
-                   this, SLOT(alignmentCompletionChanged(ModelId)));
         emit complete(m_alignmentModel);
     }
 }

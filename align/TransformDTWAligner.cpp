@@ -241,7 +241,7 @@ TransformDTWAligner::performAlignmentMagnitude()
         }
     }
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: "
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentMagnitude: "
            << "Have " << s1.size() << " events from reference, "
            << s2.size() << " from toAlign" << endl;
 
@@ -257,7 +257,7 @@ TransformDTWAligner::performAlignmentMagnitude()
         alignment = dtw.alignSeries(s1, s2);
     }
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: "
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentMagnitude: "
            << "DTW produced " << alignment.size() << " points:" << endl;
     for (int i = 0; i < alignment.size() && i < 100; ++i) {
         SVCERR << alignment[i] << " ";
@@ -278,7 +278,7 @@ TransformDTWAligner::performAlignmentMagnitude()
 
     alignmentModel->setPath(path);
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: Done"
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentMagnitude: Done"
            << endl;
 
     m_incomplete = false;
@@ -327,7 +327,7 @@ TransformDTWAligner::performAlignmentRiseFall()
     vector<RiseFallDTW::Value> s2 =
         convertEvents(toAlignOutputSTVM->getAllEvents());
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: "
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: "
            << "Have " << s1.size() << " events from reference, "
            << s2.size() << " from toAlign" << endl;
 
@@ -344,7 +344,7 @@ TransformDTWAligner::performAlignmentRiseFall()
         alignment = dtw.alignSeries(s1, s2);
     }
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: "
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: "
            << "DTW produced " << alignment.size() << " points:" << endl;
     for (int i = 0; i < alignment.size() && i < 100; ++i) {
         SVCERR << alignment[i] << " ";
@@ -365,7 +365,7 @@ TransformDTWAligner::performAlignmentRiseFall()
 
     alignmentModel->setPath(path);
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignment: Done"
+    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: Done"
            << endl;
 
     m_incomplete = false;
