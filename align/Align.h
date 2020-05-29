@@ -39,7 +39,7 @@ public:
         TrimmedLinearAlignment,
         MATCHAlignment,
         MATCHAlignmentWithPitchCompare,
-        SungPitchContourAlignment,
+        SungNoteContourAlignment,
         TransformDrivenDTWAlignment,
         ExternalProgramAlignment,
 

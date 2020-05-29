@@ -46,8 +46,8 @@ Align::getAlignmentTypeTag(AlignmentType type)
         return "match-alignment";
     case MATCHAlignmentWithPitchCompare:
         return "match-alignment-with-pitch";
-    case SungPitchContourAlignment:
-        return "sung-pitch-alignment";
+    case SungNoteContourAlignment:
+        return "sung-note-alignment";
     case TransformDrivenDTWAlignment:
         return "transform-driven-alignment";
     case ExternalProgramAlignment:
@@ -137,29 +137,36 @@ Align::addAligner(Document *doc,
             break;
         }
 
-        case SungPitchContourAlignment:
+        case SungNoteContourAlignment:
         {
             auto refModel = ModelById::get(reference);
             if (!refModel) return false;
-            
+
             Transform transform = TransformFactory::getInstance()->
-                getDefaultTransformFor("vamp:pyin:pyin:smoothedpitchtrack",
+                getDefaultTransformFor("vamp:pyin:pyin:notes",
                                        refModel->getSampleRate());
 
-            transform.setParameter("outputunvoiced", 2.f);
-            
             aligner = make_shared<TransformDTWAligner>
                 (doc,
                  reference,
                  toAlign,
                  transform,
-                 TransformDTWAligner::RiseFall,
-                 [](double freq) {
-                     if (freq < 0.0) {
-                         return 0.0;
+                 [](double prev, double curr) {
+                     RiseFallDTW::Value v;
+                     if (curr <= 0.0) {
+                         v = { RiseFallDTW::Direction::None, 0.0 };
+                     } else if (prev <= 0.0) {
+                         v = { RiseFallDTW::Direction::Up, 0.0 };
                      } else {
-                         return double(Pitch::getPitchForFrequency(freq));
+                         double prevP = Pitch::getPitchForFrequency(prev);
+                         double currP = Pitch::getPitchForFrequency(curr);
+                         if (currP >= prevP) {
+                             v = { RiseFallDTW::Direction::Up, currP - prevP };
+                         } else {
+                             v = { RiseFallDTW::Direction::Down, prevP - currP };
+                         }
                      }
+                     return v;
                  });
             break;
         }

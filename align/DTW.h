@@ -189,4 +189,11 @@ private:
     }
 };
 
+inline std::ostream &operator<<(std::ostream &s, const RiseFallDTW::Value v) {
+    return (s <<
+            (v.direction == RiseFallDTW::Direction::None ? "=" :
+             v.direction == RiseFallDTW::Direction::Up ? "+" : "-")
+            << v.distance);
+}
+
 #endif
