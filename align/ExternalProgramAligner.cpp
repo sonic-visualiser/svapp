@@ -39,6 +39,10 @@ ExternalProgramAligner::ExternalProgramAligner(Document *doc,
 
 ExternalProgramAligner::~ExternalProgramAligner()
 {
+    if (m_process) {
+        disconnect(m_process, nullptr, this, nullptr);
+    }
+    
     delete m_process;
 }
 

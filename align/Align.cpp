@@ -102,6 +102,14 @@ Align::addAligner(Document *doc,
     
     std::shared_ptr<Aligner> aligner;
 
+    if (m_aligners.find(toAlign) != m_aligners.end()) {
+        // We don't want a callback on removeAligner to happen during
+        // our own call to addAligner! Disconnect and delete the old
+        // aligner first
+        disconnect(m_aligners[toAlign].get(), nullptr, this, nullptr);
+        m_aligners.erase(toAlign);
+    }
+    
     {
         // Replace the aligner with a new one. This also stops any
         // previously-running alignment, when the old entry is

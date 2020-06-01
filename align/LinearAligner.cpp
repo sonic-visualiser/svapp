@@ -106,6 +106,7 @@ LinearAligner::begin()
     auto alignmentModelId = ModelById::add(alignment);
 
     alignment->setPath(path);
+    alignment->setCompletion(100);
     toAlign->setAlignment(alignmentModelId);
     m_document->addNonDerivedModel(alignmentModelId);
 

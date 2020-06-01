@@ -145,9 +145,11 @@ TransformDTWAligner::begin()
         return;
     }
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: begin(): transform id "
            << m_transform.getIdentifier()
            << " is running on reference model" << endl;
+#endif
 
     message = "";
 
@@ -159,9 +161,11 @@ TransformDTWAligner::begin()
         return;
     }
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: begin(): transform id "
            << m_transform.getIdentifier()
            << " is running on toAlign model" << endl;
+#endif
 
     connect(referenceOutputModel.get(), SIGNAL(completionChanged(ModelId)),
             this, SLOT(completionChanged(ModelId)));
@@ -195,10 +199,11 @@ TransformDTWAligner::completionChanged(ModelId id)
     if (!m_incomplete) {
         return;
     }
-/*
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: completionChanged: "
            << "model " << id << endl;
-*/
+#endif
+    
     auto referenceOutputModel = ModelById::get(m_referenceOutputModel);
     auto toAlignOutputModel = ModelById::get(m_toAlignOutputModel);
     auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
@@ -225,11 +230,12 @@ TransformDTWAligner::completionChanged(ModelId id)
         }
 
     } else {
-/*
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
         SVCERR << "TransformDTWAligner[" << this << "]: completionChanged: "
                << "not ready yet: reference completion " << referenceCompletion
                << ", toAlign completion " << toAlignCompletion << endl;
-*/
+#endif
+        
         int completion = std::min(referenceCompletion,
                                   toAlignCompletion);
         completion = (completion * 94) / 100;
@@ -287,6 +293,8 @@ TransformDTWAligner::makePath(const vector<size_t> &alignment,
 {
     Path path(sampleRate, resolution);
 
+    path.add(PathPoint(0, 0));
+    
     for (int i = 0; in_range_for(alignment, i); ++i) {
 
         // DTW returns "the index into s2 for each element in s1"
@@ -338,26 +346,32 @@ TransformDTWAligner::performAlignmentMagnitude()
         s2.push_back(m_magnitudePreprocessor(v));
     }
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentMagnitude: "
            << "Have " << s1.size() << " events from reference, "
            << s2.size() << " from toAlign" << endl;
+#endif
     
     MagnitudeDTW dtw;
     vector<size_t> alignment;
 
     {
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
         SVCERR << "TransformDTWAligner[" << this
                << "]: serialising DTW to avoid over-allocation" << endl;
+#endif
         QMutexLocker locker(&m_dtwMutex);
         alignment = dtw.alignSeries(s1, s2);
     }
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentMagnitude: "
            << "DTW produced " << alignment.size() << " points:" << endl;
     for (int i = 0; in_range_for(alignment, i) && i < 100; ++i) {
         SVCERR << alignment[i] << " ";
     }
     SVCERR << endl;
+#endif
 
     alignmentModel->setPath(makePath(alignment,
                                      refFrames,
@@ -409,6 +423,7 @@ TransformDTWAligner::performAlignmentRiseFall()
     vector<RiseFallDTW::Value> s1 = preprocess(refValues);
     vector<RiseFallDTW::Value> s2 = preprocess(otherValues);
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: "
            << "Have " << s1.size() << " events from reference, "
            << s2.size() << " from toAlign" << endl;
@@ -424,23 +439,28 @@ TransformDTWAligner::performAlignmentRiseFall()
         SVCERR << s2[i] << " ";
     }
     SVCERR << endl;
-
+#endif
+    
     RiseFallDTW dtw;
     vector<size_t> alignment;
 
     {
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
         SVCERR << "TransformDTWAligner[" << this
                << "]: serialising DTW to avoid over-allocation" << endl;
+#endif
         QMutexLocker locker(&m_dtwMutex);
         alignment = dtw.alignSeries(s1, s2);
     }
 
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
     SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: "
            << "DTW produced " << alignment.size() << " points:" << endl;
     for (int i = 0; i < alignment.size() && i < 100; ++i) {
         SVCERR << alignment[i] << " ";
     }
     SVCERR << endl;
+#endif
 
     alignmentModel->setPath(makePath(alignment,
                                      refFrames,
@@ -450,8 +470,8 @@ TransformDTWAligner::performAlignmentRiseFall()
 
     alignmentModel->setCompletion(100);
 
-    SVCERR << "TransformDTWAligner[" << this << "]: performAlignmentRiseFall: Done"
-           << endl;
+    SVCERR << "TransformDTWAligner[" << this
+           << "]: performAlignmentRiseFall: Done" << endl;
 
     m_incomplete = false;
     return true;
