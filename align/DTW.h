@@ -18,6 +18,8 @@
 #include <vector>
 #include <functional>
 
+//#define DEBUG_DTW 1
+
 template <typename Value>
 class DTW
 {
@@ -38,6 +40,16 @@ public:
 
         auto costs = costSeries(s1, s2);
 
+#ifdef DEBUG_DTW
+        SVCERR << "Cost matrix:" << endl;
+        for (auto v: costs) {
+            for (auto x: v) {
+                SVCERR << x << " ";
+            }
+            SVCERR << "\n";
+        }
+#endif
+        
         size_t j = s1.size() - 1;
         size_t i = s2.size() - 1;
 
@@ -51,12 +63,12 @@ public:
 
             if (a < b) {
                 --j;
-                if (both < a) {
+                if (both <= a) {
                     --i;
                 }
             } else {
                 --i;
-                if (both < b) {
+                if (both <= b) {
                     --j;
                 }
             }
