@@ -375,7 +375,7 @@ MainWindowBase::~MainWindowBase()
 void
 MainWindowBase::emitHideSplash()
 {
-    SVDEBUG << "MainWindowBase: Hiding splash screen" << endl;
+    SVDEBUG << "MainWindowBase: Hiding splash screen (if not hidden already)" << endl;
     emit hideSplash(this);
 }
 
