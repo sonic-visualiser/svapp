@@ -3407,8 +3407,8 @@ MainWindowBase::record()
     SVCERR << "MainWindowBase::record: about to resume" << endl;
     m_audioIO->resume();
 
-    WritableWaveFileModel *modelPtr = m_recordTarget->startRecording();
-    if (!modelPtr) {
+    ModelId modelId = m_recordTarget->startRecording();
+    if (modelId.isNone()) {
         SVCERR << "ERROR: MainWindowBase::record: Recording failed" << endl;
         QMessageBox::critical
             (this, tr("Recording failed"),
@@ -3417,20 +3417,16 @@ MainWindowBase::record()
         return;
     }
 
-    if (!modelPtr->isOK()) {
-        SVCERR << "MainWindowBase::record: Model not OK, stopping and suspending" << endl;
-        m_recordTarget->stopRecording();
-        m_audioIO->suspend();
+    auto model = ModelById::getAs<WritableWaveFileModel>(modelId);
+    if (!model) {
+        SVCERR << "ERROR: MainWindowBase::record: Model lost?" << endl;
         if (action) action->setChecked(false);
-        delete modelPtr;
         return;
     }
-
+    
     SVCERR << "MainWindowBase::record: Model is OK, continuing..." << endl;
 
-    QString location = modelPtr->getLocation();
-    
-    auto modelId = ModelById::add(std::shared_ptr<Model>(modelPtr));
+    QString location = model->getLocation();
 
     if (m_audioRecordMode == RecordReplaceSession || !getMainModel()) {
 

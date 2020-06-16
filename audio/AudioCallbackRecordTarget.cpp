@@ -17,6 +17,7 @@
 #include "base/ViewManagerBase.h"
 #include "base/RecordDirectory.h"
 #include "base/Debug.h"
+#include "base/Preferences.h"
 
 #include "data/model/WritableWaveFileModel.h"
 
@@ -34,9 +35,9 @@ AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
     m_clientName(clientName.toUtf8().data()),
     m_recording(false),
     m_recordSampleRate(44100),
-    m_recordChannelCount(2),
+    m_systemRecordChannelCount(2),
+    m_recordMono(false),
     m_frameCount(0),
-    m_model(nullptr),
     m_buffers(nullptr),
     m_bufferCount(0),
     m_inputLeft(0.f),
@@ -71,7 +72,7 @@ AudioCallbackRecordTarget::recreateBuffers()
 {
     static int bufferSize = 441000;
     
-    int count = m_recordChannelCount;
+    int count = m_systemRecordChannelCount;
 
     if (count > m_bufferCount) {
 
@@ -103,7 +104,9 @@ AudioCallbackRecordTarget::getApplicationSampleRate() const
 int
 AudioCallbackRecordTarget::getApplicationChannelCount() const
 {
-    return m_recordChannelCount;
+    // Pretend to just have as many as the system expects - we do our
+    // own mixing-down optionally in the m_recordMono case
+    return m_systemRecordChannelCount;
 }
 
 void
@@ -114,6 +117,7 @@ AudioCallbackRecordTarget::setSystemRecordBlockSize(int)
 void
 AudioCallbackRecordTarget::setSystemRecordSampleRate(int n)
 {
+    SVCERR << "AudioCallbackRecordTarget: system sample rate is " << n << endl;
     m_recordSampleRate = n;
 }
 
@@ -125,7 +129,8 @@ AudioCallbackRecordTarget::setSystemRecordLatency(int)
 void
 AudioCallbackRecordTarget::setSystemRecordChannelCount(int c)
 {
-    m_recordChannelCount = c;
+    SVCERR << "AudioCallbackRecordTarget: system channel count is " << c << endl;
+    m_systemRecordChannelCount = c;
     recreateBuffers();
 }
 
@@ -138,8 +143,8 @@ AudioCallbackRecordTarget::putSamples(const float *const *samples, int, int nfra
     if (!m_recording) return;
 
     QMutexLocker locker(&m_bufPtrMutex);
-    if (m_buffers && m_bufferCount >= m_recordChannelCount) {
-        for (int c = 0; c < m_recordChannelCount; ++c) {
+    if (m_buffers && m_bufferCount >= m_systemRecordChannelCount) {
+        for (int c = 0; c < m_systemRecordChannelCount; ++c) {
             m_buffers[c]->write(samples[c], nframes);
         }
     }
@@ -155,7 +160,7 @@ AudioCallbackRecordTarget::updateModel()
     sv_frame_t frameToEmit = 0;
 
     int nframes = 0;
-    for (int c = 0; c < m_recordChannelCount; ++c) {
+    for (int c = 0; c < m_systemRecordChannelCount; ++c) {
         if (c == 0 || m_buffers[c]->getReadSpace() < nframes) {
             nframes = m_buffers[c]->getReadSpace();
         }
@@ -175,29 +180,36 @@ AudioCallbackRecordTarget::updateModel()
     cerr << "AudioCallbackRecordTarget::updateModel: have " << nframes << " frames" << endl;
 #endif
 
-    if (!m_model) {
+    auto model = ModelById::getAs<WritableWaveFileModel>(m_modelId);
+    if (!model) {
 #ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
         cerr << "AudioCallbackRecordTarget::updateModel: have no model to update; I am hoping there is a good reason for this" << endl;
 #endif
         return;
     }
 
-    float **samples = new float *[m_recordChannelCount];
-    for (int c = 0; c < m_recordChannelCount; ++c) {
+    float **samples = new float *[m_systemRecordChannelCount];
+    for (int c = 0; c < m_systemRecordChannelCount; ++c) {
         samples[c] = new float[nframes];
         m_buffers[c]->read(samples[c], nframes);
     }
 
-    m_model->addSamples(samples, nframes);
+    if (m_recordMono) {
+        breakfastquay::v_reconfigure_channels_inplace(samples, 1,
+                                                      m_systemRecordChannelCount,
+                                                      nframes);
+    }
+    
+    model->addSamples(samples, nframes);
 
-    for (int c = 0; c < m_recordChannelCount; ++c) {
+    for (int c = 0; c < m_systemRecordChannelCount; ++c) {
         delete[] samples[c];
     }
     delete[] samples;
     
     m_frameCount += nframes;
     
-    m_model->updateModel();
+    model->updateModel();
     frameToEmit = m_frameCount;
     emit recordDurationChanged(frameToEmit, m_recordSampleRate);
 
@@ -226,33 +238,19 @@ AudioCallbackRecordTarget::getInputLevels(float &left, float &right)
     return valid;
 }
 
-void
-AudioCallbackRecordTarget::modelAboutToBeDeleted()
-{
-    if (sender() == m_model) {
-#ifdef DEBUG_AUDIO_CALLBACK_RECORD_TARGET
-        cerr << "AudioCallbackRecordTarget::modelAboutToBeDeleted: taking note" << endl;
-#endif
-        m_model = nullptr;
-        m_recording = false;
-    } else if (m_model) {
-        SVCERR << "WARNING: AudioCallbackRecordTarget::modelAboutToBeDeleted: this is not my model!" << endl;
-    }
-}
-
-WritableWaveFileModel *
+ModelId
 AudioCallbackRecordTarget::startRecording()
 {
     if (m_recording) {
         SVCERR << "WARNING: AudioCallbackRecordTarget::startRecording: We are already recording" << endl;
-        return nullptr;
+        return {};
     }
 
-    m_model = nullptr;
+    m_modelId = {};
     m_frameCount = 0;
 
     QString folder = RecordDirectory::getRecordDirectory();
-    if (folder == "") return nullptr;
+    if (folder == "") return {};
     QDir recordedDir(folder);
 
     QDateTime now = QDateTime::currentDateTime();
@@ -266,32 +264,42 @@ AudioCallbackRecordTarget::startRecording()
 
     m_audioFileName = recordedDir.filePath(filename);
 
-    m_model = new WritableWaveFileModel
+    m_recordMono = Preferences::getInstance()->getRecordMono();
+    
+    int modelChannelCount = m_systemRecordChannelCount;
+    if (m_recordMono) {
+        modelChannelCount = 1;
+    }
+    
+    SVCERR << "AudioCallbackRecordTarget::startRecording: Recording to \""
+           << m_audioFileName << "\", sample rate " << m_recordSampleRate
+           << ", system channel count " << m_systemRecordChannelCount
+           << ", model channel count " << modelChannelCount
+           << " (recordMono = " << m_recordMono << ")" << endl;
+    
+    auto model = std::make_shared<WritableWaveFileModel>
         (m_audioFileName,
          m_recordSampleRate,
-         m_recordChannelCount,
+         modelChannelCount,
          WritableWaveFileModel::Normalisation::None);
 
-    if (!m_model->isOK()) {
+    if (!model->isOK()) {
         SVCERR << "ERROR: AudioCallbackRecordTarget::startRecording: Recording failed"
                << endl;
-        //!!! and throw?
-        delete m_model;
-        m_model = nullptr;
-        return nullptr;
+        m_recording = false;
+        return {};
     }
 
-    connect(m_model, SIGNAL(aboutToBeDeleted()), 
-            this, SLOT(modelAboutToBeDeleted()));
-
-    m_model->setObjectName(label);
+    m_modelId = ModelById::add(model);
+    
+    model->setObjectName(label);
     m_recording = true;
 
     emit recordStatusChanged(true);
 
     QTimer::singleShot(recordUpdateTimeout, this, SLOT(updateModel()));
     
-    return m_model;
+    return m_modelId;
 }
 
 void
@@ -310,11 +318,14 @@ AudioCallbackRecordTarget::stopRecording()
     // buffers should now be up-to-date
     updateModel();
 
-    m_model->writeComplete();
-    m_model = nullptr;
+    auto model = ModelById::getAs<WritableWaveFileModel>(m_modelId);
+    if (model) {
+        model->writeComplete();
+    }
+
+    m_modelId = {};
     
     emit recordStatusChanged(false);
     emit recordCompleted();
 }
-
 

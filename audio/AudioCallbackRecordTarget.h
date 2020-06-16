@@ -16,6 +16,7 @@
 #define SV_AUDIO_CALLBACK_RECORD_TARGET_H
 
 #include "base/AudioRecordTarget.h"
+#include "data/model/Model.h"
 
 #include <bqaudioio/ApplicationRecordTarget.h>
 
@@ -71,9 +72,10 @@ public:
      * last called (i.e. if they are meaningful). Return false if they
      * have not been set (in which case both will be zero).
      */
-     virtual bool getInputLevels(float &left, float &right) override;
+    virtual bool getInputLevels(float &left, float &right) override;
 
-    WritableWaveFileModel *startRecording(); // caller takes ownership of model
+    ModelId startRecording(); // a WritableWaveFileModel; has not been
+                              // added to document yet
     void stopRecording();
 
 signals:
@@ -82,7 +84,6 @@ signals:
     void recordCompleted();
 
 protected slots:
-    void modelAboutToBeDeleted();
     void updateModel();
     
 private:
@@ -90,10 +91,11 @@ private:
     std::string m_clientName;
     std::atomic_bool m_recording;
     sv_samplerate_t m_recordSampleRate;
-    int m_recordChannelCount;
+    int m_systemRecordChannelCount;
+    bool m_recordMono;
     sv_frame_t m_frameCount;
     QString m_audioFileName;
-    WritableWaveFileModel *m_model;
+    ModelId m_modelId; // a WritableWaveFileModel
     RingBuffer<float> **m_buffers;
     QMutex m_bufPtrMutex;
     int m_bufferCount;
