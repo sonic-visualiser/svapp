@@ -12,28 +12,26 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef SV_TRANSFORM_ALIGNER_H
-#define SV_TRANSFORM_ALIGNER_H
+#ifndef SV_MATCH_ALIGNER_H
+#define SV_MATCH_ALIGNER_H
 
 #include "Aligner.h"
 
 class AlignmentModel;
 class Document;
 
-class TransformAligner : public Aligner
+class MATCHAligner : public Aligner
 {
     Q_OBJECT
 
 public:
-    TransformAligner(Document *doc,
-                     ModelId reference,
-                     ModelId toAlign,
-                     bool withTuningDifference);
-
-    //!!! pass in transform id
+    MATCHAligner(Document *doc,
+                 ModelId reference,
+                 ModelId toAlign,
+                 bool withTuningDifference);
 
     // Destroy the aligner, cleanly cancelling any ongoing alignment
-    ~TransformAligner();
+    ~MATCHAligner();
 
     void begin() override;
 

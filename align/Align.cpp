@@ -15,7 +15,7 @@
 #include "Align.h"
 
 #include "LinearAligner.h"
-#include "TransformAligner.h"
+#include "MATCHAligner.h"
 #include "TransformDTWAligner.h"
 #include "ExternalProgramAligner.h"
 
@@ -137,10 +137,10 @@ Align::addAligner(Document *doc,
             bool withTuningDifference =
                 (type == MATCHAlignmentWithPitchCompare);
             
-            aligner = make_shared<TransformAligner>(doc,
-                                                    reference,
-                                                    toAlign,
-                                                    withTuningDifference);
+            aligner = make_shared<MATCHAligner>(doc,
+                                                reference,
+                                                toAlign,
+                                                withTuningDifference);
             break;
         }
 
@@ -266,7 +266,7 @@ Align::canAlign()
         return ExternalProgramAligner::isAvailable
             (getPreferredAlignmentProgram());
     } else {
-        return TransformAligner::isAvailable();
+        return MATCHAligner::isAvailable();
     }
 }
 

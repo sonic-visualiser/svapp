@@ -12,7 +12,7 @@
     COPYING included with this distribution for more information.
 */
 
-#include "TransformAligner.h"
+#include "MATCHAligner.h"
 
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/RangeSummarisableTimeValueModel.h"
@@ -27,10 +27,10 @@
 
 #include <QSettings>
 
-TransformAligner::TransformAligner(Document *doc,
-                                   ModelId reference,
-                                   ModelId toAlign,
-                                   bool withTuningDifference) :
+MATCHAligner::MATCHAligner(Document *doc,
+                           ModelId reference,
+                           ModelId toAlign,
+                           bool withTuningDifference) :
     m_document(doc),
     m_reference(reference),
     m_toAlign(toAlign),
@@ -40,7 +40,7 @@ TransformAligner::TransformAligner(Document *doc,
 {
 }
 
-TransformAligner::~TransformAligner()
+MATCHAligner::~MATCHAligner()
 {
     if (m_incomplete) {
         auto other =
@@ -55,7 +55,7 @@ TransformAligner::~TransformAligner()
 }
 
 QString
-TransformAligner::getAlignmentTransformName()
+MATCHAligner::getAlignmentTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
@@ -67,7 +67,7 @@ TransformAligner::getAlignmentTransformName()
 }
 
 QString
-TransformAligner::getTuningDifferenceTransformName()
+MATCHAligner::getTuningDifferenceTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
@@ -80,7 +80,7 @@ TransformAligner::getTuningDifferenceTransformName()
 }
 
 bool
-TransformAligner::isAvailable()
+MATCHAligner::isAvailable()
 {
     TransformFactory *factory = TransformFactory::getInstance();
     TransformId id = getAlignmentTransformName();
@@ -90,7 +90,7 @@ TransformAligner::isAvailable()
 }
 
 void
-TransformAligner::begin()
+MATCHAligner::begin()
 {
     auto reference =
         ModelById::getAs<RangeSummarisableTimeValueModel>(m_reference);
@@ -176,7 +176,7 @@ TransformAligner::begin()
         transform.setParameter("maxrange", 6);
         transform.setParameter("finetuning", false);
     
-        SVDEBUG << "TransformAligner: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
+        SVDEBUG << "MATCHAligner: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
         ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
@@ -204,7 +204,7 @@ TransformAligner::begin()
 }
 
 void
-TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
+MATCHAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 {
     if (m_tuningDiffOutputModel.isNone()) {
         // we're done, this is probably a spurious queued event
@@ -212,7 +212,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     }
         
     if (tuningDiffOutputModelId != m_tuningDiffOutputModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged: Model "
                << tuningDiffOutputModelId
                << " is not ours! (ours is "
                << m_tuningDiffOutputModel << ")" << endl;
@@ -222,7 +222,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     auto tuningDiffOutputModel =
         ModelById::getAs<SparseTimeValueModel>(m_tuningDiffOutputModel);
     if (!tuningDiffOutputModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged: Model "
                << tuningDiffOutputModelId
                << " not known as SparseTimeValueModel" << endl;
         return;
@@ -230,7 +230,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
 
     auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
     if (!alignmentModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged:"
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged:"
                << "alignment model has disappeared" << endl;
         return;
     }
@@ -238,7 +238,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     int completion = 0;
     bool done = tuningDiffOutputModel->isReady(&completion);
 
-    SVDEBUG << "TransformAligner::tuningDifferenceCompletionChanged: model "
+    SVDEBUG << "MATCHAligner::tuningDifferenceCompletionChanged: model "
             << m_tuningDiffOutputModel << ", completion = " << completion
             << ", done = " << done << endl;
     
@@ -253,9 +253,9 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     
     if (!tuningDiffOutputModel->isEmpty()) {
         m_tuningFrequency = tuningDiffOutputModel->getAllEvents()[0].getValue();
-        SVCERR << "TransformAligner::tuningDifferenceCompletionChanged: Reported tuning frequency = " << m_tuningFrequency << endl;
+        SVCERR << "MATCHAligner::tuningDifferenceCompletionChanged: Reported tuning frequency = " << m_tuningFrequency << endl;
     } else {
-        SVCERR << "TransformAligner::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
+        SVCERR << "MATCHAligner::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
     }    
     
     ModelById::release(tuningDiffOutputModel);
@@ -265,11 +265,11 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
 }
 
 bool
-TransformAligner::beginAlignmentPhase()
+MATCHAligner::beginAlignmentPhase()
 {
     TransformId id = getAlignmentTransformName();
     
-    SVDEBUG << "TransformAligner::beginAlignmentPhase: transform is "
+    SVDEBUG << "MATCHAligner::beginAlignmentPhase: transform is "
             << id << endl;
     
     TransformFactory *tf = TransformFactory::getInstance();
@@ -280,7 +280,7 @@ TransformAligner::beginAlignmentPhase()
         ModelById::getAs<AlignmentModel>(m_alignmentModel);
 
     if (!aggregateModel || !alignmentModel) {
-        SVCERR << "TransformAligner::alignModel: ERROR: One or other of the aggregate & alignment models has disappeared" << endl;
+        SVCERR << "MATCHAligner::alignModel: ERROR: One or other of the aggregate & alignment models has disappeared" << endl;
         return false;
     }
     
@@ -303,14 +303,14 @@ TransformAligner::beginAlignmentPhase()
         int pitch = Pitch::getPitchForFrequency(m_tuningFrequency,
                                                 &centsOffset);
         cents = int(round((pitch - 69) * 100 + centsOffset));
-        SVCERR << "TransformAligner: frequency " << m_tuningFrequency
+        SVCERR << "MATCHAligner: frequency " << m_tuningFrequency
                << " yields cents offset " << centsOffset
                << " and pitch " << pitch << " -> cents " << cents << endl;
     }
 
     alignmentModel->setRelativePitch(cents);
     
-    SVDEBUG << "TransformAligner: Alignment transform step size "
+    SVDEBUG << "MATCHAligner: Alignment transform step size "
             << transform.getStepSize() << ", block size "
             << transform.getBlockSize() << endl;
 
@@ -333,7 +333,7 @@ TransformAligner::beginAlignmentPhase()
     //!!! alignment model after initial call
         
     if (!pathOutputModel) {
-        SVCERR << "TransformAligner: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
+        SVCERR << "MATCHAligner: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
         alignmentModel->setError(message);
         return false;
     }
@@ -348,10 +348,10 @@ TransformAligner::beginAlignmentPhase()
 }
 
 void
-TransformAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
+MATCHAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
 {
     if (pathOutputModelId != m_pathOutputModel) {
-        SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Model "
+        SVCERR << "WARNING: MATCHAligner::alignmentCompletionChanged: Model "
                << pathOutputModelId
                << " is not ours! (ours is "
                << m_pathOutputModel << ")" << endl;
@@ -361,7 +361,7 @@ TransformAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
     auto pathOutputModel =
         ModelById::getAs<SparseTimeValueModel>(m_pathOutputModel);
     if (!pathOutputModel) {
-        SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Path output model "
+        SVCERR << "WARNING: MATCHAligner::alignmentCompletionChanged: Path output model "
                << m_pathOutputModel << " no longer exists" << endl;
         return;
     }
