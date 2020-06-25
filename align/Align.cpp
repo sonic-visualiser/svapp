@@ -97,8 +97,7 @@ Align::addAligner(Document *doc,
                   ModelId reference,
                   ModelId toAlign)
 {
-    QString additionalData;
-    AlignmentType type = getAlignmentPreference(additionalData);
+    AlignmentType type = getAlignmentPreference();
     
     std::shared_ptr<Aligner> aligner;
 
@@ -183,10 +182,11 @@ Align::addAligner(Document *doc,
             throw std::logic_error("Not yet implemented"); //!!!
 
         case ExternalProgramAlignment: {
-            aligner = make_shared<ExternalProgramAligner>(doc,
-                                                          reference,
-                                                          toAlign,
-                                                          additionalData);
+            aligner = make_shared<ExternalProgramAligner>
+                (doc,
+                 reference,
+                 toAlign,
+                 getPreferredAlignmentProgram());
         }
         }
 
@@ -203,52 +203,68 @@ Align::addAligner(Document *doc,
 }
 
 Align::AlignmentType
-Align::getAlignmentPreference(QString &additionalData)
+Align::getAlignmentPreference()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-
     QString tag = settings.value
         ("alignment-type", getAlignmentTypeTag(MATCHAlignment)).toString();
+    return getAlignmentTypeForTag(tag);
+}
 
-    AlignmentType type = getAlignmentTypeForTag(tag);
+QString
+Align::getPreferredAlignmentProgram()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    return settings.value("alignment-program", "").toString();
+}
 
-    if (type == TransformDrivenDTWAlignment) {
-        additionalData = settings.value("alignment-transform", "").toString();
-    } else if (type == ExternalProgramAlignment) {
-        additionalData = settings.value("alignment-program", "").toString();
-    }
-
-    settings.endGroup();
-    return type;
+Transform
+Align::getPreferredAlignmentTransform()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    QString xml = settings.value("alignment-transform", "").toString();
+    return Transform(xml);
 }
 
 void
-Align::setAlignmentPreference(AlignmentType type, QString additionalData)
+Align::setAlignmentPreference(AlignmentType type)
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-
     QString tag = getAlignmentTypeTag(type);
     settings.setValue("alignment-type", tag);
+    settings.endGroup();
+}
 
-    if (type == TransformDrivenDTWAlignment) {
-        settings.setValue("alignment-transform", additionalData);
-    } else if (type == ExternalProgramAlignment) {
-        settings.setValue("alignment-program", additionalData);
-    }
+void
+Align::setPreferredAlignmentProgram(QString program)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    settings.setValue("alignment-program", program);
+    settings.endGroup();
+}
 
+void
+Align::setPreferredAlignmentTransform(Transform transform)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    settings.setValue("alignment-transform", transform.toXmlString());
     settings.endGroup();
 }
 
 bool
 Align::canAlign() 
 {
-    QString additionalData;
-    AlignmentType type = getAlignmentPreference(additionalData);
+    AlignmentType type = getAlignmentPreference();
 
     if (type == ExternalProgramAlignment) {
-        return ExternalProgramAligner::isAvailable(additionalData);
+        return ExternalProgramAligner::isAvailable
+            (getPreferredAlignmentProgram());
     } else {
         return TransformAligner::isAvailable();
     }
