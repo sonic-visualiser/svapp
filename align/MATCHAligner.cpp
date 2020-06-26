@@ -12,7 +12,7 @@
     COPYING included with this distribution for more information.
 */
 
-#include "TransformAligner.h"
+#include "MATCHAligner.h"
 
 #include "data/model/SparseTimeValueModel.h"
 #include "data/model/RangeSummarisableTimeValueModel.h"
@@ -27,18 +27,20 @@
 
 #include <QSettings>
 
-TransformAligner::TransformAligner(Document *doc,
-                                   ModelId reference,
-                                   ModelId toAlign) :
+MATCHAligner::MATCHAligner(Document *doc,
+                           ModelId reference,
+                           ModelId toAlign,
+                           bool withTuningDifference) :
     m_document(doc),
     m_reference(reference),
     m_toAlign(toAlign),
+    m_withTuningDifference(withTuningDifference),
     m_tuningFrequency(440.f),
     m_incomplete(true)
 {
 }
 
-TransformAligner::~TransformAligner()
+MATCHAligner::~MATCHAligner()
 {
     if (m_incomplete) {
         auto other =
@@ -48,43 +50,37 @@ TransformAligner::~TransformAligner()
         }
     }
 
-    ModelById::release(m_tuningDiffProgressModel);
     ModelById::release(m_tuningDiffOutputModel);
     ModelById::release(m_pathOutputModel);
 }
 
 QString
-TransformAligner::getAlignmentTransformName()
+MATCHAligner::getAlignmentTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-    TransformId id =
-        settings.value("transform-id",
-                       "vamp:match-vamp-plugin:match:path").toString();
+    TransformId id = settings.value
+        ("transform-id",
+         "vamp:match-vamp-plugin:match:path").toString();
     settings.endGroup();
     return id;
 }
 
 QString
-TransformAligner::getTuningDifferenceTransformName()
+MATCHAligner::getTuningDifferenceTransformName()
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-    bool performPitchCompensation =
-        settings.value("align-pitch-aware", false).toBool();
-    QString id = "";
-    if (performPitchCompensation) {
-        id = settings.value
-            ("tuning-difference-transform-id",
-             "vamp:tuning-difference:tuning-difference:tuningfreq")
-            .toString();
-    }
+    TransformId id = settings.value
+        ("tuning-difference-transform-id",
+         "vamp:tuning-difference:tuning-difference:tuningfreq")
+        .toString();
     settings.endGroup();
     return id;
 }
 
 bool
-TransformAligner::isAvailable()
+MATCHAligner::isAvailable()
 {
     TransformFactory *factory = TransformFactory::getInstance();
     TransformId id = getAlignmentTransformName();
@@ -94,7 +90,7 @@ TransformAligner::isAvailable()
 }
 
 void
-TransformAligner::begin()
+MATCHAligner::begin()
 {
     auto reference =
         ModelById::getAs<RangeSummarisableTimeValueModel>(m_reference);
@@ -120,11 +116,6 @@ TransformAligner::begin()
     // plugin to perform alignment (so containing the alignment path).
     // This is m_pathOutputModel.
     //
-    // 2c. a SparseTimeValueModel used solely to provide faked
-    // completion information to the AlignmentModel while a
-    // TuningDifference calculation is going on. We call this
-    // m_tuningDiffProgressModel.
-    //
     // 3. an AlignmentModel, which stores the path and carries out
     // alignment lookups on it. This one is m_alignmentModel.
     //
@@ -133,12 +124,9 @@ TransformAligner::begin()
     // the case where an activity fails before the point where we
     // would otherwise have registered them with the document.
     //
-    // Models 2a (m_tuningDiffOutputModel), 2b (m_pathOutputModel) and
-    // 2c (m_tuningDiffProgressModel) are not registered with the
-    // document, because they are not intended to persist, and also
-    // Model 2c (m_tuningDiffProgressModel) is a bodge that we are
-    // embarrassed about, so we try to manage it ourselves without
-    // anyone else noticing. These have to be released by us when
+    // Models 2a (m_tuningDiffOutputModel) and 2b (m_pathOutputModel)
+    // are not registered with the document, because they are not
+    // intended to persist. These have to be released by us when
     // finished with, but their lifespans do not extend beyond the end
     // of the alignment procedure, so this should be ok.
 
@@ -157,7 +145,10 @@ TransformAligner::begin()
         (m_reference, m_toAlign, ModelId());
     m_alignmentModel = ModelById::add(alignmentModel);
 
-    TransformId tdId = getTuningDifferenceTransformName();
+    TransformId tdId;
+    if (m_withTuningDifference) {
+        tdId = getTuningDifferenceTransformName();
+    }
 
     if (tdId == "") {
         
@@ -185,7 +176,7 @@ TransformAligner::begin()
         transform.setParameter("maxrange", 6);
         transform.setParameter("finetuning", false);
     
-        SVDEBUG << "TransformAligner: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
+        SVDEBUG << "MATCHAligner: Tuning difference transform step size " << transform.getStepSize() << ", block size " << transform.getBlockSize() << endl;
 
         ModelTransformerFactory *mtf = ModelTransformerFactory::getInstance();
 
@@ -209,20 +200,11 @@ TransformAligner::begin()
         connect(tuningDiffOutputModel.get(),
                 SIGNAL(completionChanged(ModelId)),
                 this, SLOT(tuningDifferenceCompletionChanged(ModelId)));
-
-        // This model exists only so that the AlignmentModel can get a
-        // completion value from somewhere while the tuning difference
-        // calculation is going on
-        auto progressModel = std::make_shared<SparseTimeValueModel>
-            (aggregateModel->getSampleRate(), 1);
-        m_tuningDiffProgressModel = ModelById::add(progressModel);
-        progressModel->setCompletion(0);
-        alignmentModel->setPathFrom(m_tuningDiffProgressModel);
     }
 }
 
 void
-TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
+MATCHAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 {
     if (m_tuningDiffOutputModel.isNone()) {
         // we're done, this is probably a spurious queued event
@@ -230,7 +212,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     }
         
     if (tuningDiffOutputModelId != m_tuningDiffOutputModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged: Model "
                << tuningDiffOutputModelId
                << " is not ours! (ours is "
                << m_tuningDiffOutputModel << ")" << endl;
@@ -240,7 +222,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     auto tuningDiffOutputModel =
         ModelById::getAs<SparseTimeValueModel>(m_tuningDiffOutputModel);
     if (!tuningDiffOutputModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged: Model "
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged: Model "
                << tuningDiffOutputModelId
                << " not known as SparseTimeValueModel" << endl;
         return;
@@ -248,7 +230,7 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
 
     auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
     if (!alignmentModel) {
-        SVCERR << "WARNING: TransformAligner::tuningDifferenceCompletionChanged:"
+        SVCERR << "WARNING: MATCHAligner::tuningDifferenceCompletionChanged:"
                << "alignment model has disappeared" << endl;
         return;
     }
@@ -256,21 +238,14 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     int completion = 0;
     bool done = tuningDiffOutputModel->isReady(&completion);
 
-    SVDEBUG << "TransformAligner::tuningDifferenceCompletionChanged: model "
+    SVDEBUG << "MATCHAligner::tuningDifferenceCompletionChanged: model "
             << m_tuningDiffOutputModel << ", completion = " << completion
             << ", done = " << done << endl;
     
     if (!done) {
         // This will be the completion the alignment model reports,
-        // before the alignment actually begins. It goes up from 0 to
-        // 99 (not 100!) and then back to 0 again when we start
-        // calculating the actual path in the following phase
-        int clamped = (completion == 100 ? 99 : completion);
-        auto progressModel =
-            ModelById::getAs<SparseTimeValueModel>(m_tuningDiffProgressModel);
-        if (progressModel) {
-            progressModel->setCompletion(clamped);
-        }
+        // before the alignment actually begins
+        alignmentModel->setCompletion(completion / 2);
         return;
     }
 
@@ -278,27 +253,23 @@ TransformAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputMode
     
     if (!tuningDiffOutputModel->isEmpty()) {
         m_tuningFrequency = tuningDiffOutputModel->getAllEvents()[0].getValue();
-        SVCERR << "TransformAligner::tuningDifferenceCompletionChanged: Reported tuning frequency = " << m_tuningFrequency << endl;
+        SVCERR << "MATCHAligner::tuningDifferenceCompletionChanged: Reported tuning frequency = " << m_tuningFrequency << endl;
     } else {
-        SVCERR << "TransformAligner::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
+        SVCERR << "MATCHAligner::tuningDifferenceCompletionChanged: No tuning frequency reported" << endl;
     }    
     
     ModelById::release(tuningDiffOutputModel);
     m_tuningDiffOutputModel = {};
     
-    alignmentModel->setPathFrom({}); // replace m_tuningDiffProgressModel
-    ModelById::release(m_tuningDiffProgressModel);
-    m_tuningDiffProgressModel = {};
-
     beginAlignmentPhase();
 }
 
 bool
-TransformAligner::beginAlignmentPhase()
+MATCHAligner::beginAlignmentPhase()
 {
     TransformId id = getAlignmentTransformName();
     
-    SVDEBUG << "TransformAligner::beginAlignmentPhase: transform is "
+    SVDEBUG << "MATCHAligner::beginAlignmentPhase: transform is "
             << id << endl;
     
     TransformFactory *tf = TransformFactory::getInstance();
@@ -309,7 +280,7 @@ TransformAligner::beginAlignmentPhase()
         ModelById::getAs<AlignmentModel>(m_alignmentModel);
 
     if (!aggregateModel || !alignmentModel) {
-        SVCERR << "TransformAligner::alignModel: ERROR: One or other of the aggregate & alignment models has disappeared" << endl;
+        SVCERR << "MATCHAligner::alignModel: ERROR: One or other of the aggregate & alignment models has disappeared" << endl;
         return false;
     }
     
@@ -332,14 +303,14 @@ TransformAligner::beginAlignmentPhase()
         int pitch = Pitch::getPitchForFrequency(m_tuningFrequency,
                                                 &centsOffset);
         cents = int(round((pitch - 69) * 100 + centsOffset));
-        SVCERR << "TransformAligner: frequency " << m_tuningFrequency
+        SVCERR << "MATCHAligner: frequency " << m_tuningFrequency
                << " yields cents offset " << centsOffset
                << " and pitch " << pitch << " -> cents " << cents << endl;
     }
 
     alignmentModel->setRelativePitch(cents);
     
-    SVDEBUG << "TransformAligner: Alignment transform step size "
+    SVDEBUG << "MATCHAligner: Alignment transform step size "
             << transform.getStepSize() << ", block size "
             << transform.getBlockSize() << endl;
 
@@ -362,7 +333,7 @@ TransformAligner::beginAlignmentPhase()
     //!!! alignment model after initial call
         
     if (!pathOutputModel) {
-        SVCERR << "TransformAligner: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
+        SVCERR << "MATCHAligner: ERROR: Failed to create alignment path (no MATCH plugin?)" << endl;
         alignmentModel->setError(message);
         return false;
     }
@@ -370,35 +341,55 @@ TransformAligner::beginAlignmentPhase()
     pathOutputModel->setCompletion(0);
     alignmentModel->setPathFrom(m_pathOutputModel);
 
-    connect(alignmentModel.get(), SIGNAL(completionChanged(ModelId)),
+    connect(pathOutputModel.get(), SIGNAL(completionChanged(ModelId)),
             this, SLOT(alignmentCompletionChanged(ModelId)));
 
     return true;
 }
 
 void
-TransformAligner::alignmentCompletionChanged(ModelId alignmentModelId)
+MATCHAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
 {
-    if (alignmentModelId != m_alignmentModel) {
-        SVCERR << "WARNING: TransformAligner::alignmentCompletionChanged: Model "
-               << alignmentModelId
+    if (pathOutputModelId != m_pathOutputModel) {
+        SVCERR << "WARNING: MATCHAligner::alignmentCompletionChanged: Model "
+               << pathOutputModelId
                << " is not ours! (ours is "
-               << m_alignmentModel << ")" << endl;
+               << m_pathOutputModel << ")" << endl;
         return;
     }
 
-    auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
+    auto pathOutputModel =
+        ModelById::getAs<SparseTimeValueModel>(m_pathOutputModel);
+    if (!pathOutputModel) {
+        SVCERR << "WARNING: MATCHAligner::alignmentCompletionChanged: Path output model "
+               << m_pathOutputModel << " no longer exists" << endl;
+        return;
+    }
+        
+    int completion = 0;
+    bool done = pathOutputModel->isReady(&completion);
 
-    if (alignmentModel && alignmentModel->isReady()) {
+    if (m_withTuningDifference) {
+        if (auto alignmentModel =
+            ModelById::getAs<AlignmentModel>(m_alignmentModel)) {
+            if (!done) {
+                int adjustedCompletion = 50 + completion/2;
+                if (adjustedCompletion > 99) {
+                    adjustedCompletion = 99;
+                }
+                alignmentModel->setCompletion(adjustedCompletion);
+            } else {
+                alignmentModel->setCompletion(100);
+            }
+        }
+    }
 
+    if (done) {
         m_incomplete = false;
         
         ModelById::release(m_pathOutputModel);
         m_pathOutputModel = {};
 
-        disconnect(alignmentModel.get(),
-                   SIGNAL(completionChanged(ModelId)),
-                   this, SLOT(alignmentCompletionChanged(ModelId)));
         emit complete(m_alignmentModel);
     }
 }

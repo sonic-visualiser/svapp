@@ -23,6 +23,8 @@
 
 #include "Aligner.h"
 
+#include "transform/Transform.h"
+
 class AlignmentModel;
 class Document;
 
@@ -33,11 +35,92 @@ class Align : public QObject
 public:
     Align() { }
 
+    enum AlignmentType {
+        NoAlignment,
+        LinearAlignment,
+        TrimmedLinearAlignment,
+        MATCHAlignment,
+        MATCHAlignmentWithPitchCompare,
+        SungNoteContourAlignment,
+        TransformDrivenDTWAlignment,
+        ExternalProgramAlignment,
+
+        LastAlignmentType = ExternalProgramAlignment
+    };
+
+    /**
+     * Convert an alignment type to a stable machine-readable string.
+     */
+    static QString getAlignmentTypeTag(AlignmentType type);
+
+    /**
+     * Convert an alignment type back from a stable machine-readable
+     * string.
+     */
+    static AlignmentType getAlignmentTypeForTag(QString tag);
+
+    /**
+     * Get the currently set alignment preference from the global
+     * application settings. If the returned preference is
+     * TransformDrivenDTWAlignment or ExternalProgramAlignment, then
+     * it will also be necessary to query
+     * getPreferredAlignmentTransform() or
+     * getPreferredAlignmentProgram() respectively in order to get the
+     * information needed to perform an alignment.
+     */
+    static AlignmentType getAlignmentPreference();
+    
+    /**
+     * Set the alignment preference to the global application
+     * settings. If the preference is TransformDrivenDTWAlignment or
+     * ExternalProgramAlignment, you may also wish to call
+     * setPreferredAlignmentTransform() or
+     * setPreferredAlignmentProgram() respectively.
+     */
+    static void setAlignmentPreference(AlignmentType type);
+
+    /**
+     * Get the external program associated with the
+     * ExternalProgramAlignment type, if any is set (an empty string
+     * otherwise). Note that this will return a value if any has ever
+     * been set, regardless of whether ExternalProgramAlignment is the
+     * currently chosen alignment type or not.
+     */
+    static QString getPreferredAlignmentProgram();
+
+    /**
+     * Set the external program associated with the
+     * ExternalProgramAlignment type. It is not necessary for the
+     * current preferred alignment type actually to be
+     * ExternalProgramAlignment in order to change this setting.  No
+     * validation is carried out on the argument - we don't verify
+     * that it actually is the path of a program, or anything else.
+     */
+    static void setPreferredAlignmentProgram(QString program);
+    
+    /**
+     * Get the transform associated with the
+     * TransformDrivenDTWAlignment type, if any is set (a default
+     * constructed Transform otherwise). Note that this will return a
+     * value if any has ever been set, regardless of whether
+     * TransformDrivenDTWAlignment is the currently chosen alignment
+     * type or not.
+     */
+    static Transform getPreferredAlignmentTransform();
+
+    /**
+     * Set the transform associated with the
+     * TransformDrivenDTWAlignment type. It is not necessary for the
+     * current preferred alignment type actually to be
+     * TransformDrivenDTWAlignment in order to change this setting.
+     */ 
+    static void setPreferredAlignmentTransform(Transform transform);
+    
     /**
      * Align the "other" model to the reference, attaching an
      * AlignmentModel to it. Alignment is carried out by the method
-     * configured in the user preferences (either a plugin transform
-     * or an external process) and is done asynchronously. 
+     * configured in the user preferences (see
+     * getAlignmentPreference() etc) and is done asynchronously.
      *
      * Any errors are reported by firing the alignmentFailed
      * signal. Note that the signal may be fired during the call to
@@ -79,8 +162,8 @@ public:
                            ModelId toAlign);
     
     /**
-     * Return true if the alignment facility is available (relevant
-     * plugin installed, etc).
+     * Return true if the preferred alignment facility is available
+     * (relevant plugin installed, etc).
      */
     static bool canAlign();
 
@@ -111,10 +194,8 @@ private:
     // we don't key this on the whole (reference, toAlign) pair
     std::map<ModelId, std::shared_ptr<Aligner>> m_aligners;
 
-    void addAligner(Document *doc, ModelId reference, ModelId toAlign);
+    bool addAligner(Document *doc, ModelId reference, ModelId toAlign);
     void removeAligner(QObject *);
-
-    static void getAlignerPreference(bool &useProgram, QString &program);
 };
 
 #endif

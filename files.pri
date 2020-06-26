@@ -3,7 +3,9 @@ SVAPP_HEADERS += \
            align/Align.h \
            align/Aligner.h \
            align/ExternalProgramAligner.h \
-           align/TransformAligner.h \
+           align/LinearAligner.h \
+           align/MATCHAligner.h \
+           align/TransformDTWAligner.h \
            audio/AudioCallbackPlaySource.h \
            audio/AudioCallbackRecordTarget.h \
            audio/AudioGenerator.h \
@@ -22,7 +24,9 @@ SVAPP_HEADERS += \
 SVAPP_SOURCES += \
 	   align/Align.cpp \
            align/ExternalProgramAligner.cpp \
-           align/TransformAligner.cpp \
+           align/LinearAligner.cpp \
+           align/MATCHAligner.cpp \
+           align/TransformDTWAligner.cpp \
            audio/AudioCallbackPlaySource.cpp \
            audio/AudioCallbackRecordTarget.cpp \
            audio/AudioGenerator.cpp \

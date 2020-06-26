@@ -13,20 +13,67 @@
 */
 
 #include "Align.h"
-#include "TransformAligner.h"
+
+#include "LinearAligner.h"
+#include "MATCHAligner.h"
+#include "TransformDTWAligner.h"
 #include "ExternalProgramAligner.h"
+
 #include "framework/Document.h"
+
+#include "transform/Transform.h"
+#include "transform/TransformFactory.h"
+
+#include "base/Pitch.h"
 
 #include <QSettings>
 #include <QTimer>
+
+using std::make_shared;
+
+QString
+Align::getAlignmentTypeTag(AlignmentType type)
+{
+    switch (type) {
+    case NoAlignment:
+    default:
+        return "no-alignment";
+    case LinearAlignment:
+        return "linear-alignment";
+    case TrimmedLinearAlignment:
+        return "trimmed-linear-alignment";
+    case MATCHAlignment:
+        return "match-alignment";
+    case MATCHAlignmentWithPitchCompare:
+        return "match-alignment-with-pitch";
+    case SungNoteContourAlignment:
+        return "sung-note-alignment";
+    case TransformDrivenDTWAlignment:
+        return "transform-driven-alignment";
+    case ExternalProgramAlignment:
+        return "external-program-alignment";
+    }
+}
+
+Align::AlignmentType
+Align::getAlignmentTypeForTag(QString tag)
+{
+    for (int i = 0; i <= int(LastAlignmentType); ++i) {
+        if (tag == getAlignmentTypeTag(AlignmentType(i))) {
+            return AlignmentType(i);
+        }
+    }
+    return NoAlignment;
+}
 
 void
 Align::alignModel(Document *doc,
                   ModelId reference,
                   ModelId toAlign)
 {
-    addAligner(doc, reference, toAlign);
-    m_aligners[toAlign]->begin();
+    if (addAligner(doc, reference, toAlign)) {
+        m_aligners[toAlign]->begin();
+    }
 }
 
 void
@@ -34,47 +81,116 @@ Align::scheduleAlignment(Document *doc,
                          ModelId reference,
                          ModelId toAlign)
 {
-    addAligner(doc, reference, toAlign);
-    int delay = 500 + 500 * int(m_aligners.size());
+    int delay = 700 * int(m_aligners.size());
     if (delay > 3500) {
         delay = 3500;
+    }
+    if (!addAligner(doc, reference, toAlign)) {
+        return;
     }
     SVCERR << "Align::scheduleAlignment: delaying " << delay << "ms" << endl;
     QTimer::singleShot(delay, m_aligners[toAlign].get(), SLOT(begin()));
 }
 
-void
+bool
 Align::addAligner(Document *doc,
                   ModelId reference,
                   ModelId toAlign)
 {
-    bool useProgram;
-    QString program;
-    getAlignerPreference(useProgram, program);
+    AlignmentType type = getAlignmentPreference();
     
     std::shared_ptr<Aligner> aligner;
 
+    if (m_aligners.find(toAlign) != m_aligners.end()) {
+        // We don't want a callback on removeAligner to happen during
+        // our own call to addAligner! Disconnect and delete the old
+        // aligner first
+        disconnect(m_aligners[toAlign].get(), nullptr, this, nullptr);
+        m_aligners.erase(toAlign);
+    }
+    
     {
         // Replace the aligner with a new one. This also stops any
         // previously-running alignment, when the old entry is
         // replaced and its aligner destroyed.
         
         QMutexLocker locker(&m_mutex);
-    
-        if (useProgram && (program != "")) {
-            m_aligners[toAlign] =
-                std::make_shared<ExternalProgramAligner>(doc,
-                                                         reference,
-                                                         toAlign,
-                                                         program);
-        } else {
-            m_aligners[toAlign] =
-                std::make_shared<TransformAligner>(doc,
-                                                   reference,
-                                                   toAlign);
+
+        switch (type) {
+
+        case NoAlignment:
+            return false;
+
+        case LinearAlignment:
+        case TrimmedLinearAlignment: {
+            bool trimmed = (type == TrimmedLinearAlignment);
+            aligner = make_shared<LinearAligner>(doc,
+                                                 reference,
+                                                 toAlign,
+                                                 trimmed);
+            break;
         }
 
-        aligner = m_aligners[toAlign];
+        case MATCHAlignment:
+        case MATCHAlignmentWithPitchCompare: {
+
+            bool withTuningDifference =
+                (type == MATCHAlignmentWithPitchCompare);
+            
+            aligner = make_shared<MATCHAligner>(doc,
+                                                reference,
+                                                toAlign,
+                                                withTuningDifference);
+            break;
+        }
+
+        case SungNoteContourAlignment:
+        {
+            auto refModel = ModelById::get(reference);
+            if (!refModel) return false;
+
+            Transform transform = TransformFactory::getInstance()->
+                getDefaultTransformFor("vamp:pyin:pyin:notes",
+                                       refModel->getSampleRate());
+
+            aligner = make_shared<TransformDTWAligner>
+                (doc,
+                 reference,
+                 toAlign,
+                 transform,
+                 [](double prev, double curr) {
+                     RiseFallDTW::Value v;
+                     if (curr <= 0.0) {
+                         v = { RiseFallDTW::Direction::None, 0.0 };
+                     } else if (prev <= 0.0) {
+                         v = { RiseFallDTW::Direction::Up, 0.0 };
+                     } else {
+                         double prevP = Pitch::getPitchForFrequency(prev);
+                         double currP = Pitch::getPitchForFrequency(curr);
+                         if (currP >= prevP) {
+                             v = { RiseFallDTW::Direction::Up, currP - prevP };
+                         } else {
+                             v = { RiseFallDTW::Direction::Down, prevP - currP };
+                         }
+                     }
+                     return v;
+                 });
+            break;
+        }
+        
+        case TransformDrivenDTWAlignment:
+            throw std::logic_error("Not yet implemented"); //!!!
+
+        case ExternalProgramAlignment: {
+            aligner = make_shared<ExternalProgramAligner>
+                (doc,
+                 reference,
+                 toAlign,
+                 getPreferredAlignmentProgram());
+        }
+        }
+
+        m_aligners[toAlign] = aligner;
     }
 
     connect(aligner.get(), SIGNAL(complete(ModelId)),
@@ -82,29 +198,75 @@ Align::addAligner(Document *doc,
 
     connect(aligner.get(), SIGNAL(failed(ModelId, QString)),
             this, SLOT(alignerFailed(ModelId, QString)));
+
+    return true;
+}
+
+Align::AlignmentType
+Align::getAlignmentPreference()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    QString tag = settings.value
+        ("alignment-type", getAlignmentTypeTag(MATCHAlignment)).toString();
+    return getAlignmentTypeForTag(tag);
+}
+
+QString
+Align::getPreferredAlignmentProgram()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    return settings.value("alignment-program", "").toString();
+}
+
+Transform
+Align::getPreferredAlignmentTransform()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    QString xml = settings.value("alignment-transform", "").toString();
+    return Transform(xml);
 }
 
 void
-Align::getAlignerPreference(bool &useProgram, QString &program)
+Align::setAlignmentPreference(AlignmentType type)
 {
     QSettings settings;
-    settings.beginGroup("Preferences");
-    useProgram = settings.value("use-external-alignment", false).toBool();
-    program = settings.value("external-alignment-program", "").toString();
+    settings.beginGroup("Alignment");
+    QString tag = getAlignmentTypeTag(type);
+    settings.setValue("alignment-type", tag);
+    settings.endGroup();
+}
+
+void
+Align::setPreferredAlignmentProgram(QString program)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    settings.setValue("alignment-program", program);
+    settings.endGroup();
+}
+
+void
+Align::setPreferredAlignmentTransform(Transform transform)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    settings.setValue("alignment-transform", transform.toXmlString());
     settings.endGroup();
 }
 
 bool
 Align::canAlign() 
 {
-    bool useProgram;
-    QString program;
-    getAlignerPreference(useProgram, program);
+    AlignmentType type = getAlignmentPreference();
 
-    if (useProgram) {
-        return ExternalProgramAligner::isAvailable(program);
+    if (type == ExternalProgramAlignment) {
+        return ExternalProgramAligner::isAvailable
+            (getPreferredAlignmentProgram());
     } else {
-        return TransformAligner::isAvailable();
+        return MATCHAligner::isAvailable();
     }
 }
 

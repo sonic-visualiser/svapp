@@ -39,6 +39,10 @@ ExternalProgramAligner::ExternalProgramAligner(Document *doc,
 
 ExternalProgramAligner::~ExternalProgramAligner()
 {
+    if (m_process) {
+        disconnect(m_process, nullptr, this, nullptr);
+    }
+    
     delete m_process;
 }
 
@@ -60,6 +64,11 @@ ExternalProgramAligner::begin()
     auto other = ModelById::getAs<ReadOnlyWaveFileModel>(m_toAlign);
     if (!reference || !other) {
         SVCERR << "ERROR: ExternalProgramAligner: Can't align non-read-only models via program (no local filename available)" << endl;
+        return;
+    }
+
+    if (m_program == "") {
+        emit failed(m_toAlign, tr("No external program specified"));
         return;
     }
 
@@ -114,22 +123,25 @@ ExternalProgramAligner::begin()
     if (!success) {
         
         SVCERR << "ERROR: ExternalProgramAligner: Program did not start" << endl;
-        emit failed(m_toAlign,
-                    tr("Alignment program \"%1\" did not start")
-                    .arg(m_program));
-        
+
         other->setAlignment({});
         ModelById::release(m_alignmentModel);
         delete m_process;
         m_process = nullptr;
+
+        emit failed(m_toAlign,
+                    tr("Alignment program \"%1\" did not start")
+                    .arg(m_program));
         
     } else {
+        alignmentModel->setCompletion(10);
         m_document->addNonDerivedModel(m_alignmentModel);
     }
 }
 
 void
-ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus status)
+ExternalProgramAligner::programFinished(int exitCode,
+                                        QProcess::ExitStatus status)
 {
     SVCERR << "ExternalProgramAligner::programFinished" << endl;
     
@@ -147,6 +159,8 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
                << endl;
         return;
     }
+
+    QString errorText;
     
     if (exitCode == 0 && status == 0) {
 
@@ -170,10 +184,9 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         if (!reader.isOK()) {
             SVCERR << "ERROR: ExternalProgramAligner: Failed to parse output"
                    << endl;
-            QString error = tr("Failed to parse output of program: %1")
+            errorText = tr("Failed to parse output of program: %1")
                 .arg(reader.getError());
-            alignmentModel->setError(error);
-            emit failed(m_toAlign, error);
+            alignmentModel->setError(errorText);
             goto done;
         }
 
@@ -186,22 +199,20 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         if (!path) {
             SVCERR << "ERROR: ExternalProgramAligner: Output did not convert to sparse time-value model"
                    << endl;
-            QString error =
+            errorText =
                 tr("Output of alignment program was not in the proper format");
-            alignmentModel->setError(error);
+            alignmentModel->setError(errorText);
             delete csvOutput;
-            emit failed(m_toAlign, error);
             goto done;
         }
                        
         if (path->isEmpty()) {
             SVCERR << "ERROR: ExternalProgramAligner: Output contained no mappings"
                    << endl;
-            QString error = 
+            errorText = 
                 tr("Output of alignment program contained no mappings");
-            alignmentModel->setError(error);
+            alignmentModel->setError(errorText);
             delete path;
-            emit failed(m_toAlign, error);
             goto done;
         }
 
@@ -211,8 +222,7 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         auto pathId =
             ModelById::add(std::shared_ptr<SparseTimeValueModel>(path));
         alignmentModel->setPathFrom(pathId);
-
-        emit complete(m_alignmentModel);
+        alignmentModel->setCompletion(100);
 
         ModelById::release(pathId);
         
@@ -220,12 +230,19 @@ ExternalProgramAligner::programFinished(int  exitCode, QProcess::ExitStatus stat
         SVCERR << "ERROR: ExternalProgramAligner: Aligner program "
                << "failed: exit code " << exitCode << ", status " << status
                << endl;
-        QString error = tr("Aligner process returned non-zero exit status");
-        alignmentModel->setError(error);
-        emit failed(m_toAlign, error);
+        errorText = tr("Aligner process returned non-zero exit status");
+        alignmentModel->setError(errorText);
     }
 
 done:
     delete m_process;
     m_process = nullptr;
+
+    // "This should be emitted as the last thing the aligner does, as
+    // the recipient may delete the aligner during the call."
+    if (errorText == "") {
+        emit complete(m_alignmentModel);
+    } else {
+        emit failed(m_toAlign, errorText);
+    }
 }

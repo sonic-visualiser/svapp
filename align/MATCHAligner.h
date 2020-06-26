@@ -12,25 +12,26 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef SV_TRANSFORM_ALIGNER_H
-#define SV_TRANSFORM_ALIGNER_H
+#ifndef SV_MATCH_ALIGNER_H
+#define SV_MATCH_ALIGNER_H
 
 #include "Aligner.h"
 
 class AlignmentModel;
 class Document;
 
-class TransformAligner : public Aligner
+class MATCHAligner : public Aligner
 {
     Q_OBJECT
 
 public:
-    TransformAligner(Document *doc,
-                     ModelId reference,
-                     ModelId toAlign);
+    MATCHAligner(Document *doc,
+                 ModelId reference,
+                 ModelId toAlign,
+                 bool withTuningDifference);
 
     // Destroy the aligner, cleanly cancelling any ongoing alignment
-    ~TransformAligner();
+    ~MATCHAligner();
 
     void begin() override;
 
@@ -51,9 +52,9 @@ private:
     ModelId m_toAlign;
     ModelId m_aggregateModel; // an AggregateWaveModel
     ModelId m_alignmentModel; // an AlignmentModel
-    ModelId m_tuningDiffProgressModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_tuningDiffOutputModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_pathOutputModel; // SparseTimeValueModel, unreg'd with doc
+    bool m_withTuningDifference;
     float m_tuningFrequency;
     bool m_incomplete;
 };

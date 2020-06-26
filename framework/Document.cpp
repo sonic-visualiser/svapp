@@ -1181,7 +1181,8 @@ Document::alignModel(ModelId modelId, bool forceRecalculate)
 
     SVDEBUG << "Document::alignModel: aligning..." << endl;
     if (!rm->getAlignmentReference().isNone()) {
-        SVDEBUG << "(Note: model " << rm << " is currently aligned to model "
+        SVDEBUG << "(Note: model " << modelId
+                << " is currently aligned to model "
                 << rm->getAlignmentReference() << "; this will replace that)"
                 << endl;
     }
