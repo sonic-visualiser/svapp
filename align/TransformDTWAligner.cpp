@@ -297,19 +297,19 @@ TransformDTWAligner::makePath(const vector<size_t> &alignment,
     
     for (int i = 0; in_range_for(alignment, i); ++i) {
 
-        // DTW returns "the index into s2 for each element in s1"
-        sv_frame_t refFrame = refFrames[i];
-
-        if (!in_range_for(otherFrames, alignment[i])) {
+        // DTW returns "the index into s1 for each element in s2"
+        sv_frame_t alignedFrame = otherFrames[i];
+        
+        if (!in_range_for(refFrames, alignment[i])) {
             SVCERR << "TransformDTWAligner::makePath: Internal error: "
-                   << "DTW maps index " << i << " in reference frame vector "
-                   << "(size " << refFrames.size() << ") onto index "
-                   << alignment[i] << " in other frame vector "
-                   << "(only size " << otherFrames.size() << ")" << endl;
+                   << "DTW maps index " << i << " in other frame vector "
+                   << "(size " << otherFrames.size() << ") onto index "
+                   << alignment[i] << " in ref frame vector "
+                   << "(only size " << refFrames.size() << ")" << endl;
             continue;
         }
             
-        sv_frame_t alignedFrame = otherFrames[alignment[i]];
+        sv_frame_t refFrame = refFrames[alignment[i]];
         path.add(PathPoint(alignedFrame, refFrame));
     }
 
@@ -361,7 +361,7 @@ TransformDTWAligner::performAlignmentMagnitude()
                << "]: serialising DTW to avoid over-allocation" << endl;
 #endif
         QMutexLocker locker(&m_dtwMutex);
-        alignment = dtw.alignSeries(s1, s2);
+        alignment = dtw.alignSequences(s1, s2);
     }
 
 #ifdef DEBUG_TRANSFORM_DTW_ALIGNER
@@ -450,7 +450,7 @@ TransformDTWAligner::performAlignmentRiseFall()
                << "]: serialising DTW to avoid over-allocation" << endl;
 #endif
         QMutexLocker locker(&m_dtwMutex);
-        alignment = dtw.alignSeries(s1, s2);
+        alignment = dtw.alignSequences(s1, s2);
     }
 
 #ifdef DEBUG_TRANSFORM_DTW_ALIGNER
