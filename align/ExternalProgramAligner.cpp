@@ -99,12 +99,17 @@ ExternalProgramAligner::begin()
     other->setAlignment(m_alignmentModel);
 
     m_process = new QProcess;
-    m_process->setProcessChannelMode(QProcess::ForwardedErrorChannel);
+    m_process->setProcessChannelMode(QProcess::SeparateChannels);
 
     connect(m_process,
             SIGNAL(finished(int, QProcess::ExitStatus)),
             this,
             SLOT(programFinished(int, QProcess::ExitStatus)));
+
+    connect(m_process,
+            SIGNAL(readyReadStandardError()),
+            this,
+            SLOT(logStderrOutput()));
 
     QStringList args;
     args << refPath << otherPath;
@@ -140,6 +145,37 @@ ExternalProgramAligner::begin()
 }
 
 void
+ExternalProgramAligner::logStderrOutput()
+{
+    if (!m_process) return;
+
+    m_process->setReadChannel(QProcess::StandardError);
+
+    qint64 byteCount = m_process->bytesAvailable();
+    if (byteCount == 0) {
+        m_process->setReadChannel(QProcess::StandardOutput);
+        return;
+    }
+
+    QByteArray buffer = m_process->read(byteCount);
+    while (buffer.endsWith('\n') || buffer.endsWith('\r')) {
+        buffer.chop(1);
+    }
+    
+    QString str = QString::fromUtf8(buffer);
+
+    cerr << str << endl;
+    
+    QString pfx = QString("[pid%1] ").arg(m_process->processId());
+    str.replace("\r", "\\r");
+    str.replace("\n", "\n" + pfx);
+
+    SVDEBUG << pfx << str << endl;
+
+    m_process->setReadChannel(QProcess::StandardOutput);
+}
+
+void
 ExternalProgramAligner::programFinished(int exitCode,
                                         QProcess::ExitStatus status)
 {
@@ -153,6 +189,8 @@ ExternalProgramAligner::programFinished(int exitCode,
         return;
     }
 
+    logStderrOutput();
+    
     auto alignmentModel = ModelById::getAs<AlignmentModel>(m_alignmentModel);
     if (!alignmentModel) {
         SVCERR << "ExternalProgramAligner: AlignmentModel no longer exists"

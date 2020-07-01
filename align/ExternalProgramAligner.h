@@ -42,6 +42,7 @@ public:
 
 private slots:
     void programFinished(int, QProcess::ExitStatus);
+    void logStderrOutput();
 
 private:
     Document *m_document;
