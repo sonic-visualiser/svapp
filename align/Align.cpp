@@ -140,6 +140,7 @@ Align::addAligner(Document *doc,
             aligner = make_shared<MATCHAligner>(doc,
                                                 reference,
                                                 toAlign,
+                                                getUseSubsequenceAlignment(),
                                                 withTuningDifference);
             break;
         }
@@ -157,6 +158,7 @@ Align::addAligner(Document *doc,
                 (doc,
                  reference,
                  toAlign,
+                 getUseSubsequenceAlignment(),
                  transform,
                  [](double prev, double curr) {
                      RiseFallDTW::Value v;
@@ -229,6 +231,14 @@ Align::getPreferredAlignmentTransform()
     return Transform(xml);
 }
 
+bool
+Align::getUseSubsequenceAlignment()
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    return settings.value("alignment-subsequence", false).toBool();
+}
+
 void
 Align::setAlignmentPreference(AlignmentType type)
 {
@@ -254,6 +264,15 @@ Align::setPreferredAlignmentTransform(Transform transform)
     QSettings settings;
     settings.beginGroup("Alignment");
     settings.setValue("alignment-transform", transform.toXmlString());
+    settings.endGroup();
+}
+
+void
+Align::setUseSubsequenceAlignment(bool subsequence)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    settings.setValue("alignment-subsequence", subsequence);
     settings.endGroup();
 }
 

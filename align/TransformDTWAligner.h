@@ -48,6 +48,7 @@ public:
     TransformDTWAligner(Document *doc,
                         ModelId reference,
                         ModelId toAlign,
+                        bool subsequence,
                         Transform transform,
                         DTWType dtwType);
 
@@ -61,6 +62,7 @@ public:
     TransformDTWAligner(Document *doc,
                         ModelId reference,
                         ModelId toAlign,
+                        bool subsequence,
                         Transform transform,
                         MagnitudePreprocessor outputPreprocessor);
 
@@ -75,6 +77,7 @@ public:
     TransformDTWAligner(Document *doc,
                         ModelId reference,
                         ModelId toAlign,
+                        bool subsequence,
                         Transform transform,
                         RiseFallPreprocessor outputPreprocessor);
 
@@ -112,6 +115,7 @@ private:
     ModelId m_alignmentModel;
     Transform m_transform;
     DTWType m_dtwType;
+    bool m_subsequence;
     bool m_incomplete;
     MagnitudePreprocessor m_magnitudePreprocessor;
     RiseFallPreprocessor m_riseFallPreprocessor;

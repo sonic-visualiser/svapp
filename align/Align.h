@@ -115,6 +115,21 @@ public:
      * TransformDrivenDTWAlignment in order to change this setting.
      */ 
     static void setPreferredAlignmentTransform(Transform transform);
+
+    /**
+     * Return true if subsequence alignment is preferred. In this case
+     * the toAlign model is aligned to the best-matching subsequence
+     * of the reference model rather than to the whole reference. This
+     * is only possible for the true built-in alignment types - it's
+     * meaningless for linear or trimmed linear alignment, and for
+     * external program alignment. The default is false.
+     */
+    static bool getUseSubsequenceAlignment();
+
+    /**
+     * Set whether subsequence alignment is to be preferred.
+     */
+    static void setUseSubsequenceAlignment(bool subsequence);
     
     /**
      * Align the "other" model to the reference, attaching an

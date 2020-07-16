@@ -30,10 +30,12 @@
 MATCHAligner::MATCHAligner(Document *doc,
                            ModelId reference,
                            ModelId toAlign,
+                           bool subsequence,
                            bool withTuningDifference) :
     m_document(doc),
     m_reference(reference),
     m_toAlign(toAlign),
+    m_subsequence(subsequence),
     m_withTuningDifference(withTuningDifference),
     m_tuningFrequency(440.f),
     m_incomplete(true)
@@ -55,13 +57,20 @@ MATCHAligner::~MATCHAligner()
 }
 
 QString
-MATCHAligner::getAlignmentTransformName()
+MATCHAligner::getAlignmentTransformName(bool subsequence)
 {
     QSettings settings;
     settings.beginGroup("Alignment");
-    TransformId id = settings.value
-        ("transform-id",
-         "vamp:match-vamp-plugin:match:path").toString();
+    TransformId id;
+    if (subsequence) {
+        id = settings.value
+            ("transform-id-subsequence",
+             "vamp:match-vamp-plugin:match-subsequence:path").toString();
+    } else {
+        id = settings.value
+            ("transform-id",
+             "vamp:match-vamp-plugin:match:path").toString();
+    }
     settings.endGroup();
     return id;
 }
@@ -83,9 +92,11 @@ bool
 MATCHAligner::isAvailable()
 {
     TransformFactory *factory = TransformFactory::getInstance();
-    TransformId id = getAlignmentTransformName();
+    TransformId id = getAlignmentTransformName(false);
+    TransformId subId = getAlignmentTransformName(true);
     TransformId tdId = getTuningDifferenceTransformName();
     return factory->haveTransform(id) &&
+        (subId == "" || factory->haveTransform(subId)) &&
         (tdId == "" || factory->haveTransform(tdId));
 }
 
@@ -267,7 +278,7 @@ MATCHAligner::tuningDifferenceCompletionChanged(ModelId tuningDiffOutputModelId)
 bool
 MATCHAligner::beginAlignmentPhase()
 {
-    TransformId id = getAlignmentTransformName();
+    TransformId id = getAlignmentTransformName(m_subsequence);
     
     SVDEBUG << "MATCHAligner::beginAlignmentPhase: transform is "
             << id << endl;

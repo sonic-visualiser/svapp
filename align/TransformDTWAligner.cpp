@@ -56,6 +56,7 @@ TransformDTWAligner::m_dtwMutex;
 TransformDTWAligner::TransformDTWAligner(Document *doc,
                                          ModelId reference,
                                          ModelId toAlign,
+                                         bool subsequence,
                                          Transform transform,
                                          DTWType dtwType) :
     m_document(doc),
@@ -63,6 +64,7 @@ TransformDTWAligner::TransformDTWAligner(Document *doc,
     m_toAlign(toAlign),
     m_transform(transform),
     m_dtwType(dtwType),
+    m_subsequence(subsequence),
     m_incomplete(true),
     m_magnitudePreprocessor(identityMagnitudePreprocessor),
     m_riseFallPreprocessor(identityRiseFallPreprocessor)
@@ -72,6 +74,7 @@ TransformDTWAligner::TransformDTWAligner(Document *doc,
 TransformDTWAligner::TransformDTWAligner(Document *doc,
                                          ModelId reference,
                                          ModelId toAlign,
+                                         bool subsequence,
                                          Transform transform,
                                          MagnitudePreprocessor outputPreprocessor) :
     m_document(doc),
@@ -79,6 +82,7 @@ TransformDTWAligner::TransformDTWAligner(Document *doc,
     m_toAlign(toAlign),
     m_transform(transform),
     m_dtwType(Magnitude),
+    m_subsequence(subsequence),
     m_incomplete(true),
     m_magnitudePreprocessor(outputPreprocessor),
     m_riseFallPreprocessor(identityRiseFallPreprocessor)
@@ -88,6 +92,7 @@ TransformDTWAligner::TransformDTWAligner(Document *doc,
 TransformDTWAligner::TransformDTWAligner(Document *doc,
                                          ModelId reference,
                                          ModelId toAlign,
+                                         bool subsequence,
                                          Transform transform,
                                          RiseFallPreprocessor outputPreprocessor) :
     m_document(doc),
@@ -95,6 +100,7 @@ TransformDTWAligner::TransformDTWAligner(Document *doc,
     m_toAlign(toAlign),
     m_transform(transform),
     m_dtwType(RiseFall),
+    m_subsequence(subsequence),
     m_incomplete(true),
     m_magnitudePreprocessor(identityMagnitudePreprocessor),
     m_riseFallPreprocessor(outputPreprocessor)
@@ -361,7 +367,11 @@ TransformDTWAligner::performAlignmentMagnitude()
                << "]: serialising DTW to avoid over-allocation" << endl;
 #endif
         QMutexLocker locker(&m_dtwMutex);
-        alignment = dtw.alignSequences(s1, s2);
+        if (m_subsequence) {
+            alignment = dtw.alignSubsequence(s1, s2);
+        } else {
+            alignment = dtw.alignSequences(s1, s2);
+        }
     }
 
 #ifdef DEBUG_TRANSFORM_DTW_ALIGNER
@@ -450,7 +460,11 @@ TransformDTWAligner::performAlignmentRiseFall()
                << "]: serialising DTW to avoid over-allocation" << endl;
 #endif
         QMutexLocker locker(&m_dtwMutex);
-        alignment = dtw.alignSequences(s1, s2);
+        if (m_subsequence) {
+            alignment = dtw.alignSubsequence(s1, s2);
+        } else {
+            alignment = dtw.alignSequences(s1, s2);
+        }
     }
 
 #ifdef DEBUG_TRANSFORM_DTW_ALIGNER

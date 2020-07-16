@@ -28,6 +28,7 @@ public:
     MATCHAligner(Document *doc,
                  ModelId reference,
                  ModelId toAlign,
+                 bool subsequence,
                  bool withTuningDifference);
 
     // Destroy the aligner, cleanly cancelling any ongoing alignment
@@ -42,7 +43,7 @@ private slots:
     void tuningDifferenceCompletionChanged(ModelId);
 
 private:
-    static QString getAlignmentTransformName();
+    static QString getAlignmentTransformName(bool subsequence);
     static QString getTuningDifferenceTransformName();
 
     bool beginAlignmentPhase();
@@ -54,6 +55,7 @@ private:
     ModelId m_alignmentModel; // an AlignmentModel
     ModelId m_tuningDiffOutputModel; // SparseTimeValueModel, unreg'd with doc
     ModelId m_pathOutputModel; // SparseTimeValueModel, unreg'd with doc
+    bool m_subsequence;
     bool m_withTuningDifference;
     float m_tuningFrequency;
     bool m_incomplete;
