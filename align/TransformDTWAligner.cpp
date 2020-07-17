@@ -200,7 +200,11 @@ TransformDTWAligner::begin()
 }
 
 void
-TransformDTWAligner::completionChanged(ModelId id)
+TransformDTWAligner::completionChanged(ModelId
+#ifdef DEBUG_TRANSFORM_DTW_ALIGNER
+                                       id
+#endif
+    )
 {
     if (!m_incomplete) {
         return;
@@ -297,7 +301,7 @@ TransformDTWAligner::makePath(const vector<size_t> &alignment,
                               sv_samplerate_t sampleRate,
                               sv_frame_t resolution)
 {
-    Path path(sampleRate, resolution);
+    Path path(sampleRate, int(resolution));
 
     path.add(PathPoint(0, 0));
     
