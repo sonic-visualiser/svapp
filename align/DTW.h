@@ -144,10 +144,24 @@ private:
 #endif
         }
         
-        while (i > 0 && (j > 0 || subsequence)) {
+        while (i > 0 || j > 0) {
 
             alignment[i] = j;
             
+            if (i == 0) {
+                if (subsequence) {
+                    break;
+                } else {
+                    --j;
+                    continue;
+                }
+            }
+            
+            if (j == 0) {
+                --i;
+                continue;
+            }
+
             cost_t a = costs[j-1][i];
             cost_t b = costs[j][i-1];
             cost_t both = costs[j-1][i-1];
