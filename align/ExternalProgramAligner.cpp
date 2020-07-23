@@ -166,7 +166,11 @@ ExternalProgramAligner::logStderrOutput()
 
     cerr << str << endl;
     
+#if (QT_VERSION >= 0x050300)
     QString pfx = QString("[pid%1] ").arg(m_process->processId());
+#else
+    QString pfx = QString("[subproc] ");
+#endif    
     str.replace("\r", "\\r");
     str.replace("\n", "\n" + pfx);
 
