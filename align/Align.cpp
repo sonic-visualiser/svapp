@@ -250,6 +250,18 @@ Align::setAlignmentPreference(AlignmentType type)
 }
 
 void
+Align::setDefaultAlignmentPreference(AlignmentType type)
+{
+    QSettings settings;
+    settings.beginGroup("Alignment");
+    if (!settings.contains("alignment-type")) {
+        QString tag = getAlignmentTypeTag(type);
+        settings.setValue("alignment-type", tag);
+    }
+    settings.endGroup();
+}
+
+void
 Align::setPreferredAlignmentProgram(QString program)
 {
     QSettings settings;

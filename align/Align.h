@@ -80,6 +80,12 @@ public:
     static void setAlignmentPreference(AlignmentType type);
 
     /**
+     * Set the default alignment preference. That is, if no alignment
+     * preference has been set by the user yet, set it to this.
+     */
+    static void setDefaultAlignmentPreference(AlignmentType type);
+    
+    /**
      * Get the external program associated with the
      * ExternalProgramAlignment type, if any is set (an empty string
      * otherwise). Note that this will return a value if any has ever
