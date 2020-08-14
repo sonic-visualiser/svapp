@@ -34,7 +34,7 @@ VersionTester::VersionTester(QString hostname, QString versionFilePath,
     m_nm(new QNetworkAccessManager)
 {
     QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
-    SVCERR << "VersionTester: URL is " << url << endl;
+    SVDEBUG << "VersionTester: URL is " << url << endl;
     m_reply = m_nm->get(QNetworkRequest(url));
     connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
             this, SLOT(error(QNetworkReply::NetworkError)));
@@ -82,7 +82,7 @@ VersionTester::isVersionNewerThan(QString a, QString b)
 void
 VersionTester::error(QNetworkReply::NetworkError)
 {
-    SVCERR << "VersionTester: error: " << m_reply->errorString() << endl;
+    SVDEBUG << "VersionTester: error: " << m_reply->errorString() << endl;
     m_httpFailed = true;
 }
 
@@ -97,7 +97,7 @@ VersionTester::finished()
 
     int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     if (status / 100 != 2) {
-        SVCERR << "VersionTester: error: http status = " << status << endl;
+        SVDEBUG << "VersionTester: error: http status = " << status << endl;
         return;
     }
 
@@ -107,9 +107,9 @@ VersionTester::finished()
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
-    SVCERR << "Comparing current version \"" << m_myVersion << "\" with latest version \"" << latestVersion << "\"" << endl;
+    SVDEBUG << "Comparing current version \"" << m_myVersion << "\" with latest version \"" << latestVersion << "\"" << endl;
     if (isVersionNewerThan(latestVersion, m_myVersion)) {
-        SVCERR << "Latest version \"" << latestVersion << "\" is newer than current version \"" << m_myVersion << "\"" << endl;
+        SVDEBUG << "Latest version \"" << latestVersion << "\" is newer than current version \"" << m_myVersion << "\"" << endl;
         emit newerVersionAvailable(latestVersion);
     }
 }

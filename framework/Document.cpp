@@ -41,7 +41,7 @@
 
 using std::vector;
 
-#define DEBUG_DOCUMENT 1
+//#define DEBUG_DOCUMENT 1
 
 //!!! still need to handle command history, documentRestored/documentModified
 

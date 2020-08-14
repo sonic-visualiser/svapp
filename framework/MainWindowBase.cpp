@@ -2603,7 +2603,7 @@ MainWindowBase::createAudioIO()
         m_audioIO = breakfastquay::AudioFactory::
             createCallbackIO(m_recordTarget, source, preference, errorString);
         if (m_audioIO) {
-            SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
+            SVDEBUG << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_audioIO->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_audioIO);
         } else {
@@ -2618,7 +2618,7 @@ MainWindowBase::createAudioIO()
         m_playTarget = breakfastquay::AudioFactory::
             createCallbackPlayTarget(source, preference, errorString);
         if (m_playTarget) {
-            SVCERR << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
+            SVDEBUG << "MainWindowBase::createAudioIO: Suspending on creation" << endl;
             m_playTarget->suspend(); // start in suspended state
             m_playSource->setSystemPlaybackTarget(m_playTarget);
         }
@@ -3770,7 +3770,7 @@ MainWindowBase::stop()
     
     m_playSource->stop();
 
-    SVCERR << "MainWindowBase::stop: suspending" << endl;
+    SVDEBUG << "MainWindowBase::stop: suspending" << endl;
     
     if (m_audioIO) m_audioIO->suspend();
     else if (m_playTarget) m_playTarget->suspend();
