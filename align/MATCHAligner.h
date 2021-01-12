@@ -36,7 +36,8 @@ public:
 
     void begin() override;
 
-    static bool isAvailable();
+    static bool isAvailable(bool subsequence,
+                            bool withTuningDifference);
 
 private slots:
     void alignmentCompletionChanged(ModelId);

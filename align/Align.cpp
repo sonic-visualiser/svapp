@@ -292,12 +292,19 @@ bool
 Align::canAlign() 
 {
     AlignmentType type = getAlignmentPreference();
+    bool subsequence = getUseSubsequenceAlignment();
 
     if (type == ExternalProgramAlignment) {
+        SVDEBUG << "Align::canAlign: type is ExternalProgramAlignment, "
+                << "querying ExternalProgramAligner" << endl;
         return ExternalProgramAligner::isAvailable
             (getPreferredAlignmentProgram());
     } else {
-        return MATCHAligner::isAvailable();
+        SVDEBUG << "Align::canAlign: type is not ExternalProgramAlignment, "
+                << "querying MATCHAligner" << endl;
+        return MATCHAligner::isAvailable
+            (subsequence,
+             type == MATCHAlignmentWithPitchCompare);
     }
 }
 

@@ -1117,7 +1117,7 @@ Document::isKnownModel(const ModelId modelId) const
 bool
 Document::canAlign()
 {
-    return Align::canAlign();
+    return m_align->canAlign();
 }
 
 void

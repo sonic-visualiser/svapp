@@ -276,9 +276,9 @@ public:
 
     /**
      * Return true if alignment is supported (i.e. if the necessary
-     * plugin is found).
+     * plugin(s) are found).
      */
-    static bool canAlign();
+    bool canAlign();
 
     /**
      * Specify whether models added via addImportedModel should be

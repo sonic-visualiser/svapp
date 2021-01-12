@@ -186,7 +186,7 @@ public:
      * Return true if the preferred alignment facility is available
      * (relevant plugin installed, etc).
      */
-    static bool canAlign();
+    bool canAlign();
 
 signals:
     /**

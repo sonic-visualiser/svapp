@@ -89,15 +89,33 @@ MATCHAligner::getTuningDifferenceTransformName()
 }
 
 bool
-MATCHAligner::isAvailable()
+MATCHAligner::isAvailable(bool subsequence,
+                          bool withTuningDifference)
 {
     TransformFactory *factory = TransformFactory::getInstance();
     TransformId id = getAlignmentTransformName(false);
-    TransformId subId = getAlignmentTransformName(true);
-    TransformId tdId = getTuningDifferenceTransformName();
-    return factory->haveTransform(id) &&
-        (subId == "" || factory->haveTransform(subId)) &&
-        (tdId == "" || factory->haveTransform(tdId));
+
+    TransformId subId, tdId;
+
+    if (subsequence) {
+        subId = getAlignmentTransformName(true);
+    }
+    if (withTuningDifference) {
+        tdId = getTuningDifferenceTransformName();
+    }
+
+    bool haveId = factory->haveTransform(id);
+    bool haveSubId = (subId == "" || factory->haveTransform(subId));
+    bool haveTdId = (tdId == "" || factory->haveTransform(tdId));
+    bool available = haveId && haveSubId && haveTdId;
+
+    SVDEBUG << "MATCHAligner::isAvailable: "
+            << "transform id = " << id << " (have: " << haveId
+            << "), subId = " << subId << " (have: " << haveSubId
+            << "), tdId = " << tdId << " (have: " << haveTdId << ")"
+            << ": available = " << available << endl;
+
+    return available;
 }
 
 void
