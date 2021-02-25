@@ -113,8 +113,9 @@ TimeStretchWrapper::getSourceSamples(float *const *samples,
             (inputPtrs.data(), nchannels, reqd);
 
         if (got <= 0) {
-            SVCERR << "WARNING: Failed to obtain any source samples at all"
-                   << endl;
+            // Don't print this - it happens routinely when we aren't playing!
+//            SVCERR << "WARNING: Failed to obtain any source samples at all"
+//                   << endl;
             return 0;
         }
             
