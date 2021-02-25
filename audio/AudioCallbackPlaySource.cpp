@@ -656,6 +656,10 @@ AudioCallbackPlaySource::getTargetBlockSize() const
 void
 AudioCallbackPlaySource::setSystemPlaybackLatency(int latency)
 {
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    cout << "AudioCallbackPlaySource::setSystemPlaybackLatency: latency = "
+         << latency << endl;
+#endif
     m_playLatency = latency;
 }
 
@@ -719,6 +723,13 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
     double currentTime = 0.0;
     if (m_target) currentTime = m_target->getCurrentTime();
 
+#ifdef DEBUG_AUDIO_PLAY_SOURCE_PLAYING
+    cout << "\nrate = " << rate << ", readBufferFill = " << readBufferFill
+         << ", lastRetrievedBlockSize = " << lastRetrievedBlockSize
+         << ", lastRetrievalTimestamp = " << lastRetrievalTimestamp
+         << ", currentTime = " << currentTime << endl;
+#endif
+    
     bool looping = m_viewManager->getPlayLoopMode();
 
     RealTime inbuffer_t = RealTime::frame2RealTime(inbuffer, rate);
@@ -750,7 +761,8 @@ AudioCallbackPlaySource::getCurrentFrame(RealTime latency_t)
             double elapsed = currentTime - lastRetrievalTimestamp;
 
             if (elapsed > 0.0) {
-                sincerequest_t = RealTime::fromSeconds(elapsed);
+                sincerequest_t = RealTime::fromSeconds
+                    (elapsed / m_timeStretchWrapper->getTimeStretchRatio());
             }
         }
 

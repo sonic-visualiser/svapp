@@ -60,6 +60,11 @@ public:
     void setTimeStretchRatio(double ratio);
 
     /**
+     * Obtain the stretch factor.
+     */
+    double getTimeStretchRatio() const;
+
+    /**
      * Clear stretcher buffers.
      */
     void reset();
@@ -95,6 +100,7 @@ private:
     std::mutex m_mutex;
     int m_stretcherInputSize;
     int m_channelCount;
+    int m_lastReportedSystemLatency;
     sv_samplerate_t m_sampleRate;
 
     void checkStretcher(); // call without m_mutex held

@@ -27,6 +27,7 @@ TimeStretchWrapper::TimeStretchWrapper(ApplicationPlaybackSource *source) :
     m_timeRatio(1.0),
     m_stretcherInputSize(16384),
     m_channelCount(0),
+    m_lastReportedSystemLatency(0),
     m_sampleRate(0)
 {
 }
@@ -48,6 +49,12 @@ TimeStretchWrapper::setTimeStretchRatio(double ratio)
 
     // Stretcher will be updated by checkStretcher() from next call to
     // getSourceSamples()
+}
+
+double
+TimeStretchWrapper::getTimeStretchRatio() const
+{
+    return m_timeRatio;
 }
 
 void
@@ -153,6 +160,9 @@ TimeStretchWrapper::checkStretcher()
     for (auto &v: m_inputs) {
         v.resize(m_stretcherInputSize);
     }
+
+    // Notify upstream of changed latency due to stretcher
+    setSystemPlaybackLatency(m_lastReportedSystemLatency);
 }
 
 void
@@ -212,7 +222,14 @@ TimeStretchWrapper::setSystemPlaybackBlockSize(int sz)
 void
 TimeStretchWrapper::setSystemPlaybackLatency(int latency)
 {
-    m_source->setSystemPlaybackLatency(latency);
+    if (m_stretcher) {
+        m_source->setSystemPlaybackLatency(latency / m_timeRatio +
+                                           m_stretcher->getLatency());
+    } else {
+        m_source->setSystemPlaybackLatency(latency);
+    }
+
+    m_lastReportedSystemLatency = latency;
 }
 
 void
