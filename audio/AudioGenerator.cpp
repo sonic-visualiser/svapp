@@ -64,7 +64,7 @@ AudioGenerator::AudioGenerator() :
 AudioGenerator::~AudioGenerator()
 {
 #ifdef DEBUG_AUDIO_GENERATOR
-    cerr << "AudioGenerator::~AudioGenerator" << endl;
+    SVCERR << "AudioGenerator::~AudioGenerator" << endl;
 #endif
 
     for (int i = 0; i < m_channelBufCount; ++i) {
@@ -81,7 +81,7 @@ AudioGenerator::initialiseSampleDir()
     try {
         m_sampleDir = TempDirectory::getInstance()->getSubDirectoryPath("samples");
     } catch (const DirectoryCreationFailed &f) {
-        cerr << "WARNING: AudioGenerator::initialiseSampleDir:"
+        SVCERR << "WARNING: AudioGenerator::initialiseSampleDir:"
                   << " Failed to create temporary sample directory"
                   << endl;
         m_sampleDir = "";
@@ -97,7 +97,7 @@ AudioGenerator::initialiseSampleDir()
         QString target = QDir(m_sampleDir).filePath(fileName);
 
         if (!file.copy(target)) {
-            cerr << "WARNING: AudioGenerator::getSampleDir: "
+            SVCERR << "WARNING: AudioGenerator::getSampleDir: "
                       << "Unable to copy " << fileName
                       << " into temporary directory \""
                       << m_sampleDir << "\"" << endl;
@@ -297,7 +297,7 @@ AudioGenerator::reset()
     QMutexLocker locker(&m_mutex);
 
 #ifdef DEBUG_AUDIO_GENERATOR
-    cerr << "AudioGenerator::reset()" << endl;
+    SVCERR << "AudioGenerator::reset()" << endl;
 #endif
 
     for (ClipMixerMap::iterator i = m_clipMixerMap.begin();
@@ -356,7 +356,7 @@ AudioGenerator::mixModel(ModelId modelId,
                          sv_frame_t fadeIn, sv_frame_t fadeOut)
 {
     if (m_sourceSampleRate == 0) {
-        cerr << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
+        SVCERR << "WARNING: AudioGenerator::mixModel: No base source sample rate available" << endl;
         return frameCount;
     }
 
@@ -458,7 +458,7 @@ AudioGenerator::mixDenseTimeValueModel(ModelId modelId,
         sv_frame_t missing = fadeIn/2 - startFrame;
 
         if (missing > 0) {
-            cerr << "note: channelBufSiz = " << m_channelBufSiz
+            SVCERR << "note: channelBufSiz = " << m_channelBufSiz
                  << ", frames + fadeOut/2 = " << frames + fadeOut/2 
                  << ", startFrame = " << startFrame 
                  << ", missing = " << missing << endl;
@@ -579,7 +579,7 @@ AudioGenerator::mixClipModel(ModelId modelId,
             off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            cerr << "mixModel [clip]: adding rewind-caused note-off at frame offset 0 frequency " << off.frequency << endl;
+            SVCERR << "mixModel [clip]: adding rewind-caused note-off at frame offset 0 frequency " << off.frequency << endl;
 #endif
 
             ends.push_back(off);
@@ -607,7 +607,7 @@ AudioGenerator::mixClipModel(ModelId modelId,
                 // mean we have to explicitly ignore zero-duration
                 // notes, otherwise they'll be played without end
 #ifdef DEBUG_AUDIO_GENERATOR
-                cerr << "mixModel [clip]: zero-duration note found at frame " << noteFrame << ", skipping it" << endl;
+                SVCERR << "mixModel [clip]: zero-duration note found at frame " << noteFrame << ", skipping it" << endl;
 #endif
                 continue;
             }
@@ -622,7 +622,7 @@ AudioGenerator::mixClipModel(ModelId modelId,
                 off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-                cerr << "mixModel [clip]: adding note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
+                SVCERR << "mixModel [clip]: adding note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
                 ends.push_back(off);
@@ -654,7 +654,7 @@ AudioGenerator::mixClipModel(ModelId modelId,
             off.frequency = noteOffs.begin()->frequency;
 
 #ifdef DEBUG_AUDIO_GENERATOR
-            cerr << "mixModel [clip]: adding leftover note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
+            SVCERR << "mixModel [clip]: adding leftover note-off at frame " << eventFrame << " frame offset " << off.frameOffset << " frequency " << off.frequency << endl;
 #endif
 
             ends.push_back(off);
@@ -736,7 +736,7 @@ AudioGenerator::mixContinuousSynthModel(ModelId modelId,
             }
         }
 
-//        cerr << "f0 = " << f0 << endl;
+//        SVCERR << "f0 = " << f0 << endl;
 
         synth->mix(bufferIndexes,
                    gain,

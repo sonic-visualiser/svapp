@@ -48,7 +48,7 @@ bool
 ClipMixer::loadClipData(QString path, double f0, double level)
 {
     if (m_clipData) {
-        cerr << "ClipMixer::loadClipData: Already have clip loaded" << endl;
+        SVCERR << "ClipMixer::loadClipData: Already have clip loaded" << endl;
         return false;
     }
 
@@ -60,14 +60,14 @@ ClipMixer::loadClipData(QString path, double f0, double level)
     info.format = 0;
     file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
     if (!file) {
-        cerr << "ClipMixer::loadClipData: Failed to open file path \""
+        SVCERR << "ClipMixer::loadClipData: Failed to open file path \""
              << path << "\": " << sf_strerror(file) << endl;
         return false;
     }
 
     tmpFrames = (float *)malloc(info.frames * info.channels * sizeof(float));
     if (!tmpFrames) {
-        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * info.channels * sizeof(float) << ") failed" << endl;
+        SVCERR << "ClipMixer::loadClipData: malloc(" << info.frames * info.channels * sizeof(float) << ") failed" << endl;
         return false;
     }
 
@@ -76,7 +76,7 @@ ClipMixer::loadClipData(QString path, double f0, double level)
 
     m_clipData = (float *)malloc(info.frames * sizeof(float));
     if (!m_clipData) {
-        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
+        SVCERR << "ClipMixer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
         free(tmpFrames);
         return false;
     }
@@ -137,7 +137,7 @@ ClipMixer::mix(float **toBuffers,
     float *levels = new float[m_channels];
 
 #ifdef DEBUG_CLIP_MIXER
-    cerr << "ClipMixer::mix: have " << m_playing.size() << " playing note(s)"
+    SVCERR << "ClipMixer::mix: have " << m_playing.size() << " playing note(s)"
          << " and " << endingNotes.size() << " note(s) ending here"
          << endl;
 #endif

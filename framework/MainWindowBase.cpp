@@ -130,10 +130,10 @@ static int handle_x11_error(Display *dpy, XErrorEvent *err)
     char errstr[256];
     XGetErrorText(dpy, err->error_code, errstr, 256);
     if (err->error_code != BadWindow) {
-        cerr << "Sonic Visualiser: X Error: "
+        std::cerr << "Sonic Visualiser: X Error: "
                   << errstr << " " << int(err->error_code)
                   << "\nin major opcode:  "
-                  << int(err->request_code) << endl;
+                  << int(err->request_code) << std::endl;
     }
     return 0;
 }
@@ -905,7 +905,7 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     sv_frame_t frame = m_playSource->getCurrentBufferedFrame();
 
-    cerr << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
+    SVCERR << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
 
     View::ModelSet soloModels = p->getModels();
     
@@ -1569,7 +1569,7 @@ MainWindowBase::openAudio(FileSource source,
         SVDEBUG << "(Default template is: \"" << templateName << "\")" << endl;
     }
 
-//    cerr << "template is: \"" << templateName << "\"" << endl;
+//    SVCERR << "template is: \"" << templateName << "\"" << endl;
 
     if (!source.isAvailable()) {
         if (source.wasCancelled()) {
@@ -1907,13 +1907,13 @@ MainWindowBase::openLayer(FileSource source)
     
     if (!pane) {
         // shouldn't happen, as the menu action should have been disabled
-        cerr << "WARNING: MainWindowBase::openLayer: no current pane" << endl;
+        SVCERR << "WARNING: MainWindowBase::openLayer: no current pane" << endl;
         return FileOpenWrongMode;
     }
 
     if (!getMainModel()) {
         // shouldn't happen, as the menu action should have been disabled
-        cerr << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << endl;
+        SVCERR << "WARNING: MainWindowBase::openLayer: No main model -- hence no default sample rate available" << endl;
         return FileOpenWrongMode;
     }
 
@@ -1925,7 +1925,7 @@ MainWindowBase::openLayer(FileSource source)
     RDFImporter::RDFDocumentType rdfType = 
         RDFImporter::identifyDocumentType(QUrl::fromLocalFile(path));
 
-//    cerr << "RDF type:  (in layer) " << (int) rdfType << endl;
+//    SVCERR << "RDF type:  (in layer) " << (int) rdfType << endl;
 
     if (rdfType != RDFImporter::NotRDF) {
 
@@ -1940,7 +1940,7 @@ MainWindowBase::openLayer(FileSource source)
         QFile file(path);
         
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            cerr << "ERROR: MainWindowBase::openLayer("
+            SVCERR << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation()
                       << "): Failed to open file for reading" << endl;
             return FileOpenFailed;
@@ -1959,7 +1959,7 @@ MainWindowBase::openLayer(FileSource source)
         reader.parse(inputSource);
         
         if (!reader.isOK()) {
-            cerr << "ERROR: MainWindowBase::openLayer("
+            SVCERR << "ERROR: MainWindowBase::openLayer("
                       << source.getLocation()
                       << "): Failed to read XML file: "
                       << reader.getErrorString() << endl;
@@ -2045,7 +2045,7 @@ MainWindowBase::openImage(FileSource source)
     
     if (!pane) {
         // shouldn't happen, as the menu action should have been disabled
-        cerr << "WARNING: MainWindowBase::openImage: no current pane" << endl;
+        SVCERR << "WARNING: MainWindowBase::openImage: no current pane" << endl;
         return FileOpenWrongMode;
     }
 
@@ -2164,7 +2164,7 @@ MainWindowBase::openSession(FileSource source)
                 RDFImporter::identifyDocumentType
                 (QUrl::fromLocalFile(source.getLocalFilename()));
 
-//        cerr << "RDF type: " << (int)rdfType << endl;
+//        SVCERR << "RDF type: " << (int)rdfType << endl;
 
             if (rdfType == RDFImporter::AudioRefAndAnnotations ||
                 rdfType == RDFImporter::AudioRef) {
@@ -2177,7 +2177,7 @@ MainWindowBase::openSession(FileSource source)
             
             if (SVFileReader::identifyXmlFile(source.getLocalFilename()) ==
                 SVFileReader::SVSessionFile) {
-                cerr << "This XML file looks like a session file, attempting to open it as a session" << endl;
+                SVCERR << "This XML file looks like a session file, attempting to open it as a session" << endl;
             } else {
                 return FileOpenFailed;
             }
@@ -2295,7 +2295,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
     ResourceFinder rf;
     QString tfile = rf.getResourcePath("templates", templateName + ".svt");
     if (tfile != "") {
-        cerr << "SV loading template file " << tfile << endl;
+        SVCERR << "SV loading template file " << tfile << endl;
         return openSessionTemplate(FileSource("file:" + tfile));
     } else {
         return FileOpenFailed;
@@ -2305,7 +2305,7 @@ MainWindowBase::openSessionTemplate(QString templateName)
 MainWindowBase::FileOpenStatus
 MainWindowBase::openSessionTemplate(FileSource source)
 {
-    cerr << "MainWindowBase::openSessionTemplate(" << source.getLocation() << ")" << endl;
+    SVCERR << "MainWindowBase::openSessionTemplate(" << source.getLocation() << ")" << endl;
 
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
@@ -2757,7 +2757,7 @@ MainWindowBase::saveSessionFile(QString path)
 
         BZipFileDevice bzFile(temp.getTemporaryFilename());
         if (!bzFile.open(QIODevice::WriteOnly)) {
-            cerr << "Failed to open session file \""
+            SVCERR << "Failed to open session file \""
                       << temp.getTemporaryFilename()
                       << "\" for writing: "
                       << bzFile.errorString() << endl;
@@ -2803,7 +2803,7 @@ MainWindowBase::saveSessionTemplate(QString path)
 
         QFile file(temp.getTemporaryFilename());
         if (!file.open(QIODevice::WriteOnly)) {
-            cerr << "Failed to open session template file \""
+            SVCERR << "Failed to open session template file \""
                       << temp.getTemporaryFilename()
                       << "\" for writing: "
                       << file.errorString() << endl;
@@ -3052,7 +3052,7 @@ MainWindowBase::toXml(QTextStream &out, bool asTemplate)
 Pane *
 MainWindowBase::addPaneToStack()
 {
-    cerr << "MainWindowBase::addPaneToStack()" << endl;
+    SVCERR << "MainWindowBase::addPaneToStack()" << endl;
     AddPaneCommand *command = new AddPaneCommand(this);
     CommandHistory::getInstance()->addCommand(command);
     Pane *pane = command->getPane();
@@ -4180,7 +4180,7 @@ MainWindowBase::layerAboutToBeDeleted(Layer *layer)
     removeLayerEditDialog(layer);
 
     if (m_timeRulerLayer && (layer == m_timeRulerLayer)) {
-//        cerr << "(this is the time ruler layer)" << endl;
+//        SVCERR << "(this is the time ruler layer)" << endl;
         m_timeRulerLayer = nullptr;
     }
 }
@@ -4298,7 +4298,7 @@ MainWindowBase::paneDeleteButtonClicked(Pane *pane)
 void
 MainWindowBase::alignmentComplete(ModelId alignmentModelId)
 {
-    cerr << "MainWindowBase::alignmentComplete(" << alignmentModelId << ")" << endl;
+    SVCERR << "MainWindowBase::alignmentComplete(" << alignmentModelId << ")" << endl;
 }
 
 void
