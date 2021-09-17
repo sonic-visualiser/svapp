@@ -1121,12 +1121,12 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
         SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not playing" << endl;
 #endif
         v_zero_channels(buffer, requestedChannels, count);
-        return 0;
+        return count;
     }
     if (requestedChannels < channels) {
         SVDEBUG << "AudioCallbackPlaySource::getSourceSamples: Not enough device channels (" << requestedChannels << ", need " << channels << "); hoping device is about to be reopened" << endl;
         v_zero_channels(buffer, requestedChannels, count);
-        return 0;
+        return count;
     }
     if (requestedChannels > channels) {
         v_zero_channels(buffer + channels, requestedChannels - channels, count);
