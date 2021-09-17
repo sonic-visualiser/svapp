@@ -71,7 +71,7 @@ Document::~Document()
     //the document, be nice to fix that
 
 #ifdef DEBUG_DOCUMENT
-    SVDEBUG << "\n\nDocument::~Document: about to clear command history" << endl;
+    SVCERR << "\n\nDocument::~Document: about to clear command history" << endl;
 #endif
     CommandHistory::getInstance()->clear();
     
@@ -126,10 +126,8 @@ Document::createLayer(LayerFactory::LayerType type)
 
     m_layers.push_back(newLayer);
 
-#ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::createLayer: Added layer of type " << type
               << ", now have " << m_layers.size() << " layers" << endl;
-#endif
 
     emit layerAdded(newLayer);
 
@@ -176,10 +174,8 @@ Document::createImportedLayer(ModelId modelId)
 
     m_layers.push_back(newLayer);
 
-#ifdef DEBUG_DOCUMENT
     SVDEBUG << "Document::createImportedLayer: Added layer of type " << type
               << ", now have " << m_layers.size() << " layers" << endl;
-#endif
 
     emit layerAdded(newLayer);
     return newLayer;
@@ -421,6 +417,9 @@ void
 Document::setMainModel(ModelId modelId)
 {
     Profiler profiler("Document::setMainModel");
+
+    SVDEBUG << "Document::setMainModel: replacing main model "
+            << m_mainModel << " with model " << modelId << endl;
     
     ModelId oldMainModel = m_mainModel;
     m_mainModel = modelId;
@@ -433,53 +432,88 @@ Document::setMainModel(ModelId modelId)
         emit activity(tr("Clear main model"));
     }
 
+    replaceModel(oldMainModel, m_mainModel);
+
+    std::set<ModelId> additionalModels;
+    for (const auto &rec : m_models) {
+        if (rec.second.additional) {
+            additionalModels.insert(rec.first);
+        }
+    }
+    for (ModelId a: additionalModels) {
+        m_models.erase(a);
+    }
+
+    emit mainModelChanged(m_mainModel);
+
+    if (!oldMainModel.isNone()) {
+
+        // Remove the playable explicitly - the main model's dtor will
+        // do this, but just in case something is still hanging onto a
+        // shared_ptr to the old main model so it doesn't get deleted
+        PlayParameterRepository::getInstance()->removePlayable
+            (oldMainModel.untyped);
+
+        ModelById::release(oldMainModel);
+    }
+}
+
+void
+Document::refreshModel(ModelId modelId)
+{
+    SVDEBUG << "Document::refreshModel: refreshing model " << modelId << endl;
+    
+    replaceModel(modelId, modelId);
+}
+
+void
+Document::replaceModel(ModelId oldModel, ModelId newModel)
+{
     std::vector<Layer *> obsoleteLayers;
     std::set<QString> failedTransformers;
 
-    // We need to ensure that no layer is left using oldMainModel or
+    // We need to ensure that no layer is left using oldModel or
     // any of the old derived models as its model.  Either replace the
     // model, or delete the layer for each layer that is currently
     // using one of these.  Carry out this replacement before we
     // delete any of the models.
 
-#ifdef DEBUG_DOCUMENT
-    SVDEBUG << "Document::setMainModel: Have "
-              << m_layers.size() << " layers" << endl;
-    SVDEBUG << "Models now: ";
-    for (const auto &r: m_models) {
-        SVDEBUG << r.first << " ";
+    SVDEBUG << "Document::replaceModel: Models now: ";
+    if (m_models.empty()) {
+        SVDEBUG << "<none> ";
+    } else {
+        for (const auto &r: m_models) {
+            SVDEBUG << r.first << " ";
+        }
     }
-    SVDEBUG << endl;
-    SVDEBUG << "Old main model: " << oldMainModel << endl;
-#endif
+    SVDEBUG << "with main model " << m_mainModel << endl;
+    SVDEBUG << "Replacing old model: " << oldModel << endl;
+    SVDEBUG << "with new model: " << newModel << endl;
+    SVDEBUG << "Have " << m_layers.size() << " layers" << endl;
 
     for (Layer *layer: m_layers) {
 
         ModelId modelId = layer->getModel();
 
-#ifdef DEBUG_DOCUMENT
-        SVDEBUG << "Document::setMainModel: inspecting model "
+        SVDEBUG << "Document::replaceModel: inspecting model "
                 << modelId << " in layer " << layer->objectName() << endl;
-#endif
 
-        if (modelId == oldMainModel) {
-#ifdef DEBUG_DOCUMENT
-            SVDEBUG << "... it uses the old main model, replacing" << endl;
-#endif
-            LayerFactory::getInstance()->setModel(layer, m_mainModel);
+        if (modelId == oldModel) {
+            SVDEBUG << "... it's the old model, replacing" << endl;
+            LayerFactory::getInstance()->setModel(layer, newModel);
             continue;
         }
 
         if (modelId.isNone()) {
-            SVCERR << "WARNING: Document::setMainModel: Null model in layer "
+            SVCERR << "WARNING: Document::replaceModel: Null model in layer "
                    << layer << endl;
             // get rid of this hideous degenerate
             obsoleteLayers.push_back(layer);
             continue;
         }
 
-        if (m_models.find(modelId) == m_models.end()) {
-            SVCERR << "WARNING: Document::setMainModel: Unknown model "
+        if (m_models.find(modelId) == m_models.end() && modelId != m_mainModel) {
+            SVCERR << "WARNING: Document::replaceModel: Unknown model "
                    << modelId << " in layer " << layer << endl;
             // and this one
             obsoleteLayers.push_back(layer);
@@ -488,30 +522,29 @@ Document::setMainModel(ModelId modelId)
 
         ModelRecord record = m_models[modelId];
         
-        if (!record.source.isNone() && (record.source == oldMainModel)) {
+        if (!record.source.isNone() && (record.source == oldModel)) {
 
-#ifdef DEBUG_DOCUMENT
-            SVDEBUG << "... it uses a model derived from the old main model, regenerating" << endl;
-#endif
+            SVDEBUG << "... it uses a model derived from the old model, regenerating" << endl;
 
-            // This model was derived from the previous main
-            // model: regenerate it.
+            // This model was derived from the previous model:
+            // regenerate it.
             
             const Transform &transform = record.transform;
             QString transformId = transform.getIdentifier();
             
             //!!! We have a problem here if the number of channels in
-            //the main model has changed.
+            //the model has changed.
 
             QString message;
             ModelId replacementModel =
                 addDerivedModel(transform,
                                 ModelTransformer::Input
-                                (m_mainModel, record.channel),
-                                message);
+                                (newModel, record.channel),
+                                message,
+                                false); // don't accept an existing model
             
             if (replacementModel.isNone()) {
-                SVCERR << "WARNING: Document::setMainModel: Failed to regenerate model for transform \""
+                SVCERR << "WARNING: Document::replaceModel: Failed to regenerate model for transform \""
                        << transformId << "\"" << " in layer " << layer << endl;
                 if (failedTransformers.find(transformId)
                     == failedTransformers.end()) {
@@ -527,9 +560,9 @@ Document::setMainModel(ModelId modelId)
                                                   transformId,
                                                   message);
                 }
-#ifdef DEBUG_DOCUMENT
-                SVDEBUG << "Replacing model " << modelId << ") with model "
-                        << replacementModel << ") in layer "
+
+                SVDEBUG << "Replacing model " << modelId << " with model "
+                        << replacementModel << " in layer "
                         << layer << " (name " << layer->objectName() << ")"
                         << endl;
 
@@ -537,9 +570,9 @@ Document::setMainModel(ModelId modelId)
                 if (rm) {
                     SVDEBUG << "new model has " << rm->getChannelCount() << " channels " << endl;
                 } else {
-                    SVDEBUG << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel!" << endl;
+                    SVDEBUG << "new model " << replacementModel << " is not a RangeSummarisableTimeValueModel" << endl;
                 }
-#endif
+
                 setModel(layer, replacementModel);
             }
         }            
@@ -549,54 +582,29 @@ Document::setMainModel(ModelId modelId)
         deleteLayer(obsoleteLayers[k], true);
     }
 
-    std::set<ModelId> additionalModels;
-    for (const auto &rec : m_models) {
-        if (rec.second.additional) {
-            additionalModels.insert(rec.first);
-        }
-    }
-    for (ModelId a: additionalModels) {
-        m_models.erase(a);
-    }
-
     for (const auto &rec : m_models) {
 
         auto m = ModelById::get(rec.first);
         if (!m) continue;
 
-#ifdef DEBUG_DOCUMENT
         SVDEBUG << "considering alignment for model " << rec.first << endl;
-#endif
 
         if (m_autoAlignment) {
 
             alignModel(rec.first);
 
-        } else if (!oldMainModel.isNone() && 
-                   (m->getAlignmentReference() == oldMainModel)) {
+        } else if (!oldModel.isNone() && 
+                   (m->getAlignmentReference() == oldModel)) {
 
             alignModel(rec.first);
         }
     }
 
-    if (m_autoAlignment) {
-        SVDEBUG << "Document::setMainModel: auto-alignment is on, aligning main model if applicable" << endl;
+    if (m_autoAlignment && newModel == m_mainModel) {
+        SVDEBUG << "Document::replaceModel: auto-alignment is on, aligning main model if applicable" << endl;
         alignModel(m_mainModel);
     } else {
-        SVDEBUG << "Document::setMainModel: auto-alignment is off" << endl;
-    }
-
-    emit mainModelChanged(m_mainModel);
-
-    if (!oldMainModel.isNone()) {
-
-        // Remove the playable explicitly - the main model's dtor will
-        // do this, but just in case something is still hanging onto a
-        // shared_ptr to the old main model so it doesn't get deleted
-        PlayParameterRepository::getInstance()->removePlayable
-            (oldMainModel.untyped);
-
-        ModelById::release(oldMainModel);
+        SVDEBUG << "Document::replaceModel: auto-alignment is off" << endl;
     }
 }
 
@@ -732,16 +740,19 @@ Document::addAdditionalModel(ModelId modelId)
 ModelId
 Document::addDerivedModel(const Transform &transform,
                           const ModelTransformer::Input &input,
-                          QString &message)
+                          QString &message,
+                          bool acceptExistingModel)
 {
     Profiler profiler("Document::addDerivedModel");
-    
-    for (auto &rec : m_models) {
-        if (rec.second.transform == transform &&
-            rec.second.source == input.getModel() && 
-            rec.second.channel == input.getChannel()) {
-            SVDEBUG << "derived model taken from map " << endl;
-            return rec.first;
+
+    if (acceptExistingModel) {
+        for (auto &rec : m_models) {
+            if (rec.second.transform == transform &&
+                rec.second.source == input.getModel() && 
+                rec.second.channel == input.getChannel()) {
+                SVDEBUG << "Document::addDerivedModel: derived model found in map " << endl;
+                return rec.first;
+            }
         }
     }
 

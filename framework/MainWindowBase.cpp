@@ -1546,7 +1546,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
             (this, tr("Not enough disc space"),
              tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
         return FileOpenFailed;
-    } catch (const std::bad_alloc &e) { // reader may have rethrown this after cleaning up
+    } catch (const std::bad_alloc &) { // reader may have rethrown this after cleaning up
         emit hideSplash();
         m_openingAudioFile = false;
         SVCERR << "MainWindowBase: Caught bad_alloc in file open" << endl;
@@ -3477,6 +3477,19 @@ MainWindowBase::record()
         m_documentModified = false;
         updateWindowTitle();
 
+        SVDEBUG << "MainWindowBase::record: Recorded model " << modelId
+                << " set as main model" << endl;
+
+        QMetaObject::Connection *const conn = new QMetaObject::Connection;
+        *conn = connect(m_recordTarget,
+                        &AudioCallbackRecordTarget::recordCompleted,
+                        [=] () {
+                            SVDEBUG << "MainWindowBase::record: recordCompleted" << endl;
+                            QObject::disconnect(*conn);
+                            delete conn;
+                            m_document->refreshModel(modelId);
+                        });
+        
     } else {
 
         CommandHistory::getInstance()->startCompoundOperation
