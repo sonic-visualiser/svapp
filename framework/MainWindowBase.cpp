@@ -2287,13 +2287,19 @@ MainWindowBase::openSession(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openSessionTemplate(QString templateName)
+MainWindowBase::openSessionTemplate(QString fileOrTemplateName)
 {
     // Template in the user's template directory takes
     // priority over a bundled one; we don't unbundle, but
     // open directly from the bundled file (where applicable)
     ResourceFinder rf;
-    QString tfile = rf.getResourcePath("templates", templateName + ".svt");
+    QString tfile = "";
+    if (fileOrTemplateName.contains('/') ||
+        fileOrTemplateName.contains('\\')) {
+        tfile = fileOrTemplateName;
+    } else {
+        tfile = rf.getResourcePath("templates", fileOrTemplateName + ".svt");
+    }
     if (tfile != "") {
         cerr << "SV loading template file " << tfile << endl;
         return openSessionTemplate(FileSource("file:" + tfile));
