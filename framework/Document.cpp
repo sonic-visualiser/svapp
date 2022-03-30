@@ -496,7 +496,8 @@ Document::replaceModel(ModelId oldModel, ModelId newModel)
         ModelId modelId = layer->getModel();
 
         SVDEBUG << "Document::replaceModel: inspecting model "
-                << modelId << " in layer " << layer->objectName() << endl;
+                << modelId << " in layer " << layer->objectName()
+                << " (" << layer << ")" << endl;
 
         if (modelId == oldModel) {
             SVDEBUG << "... it's the old model, replacing" << endl;
@@ -556,6 +557,7 @@ Document::replaceModel(ModelId oldModel, ModelId newModel)
                 obsoleteLayers.push_back(layer);
             } else {
                 if (message != "") {
+                    SVDEBUG << "Document::replaceModel: Regeneration of layer " << layer->objectName() << " with transform " << transformId << " returned a warning, showing to user (warning is: " << message << ")" << endl;
                     emit modelRegenerationWarning(layer->objectName(),
                                                   transformId,
                                                   message);

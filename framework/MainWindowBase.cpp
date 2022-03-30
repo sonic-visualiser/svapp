@@ -1949,10 +1949,12 @@ MainWindowBase::openLayer(FileSource source)
         SVFileReader reader(m_document, callback, source.getLocation());
         connect
             (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-             this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+             this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+             Qt::QueuedConnection);
         connect
             (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+             this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+             Qt::QueuedConnection);
         reader.setCurrentPane(pane);
         
         QXmlInputSource inputSource(&file);
@@ -2220,10 +2222,12 @@ MainWindowBase::openSession(FileSource source)
     SVFileReader reader(m_document, callback, source.getLocation());
     connect
         (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+         Qt::QueuedConnection);
     connect
         (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+         Qt::QueuedConnection);
 
     reader.parse(*inputSource);
     
@@ -2338,10 +2342,12 @@ MainWindowBase::openSessionTemplate(FileSource source)
     SVFileReader reader(m_document, callback, source.getLocation());
     connect
         (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+         Qt::QueuedConnection);
     connect
         (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+         Qt::QueuedConnection);
 
     reader.parse(*inputSource);
     
@@ -2741,13 +2747,16 @@ MainWindowBase::createDocument()
             this, SLOT(mainModelChanged(ModelId)));
 
     connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
-            this, SLOT(modelGenerationFailed(QString, QString)));
+            this, SLOT(modelGenerationFailed(QString, QString)),
+            Qt::QueuedConnection);
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+            Qt::QueuedConnection);
     connect(m_document, SIGNAL(alignmentComplete(ModelId)),
             this, SLOT(alignmentComplete(ModelId)));
     connect(m_document, SIGNAL(alignmentFailed(ModelId, QString)),
-            this, SLOT(alignmentFailed(ModelId, QString)));
+            this, SLOT(alignmentFailed(ModelId, QString)),
+            Qt::QueuedConnection);
 
     m_document->setAutoAlignment(m_viewManager->getAlignMode());
 
