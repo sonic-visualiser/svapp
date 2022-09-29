@@ -163,6 +163,10 @@ AudioCallbackPlaySource::checkWrappers()
     }
     if (!m_timeStretchWrapper) {
         m_timeStretchWrapper = new TimeStretchWrapper(m_auditioningEffectWrapper);
+        m_timeStretchWrapper->setQuality
+            (Preferences::getInstance()->getFinerTimeStretch() ?
+             TimeStretchWrapper::Quality::Finer :
+             TimeStretchWrapper::Quality::Faster);
     }
 }
 
@@ -594,8 +598,16 @@ AudioCallbackPlaySource::playParametersChanged(int)
 }
 
 void
-AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName)
+AudioCallbackPlaySource::preferenceChanged(PropertyContainer::PropertyName name)
 {
+    if (name == "Use Finer Time Stretch") {
+        if (m_timeStretchWrapper) {
+            m_timeStretchWrapper->setQuality
+                (Preferences::getInstance()->getFinerTimeStretch() ?
+                 TimeStretchWrapper::Quality::Finer :
+                 TimeStretchWrapper::Quality::Faster);
+        }
+    }        
 }
 
 void

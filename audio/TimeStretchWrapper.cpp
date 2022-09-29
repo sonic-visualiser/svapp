@@ -25,6 +25,8 @@ TimeStretchWrapper::TimeStretchWrapper(ApplicationPlaybackSource *source) :
     m_source(source),
     m_stretcher(nullptr),
     m_timeRatio(1.0),
+    m_quality(Quality::Finer),
+    m_qualityChangePending(false),
     m_stretcherInputSize(16384),
     m_channelCount(0),
     m_lastReportedSystemLatency(0),
@@ -48,7 +50,7 @@ TimeStretchWrapper::setTimeStretchRatio(double ratio)
     m_timeRatio = ratio;
 
     // Stretcher will be updated by checkStretcher() from next call to
-    // getSourceSamples()
+    // reset() or getSourceSamples()
 }
 
 double
@@ -58,13 +60,45 @@ TimeStretchWrapper::getTimeStretchRatio() const
 }
 
 void
-TimeStretchWrapper::reset()
+TimeStretchWrapper::setQuality(Quality quality)
 {
     lock_guard<mutex> guard(m_mutex);
 
-    if (m_stretcher) {
+    SVDEBUG << "TimeStretchWrapper::setTimeStretchRatio: setting quality to "
+            << int(quality) << " (was " << int(m_quality) << ")" << endl;
+
+    if (m_quality != quality) {
+        m_qualityChangePending = true;
+    }
+    
+    m_quality = quality;
+}
+
+TimeStretchWrapper::Quality
+TimeStretchWrapper::getQuality() const
+{
+    return m_quality;
+}
+
+void
+TimeStretchWrapper::reset()
+{
+    m_mutex.lock();
+    
+    if (m_qualityChangePending) {
+
+        delete m_stretcher;
+        m_stretcher = nullptr;
+        
+        m_mutex.unlock();
+        checkStretcher();
+        m_mutex.lock();
+        
+    } else if (m_stretcher) {
         m_stretcher->reset();
     }
+
+    m_mutex.unlock();
 }
 
 int
@@ -144,19 +178,33 @@ TimeStretchWrapper::checkStretcher()
     }
     
     if (m_stretcher) {
-        SVDEBUG << "TimeStretchWrapper::checkStretcher: setting stretcher ratio to " << m_timeRatio << endl;
-        m_stretcher->setTimeRatio(m_timeRatio);
+        if (m_timeRatio != m_stretcher->getTimeRatio()) {
+            SVDEBUG << "TimeStretchWrapper::checkStretcher: setting stretcher ratio to " << m_timeRatio << endl;
+            m_stretcher->setTimeRatio(m_timeRatio);
+        }
         return;
     }
 
     SVDEBUG << "TimeStretchWrapper::checkStretcher: creating stretcher with ratio " << m_timeRatio << endl;
+
+    RubberBandStretcher::Options options = 0;
+    if (m_quality == Quality::Finer) {
+        SVDEBUG << "TimeStretchWrapper::checkStretcher: using finer-quality stretcher" << endl;
+        options = RubberBandStretcher::OptionEngineFiner;
+    }
     
     m_stretcher = new RubberBandStretcher
         (size_t(round(m_sampleRate)),
          m_channelCount,
-         RubberBandStretcher::OptionProcessRealTime,
+         RubberBandStretcher::OptionProcessRealTime | options,
          m_timeRatio);
 
+    if (m_quality == Quality::Finer) {
+        if (m_stretcher->getEngineVersion() != 3) {
+            SVDEBUG << "TimeStretchWrapper::checkStretcher: WARNING: Unexpected engine version " << m_stretcher->getEngineVersion() << " (expected 3)" << endl;
+        }
+    }
+    
     m_inputs.resize(m_channelCount);
     for (auto &v: m_inputs) {
         v.resize(m_stretcherInputSize);
