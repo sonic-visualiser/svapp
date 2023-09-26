@@ -590,22 +590,28 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
 {
     FileFinder *ff = FileFinder::getInstance();
 
+    QString lastPath;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
+    } else if ((type == FileFinder::AnyFile ||
+                type == FileFinder::SessionOrAudioFile) &&
+               m_sessionFile == "") {
+        lastPath = m_audioFile;
+    } else {
+        lastPath = m_sessionFile;
+    }
+
     if (type == FileFinder::AnyFile) {
         if (!getMainModelId().isNone() &&
             m_paneStack != nullptr &&
             m_paneStack->getCurrentPane() != nullptr) { // can import a layer
-            return ff->getOpenFileName(FileFinder::AnyFile, m_sessionFile);
+            return ff->getOpenFileName(FileFinder::AnyFile, lastPath);
         } else {
             return ff->getOpenFileName(FileFinder::SessionOrAudioFile,
-                                       m_sessionFile);
+                                       lastPath);
         }
     }        
-
-    QString lastPath = m_sessionFile;
-
-    if (type == FileFinder::AudioFile) {
-        lastPath = m_audioFile;
-    }
 
     return ff->getOpenFileName(type, lastPath);
 }
