@@ -194,6 +194,13 @@ public:
      */
     ModelId getMainModel() { return m_mainModel; }
     
+    /**
+     * Regenerate any derived models that are based on the given
+     * model. This could be because the model has changed, for example
+     * because it was being recorded and recording has now finished.
+     */
+    void refreshModel(ModelId); // a WaveFileModel
+
     std::vector<ModelId> getTransformInputModels();
 
     /**
@@ -207,10 +214,15 @@ public:
      * Add a derived model associated with the given transform,
      * running the transform and returning the resulting model.
      * The model is added to ModelById before returning.
+     *
+     * If acceptExistingModel is true and an existing model is found
+     * with the same source, transform, and channel, return that model
+     * instead of re-running the transform.
      */
     ModelId addDerivedModel(const Transform &transform,
                             const ModelTransformer::Input &input,
-                            QString &returnedMessage);
+                            QString &returnedMessage,
+                            bool acceptExistingModel = true);
 
     /**
      * Add derived models associated with the given set of related
@@ -341,6 +353,18 @@ protected slots:
 protected:
     void releaseModel(ModelId model);
 
+    /**
+     * Replace model "from" with "to", re-running transforms that were
+     * based on "from" as appropriate. If "from" is the same as "to",
+     * transforms based on "from" will be re-run with their existing
+     * sources. The new model should be known to the document already
+     * (it should have either been set as m_mainModel already or be
+     * present in m_models).
+     *
+     * This is used by setMainModel and refreshModel.
+     */
+    void replaceModel(ModelId from, ModelId to);
+    
     /**
      * If model is suitable for alignment, align it against the main
      * model and store the alignment in the model. If the model has an

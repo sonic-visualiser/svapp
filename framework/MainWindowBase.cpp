@@ -590,22 +590,28 @@ MainWindowBase::getOpenFileName(FileFinder::FileType type)
 {
     FileFinder *ff = FileFinder::getInstance();
 
+    QString lastPath;
+
+    if (type == FileFinder::AudioFile) {
+        lastPath = m_audioFile;
+    } else if ((type == FileFinder::AnyFile ||
+                type == FileFinder::SessionOrAudioFile) &&
+               m_sessionFile == "") {
+        lastPath = m_audioFile;
+    } else {
+        lastPath = m_sessionFile;
+    }
+
     if (type == FileFinder::AnyFile) {
         if (!getMainModelId().isNone() &&
             m_paneStack != nullptr &&
             m_paneStack->getCurrentPane() != nullptr) { // can import a layer
-            return ff->getOpenFileName(FileFinder::AnyFile, m_sessionFile);
+            return ff->getOpenFileName(FileFinder::AnyFile, lastPath);
         } else {
             return ff->getOpenFileName(FileFinder::SessionOrAudioFile,
-                                       m_sessionFile);
+                                       lastPath);
         }
     }        
-
-    QString lastPath = m_sessionFile;
-
-    if (type == FileFinder::AudioFile) {
-        lastPath = m_audioFile;
-    }
 
     return ff->getOpenFileName(type, lastPath);
 }
@@ -1546,7 +1552,7 @@ MainWindowBase::open(FileSource source, AudioFileOpenMode mode)
             (this, tr("Not enough disc space"),
              tr("<b>Not enough disc space</b><p>There doesn't appear to be enough spare disc space to accommodate any necessary temporary files.</p><p>Please clear some space and try again.</p>").arg(e.what()));
         return FileOpenFailed;
-    } catch (const std::bad_alloc &e) { // reader may have rethrown this after cleaning up
+    } catch (const std::bad_alloc &) { // reader may have rethrown this after cleaning up
         emit hideSplash();
         m_openingAudioFile = false;
         SVCERR << "MainWindowBase: Caught bad_alloc in file open" << endl;
@@ -1949,10 +1955,12 @@ MainWindowBase::openLayer(FileSource source)
         SVFileReader reader(m_document, callback, source.getLocation());
         connect
             (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-             this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+             this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+             Qt::QueuedConnection);
         connect
             (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-             this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+             this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+             Qt::QueuedConnection);
         reader.setCurrentPane(pane);
         
         QXmlInputSource inputSource(&file);
@@ -2220,10 +2228,12 @@ MainWindowBase::openSession(FileSource source)
     SVFileReader reader(m_document, callback, source.getLocation());
     connect
         (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+         Qt::QueuedConnection);
     connect
         (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+         Qt::QueuedConnection);
 
     reader.parse(*inputSource);
     
@@ -2287,13 +2297,19 @@ MainWindowBase::openSession(FileSource source)
 }
 
 MainWindowBase::FileOpenStatus
-MainWindowBase::openSessionTemplate(QString templateName)
+MainWindowBase::openSessionTemplate(QString fileOrTemplateName)
 {
     // Template in the user's template directory takes
     // priority over a bundled one; we don't unbundle, but
     // open directly from the bundled file (where applicable)
     ResourceFinder rf;
-    QString tfile = rf.getResourcePath("templates", templateName + ".svt");
+    QString tfile = "";
+    if (fileOrTemplateName.contains('/') ||
+        fileOrTemplateName.contains('\\')) {
+        tfile = fileOrTemplateName;
+    } else {
+        tfile = rf.getResourcePath("templates", fileOrTemplateName + ".svt");
+    }
     if (tfile != "") {
         SVCERR << "SV loading template file " << tfile << endl;
         return openSessionTemplate(FileSource("file:" + tfile));
@@ -2332,10 +2348,12 @@ MainWindowBase::openSessionTemplate(FileSource source)
     SVFileReader reader(m_document, callback, source.getLocation());
     connect
         (&reader, SIGNAL(modelRegenerationFailed(QString, QString, QString)),
-         this, SLOT(modelRegenerationFailed(QString, QString, QString)));
+         this, SLOT(modelRegenerationFailed(QString, QString, QString)),
+         Qt::QueuedConnection);
     connect
         (&reader, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-         this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+         this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+         Qt::QueuedConnection);
 
     reader.parse(*inputSource);
     
@@ -2735,13 +2753,16 @@ MainWindowBase::createDocument()
             this, SLOT(mainModelChanged(ModelId)));
 
     connect(m_document, SIGNAL(modelGenerationFailed(QString, QString)),
-            this, SLOT(modelGenerationFailed(QString, QString)));
+            this, SLOT(modelGenerationFailed(QString, QString)),
+            Qt::QueuedConnection);
     connect(m_document, SIGNAL(modelRegenerationWarning(QString, QString, QString)),
-            this, SLOT(modelRegenerationWarning(QString, QString, QString)));
+            this, SLOT(modelRegenerationWarning(QString, QString, QString)),
+            Qt::QueuedConnection);
     connect(m_document, SIGNAL(alignmentComplete(ModelId)),
             this, SLOT(alignmentComplete(ModelId)));
     connect(m_document, SIGNAL(alignmentFailed(ModelId, QString)),
-            this, SLOT(alignmentFailed(ModelId, QString)));
+            this, SLOT(alignmentFailed(ModelId, QString)),
+            Qt::QueuedConnection);
 
     m_document->setAutoAlignment(m_viewManager->getAlignMode());
 
@@ -3477,6 +3498,19 @@ MainWindowBase::record()
         m_documentModified = false;
         updateWindowTitle();
 
+        SVDEBUG << "MainWindowBase::record: Recorded model " << modelId
+                << " set as main model" << endl;
+
+        QMetaObject::Connection *const conn = new QMetaObject::Connection;
+        *conn = connect(m_recordTarget,
+                        &AudioCallbackRecordTarget::recordCompleted,
+                        [=] () {
+                            SVDEBUG << "MainWindowBase::record: recordCompleted" << endl;
+                            QObject::disconnect(*conn);
+                            delete conn;
+                            m_document->refreshModel(modelId);
+                        });
+        
     } else {
 
         CommandHistory::getInstance()->startCompoundOperation

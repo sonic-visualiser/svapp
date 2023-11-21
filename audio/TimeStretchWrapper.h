@@ -52,7 +52,7 @@ public:
      */
     TimeStretchWrapper(ApplicationPlaybackSource *source);
     ~TimeStretchWrapper();
-
+    
     /**
      * Set a time stretch factor, i.e. playback speed, where 1.0 is
      * normal speed
@@ -64,6 +64,22 @@ public:
      */
     double getTimeStretchRatio() const;
 
+    enum class Quality {
+        Faster,
+        Finer
+    };
+
+    /**
+     * Set a quality preference. The default is Finer. Any change will
+     * take effect at the next call to reset().
+     */
+    void setQuality(Quality quality);
+
+    /**
+     * Obtain the current quality preference.
+     */
+    Quality getQuality() const;
+    
     /**
      * Clear stretcher buffers.
      */
@@ -96,6 +112,8 @@ private:
     ApplicationPlaybackSource *m_source;
     RubberBand::RubberBandStretcher *m_stretcher;
     double m_timeRatio;
+    Quality m_quality;
+    bool m_qualityChangePending;
     std::vector<std::vector<float>> m_inputs;
     std::mutex m_mutex;
     int m_stretcherInputSize;

@@ -160,10 +160,26 @@ public:
     
     virtual FileOpenStatus openSession(FileSource source);
     virtual FileOpenStatus openSessionPath(QString fileOrUrl);
-    virtual FileOpenStatus openSessionTemplate(QString templateName);
+    virtual bool saveSessionFile(QString path);
+
+    /** Open a session template as an empty session, ready to
+     *  introduce a new main audio file into. If fileOrTemplateName
+     *  contains any path separator characters ('/' or '\'), it will
+     *  be treated as an absolute file path including file extension;
+     *  otherwise it will be treated as a template name and will be
+     *  searched for with an .svt extension within the user and
+     *  bundled templates resource locations.
+     */
+    virtual FileOpenStatus openSessionTemplate(QString fileOrTemplateName);
+
+    /** Open a session template as an empty session, ready to 
+     *  introduce a new main audio file into.
+     */
     virtual FileOpenStatus openSessionTemplate(FileSource source);
 
-    virtual bool saveSessionFile(QString path);
+    /** Save a session template. The argument must be a file path
+     *  including extension (normally .svt), not just a template name.
+     */
     virtual bool saveSessionTemplate(QString path);
 
     virtual bool exportLayerToSVL(Layer *layer,
