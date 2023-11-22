@@ -24,6 +24,7 @@
 #include <iostream>
 
 #include <QNetworkAccessManager>
+#include <QRegularExpression>
 
 
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
@@ -53,9 +54,9 @@ VersionTester::~VersionTester()
 bool
 VersionTester::isVersionNewerThan(QString a, QString b)
 {
-    QRegExp re("[._-]");
-    QStringList alist = a.split(re, QString::SkipEmptyParts);
-    QStringList blist = b.split(re, QString::SkipEmptyParts);
+    QRegularExpression re("[._-]");
+    QStringList alist = a.split(re, Qt::SkipEmptyParts);
+    QStringList blist = b.split(re, Qt::SkipEmptyParts);
     int ae = alist.size();
     int be = blist.size();
     int e = std::max(ae, be);
@@ -103,7 +104,7 @@ VersionTester::finished()
 
     QByteArray responseData = r->readAll();
     QString str = QString::fromUtf8(responseData.data());
-    QStringList lines = str.split('\n', QString::SkipEmptyParts);
+    QStringList lines = str.split('\n', Qt::SkipEmptyParts);
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
