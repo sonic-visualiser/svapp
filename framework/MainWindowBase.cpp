@@ -2330,8 +2330,6 @@ MainWindowBase::openSessionTemplate(FileSource source)
     QString error;
     closeSession();
     createDocument();
-
-    QFile file(source.getLocalFilename());
     
     PaneCallback callback(this);
     m_viewManager->clearSelections();
@@ -2346,7 +2344,7 @@ MainWindowBase::openSessionTemplate(FileSource source)
          this, SLOT(modelRegenerationWarning(QString, QString, QString)),
          Qt::QueuedConnection);
 
-    reader.parseFile(&file);
+    reader.parseFile(source.getLocalFilename());
     
     if (!reader.isOK()) {
         error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
