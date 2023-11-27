@@ -50,6 +50,8 @@
 #include <QMessageBox>
 #include <QFileDialog>
 
+#include <QXmlStreamReader>
+
 #include <iostream>
 
 SVFileReader::SVFileReader(Document *document,
@@ -76,20 +78,93 @@ SVFileReader::SVFileReader(Document *document,
 }
 
 void
-SVFileReader::parse(const QString &xmlData)
+SVFileReader::parseXml(QString xmlData)
 {
-    QXmlInputSource inputSource;
-    inputSource.setData(xmlData);
-    parse(inputSource);
+    QXmlStreamReader reader(xmlData);
+    parseWith(reader);
 }
 
 void
-SVFileReader::parse(QXmlInputSource &inputSource)
+SVFileReader::parseFile(QString filename)
 {
-    QXmlSimpleReader reader;
-    reader.setContentHandler(this);
-    reader.setErrorHandler(this);
-    m_ok = reader.parse(inputSource);
+    QFile file(filename);
+    if (!file.open(QFile::ReadOnly)) {
+        m_errorString =
+            QString("ERROR: SV-XML: Unable to open file \"%1\" for reading")
+            .arg(filename);
+        return;
+    }
+    parseFile(&file);
+}
+
+void
+SVFileReader::parseFile(QIODevice *file)
+{
+    QXmlStreamReader reader(file);
+    parseWith(reader);
+}
+
+void
+SVFileReader::parseWith(QXmlStreamReader &reader)
+{
+    bool ok = true;
+    
+    while (!reader.atEnd()) {
+
+        auto token = reader.readNext();
+        
+        switch (token) {
+        case QXmlStreamReader::Invalid:
+            ok = false;
+            break;
+
+        case QXmlStreamReader::StartElement:
+            ok = startElement(reader.name().toString(), reader.attributes());
+            break;
+
+        case QXmlStreamReader::Characters:
+            ok = characters(reader.text().toString());
+            break;
+
+        case QXmlStreamReader::EndElement:
+            ok = endElement(reader.name().toString());
+            break;
+
+        default:
+            break;
+        }
+
+        if (!ok) break;
+    }
+
+    if (reader.hasError()) {
+        ok = false;
+    }
+
+    if (!ok) {
+        if (m_errorString == "") {
+            QString detail = "Parse error";
+            switch (reader.error()) {
+            case QXmlStreamReader::NotWellFormedError:
+                detail = "Ill-formed XML";
+                break;
+            case QXmlStreamReader::PrematureEndOfDocumentError:
+                detail = "Premature end of document";
+                break;
+            case QXmlStreamReader::UnexpectedElementError:
+                detail = "Unexpected element";
+                break;
+            default:
+                break;
+            }
+            m_errorString = QString("ERROR: SV-XML: %1 at line %2, column %3")
+                .arg(detail)
+                .arg(reader.lineNumber())
+                .arg(reader.columnNumber());
+        }
+    }
+    
+    m_ok = ok;
 }    
 
 bool
@@ -134,11 +209,10 @@ SVFileReader::~SVFileReader()
 }
 
 bool
-SVFileReader::startElement(const QString &, const QString &,
-                           const QString &qName,
-                           const QXmlAttributes &attributes)
+SVFileReader::startElement(const QString &localName,
+                           const QXmlStreamAttributes &attributes)
 {
-    QString name = qName.toLower();
+    QString name = localName.toLower();
 
     bool ok = false;
 
@@ -275,10 +349,9 @@ SVFileReader::characters(const QString &text)
 }
 
 bool
-SVFileReader::endElement(const QString &, const QString &,
-                         const QString &qName)
+SVFileReader::endElement(const QString &localName)
 {
-    QString name = qName.toLower();
+    QString name = localName.toLower();
 
     if (name == "dataset") {
 
@@ -364,40 +437,15 @@ SVFileReader::endElement(const QString &, const QString &,
     return true;
 }
 
-bool
-SVFileReader::error(const QXmlParseException &exception)
-{
-    m_errorString =
-        QString("ERROR: SV-XML: %1 at line %2, column %3")
-        .arg(exception.message())
-        .arg(exception.lineNumber())
-        .arg(exception.columnNumber());
-    SVCERR << m_errorString << endl;
-    return QXmlDefaultHandler::error(exception);
-}
-
-bool
-SVFileReader::fatalError(const QXmlParseException &exception)
-{
-    m_errorString =
-        QString("FATAL ERROR: SV-XML: %1 at line %2, column %3")
-        .arg(exception.message())
-        .arg(exception.lineNumber())
-        .arg(exception.columnNumber());
-    SVCERR << m_errorString << endl;
-    return QXmlDefaultHandler::fatalError(exception);
-}
-
-
 #define READ_MANDATORY(TYPE, NAME, CONVERSION)                      \
-    TYPE NAME = attributes.value(#NAME).trimmed().CONVERSION(&ok); \
+    TYPE NAME = attributes.value(#NAME).toString().trimmed().CONVERSION(&ok); \
     if (!ok) { \
         SVCERR << "WARNING: SV-XML: Missing or invalid mandatory " #TYPE " attribute \"" #NAME "\"" << endl; \
         return false; \
     }
 
 bool
-SVFileReader::readWindow(const QXmlAttributes &)
+SVFileReader::readWindow(const QXmlStreamAttributes &)
 {
     // The window element contains window dimensions, which we used to
     // read and size the window accordingly. This was a Bad Idea [tm]
@@ -486,7 +534,7 @@ SVFileReader::addUnaddedModels()
 }
 
 bool
-SVFileReader::readModel(const QXmlAttributes &attributes)
+SVFileReader::readModel(const QXmlStreamAttributes &attributes)
 {
     bool ok = false;
 
@@ -498,20 +546,20 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
         return false;
     }
 
-    QString name = attributes.value("name");
+    QString name = attributes.value("name").toString();
 
     SVDEBUG << "SVFileReader::readModel: model name \"" << name << "\"" << endl;
 
     READ_MANDATORY(double, sampleRate, toDouble);
 
-    QString type = attributes.value("type").trimmed();
-    bool isMainModel = (attributes.value("mainModel").trimmed() == "true");
+    QString type = attributes.value("type").trimmed().toString();
+    bool isMainModel = (attributes.value("mainModel").trimmed() == QString("true"));
 
     if (type == "wavefile") {
         
         WaveFileModel *model = nullptr;
         FileFinder *ff = FileFinder::getInstance();
-        QString originalPath = attributes.value("file");
+        QString originalPath = attributes.value("file").toString();
         QString path = ff->find(FileFinder::AudioFile,
                                 originalPath, m_location);
 
@@ -570,7 +618,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 
     } else if (type == "aggregatewave") {
 
-        QString components = attributes.value("components");
+        QString components = attributes.value("components").toString();
         QStringList componentIdStrings = components.split(",");
         std::vector<int> componentIds;
         for (auto cidStr: componentIdStrings) {
@@ -639,9 +687,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             
             READ_MANDATORY(int, resolution, toInt);
             
-            if (attributes.value("subtype") == "image") {
+            if (attributes.value("subtype") == QString("image")) {
 
-                bool notifyOnAdd = (attributes.value("notifyOnAdd") == "true");
+                bool notifyOnAdd = (attributes.value("notifyOnAdd") == QString("true"));
                 auto model = std::make_shared<ImageModel>
                     (sampleRate, resolution, notifyOnAdd);
                 model->setObjectName(name);
@@ -673,22 +721,22 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
             float valueQuantization =
                 attributes.value("valueQuantization").trimmed().toFloat(&ok);
 
-            bool notifyOnAdd = (attributes.value("notifyOnAdd") == "true");
+            bool notifyOnAdd = (attributes.value("notifyOnAdd") == QString("true"));
 
-            QString units = attributes.value("units");
+            QString units = attributes.value("units").toString();
 
             if (dimensions == 2) {
-                if (attributes.value("subtype") == "text") {
+                if (attributes.value("subtype") == QString("text")) {
                     auto model = std::make_shared<TextModel>
                         (sampleRate, resolution, notifyOnAdd);
                     model->setObjectName(name);
                     m_models[id] = ModelById::add(model);
-                } else if (attributes.value("subtype") == "path") {
+                } else if (attributes.value("subtype") == QString("path")) {
                     // Paths are no longer actually models
                     Path *path = new Path(sampleRate, resolution);
                     m_paths[id] = path;
-                } else if (attributes.value("subtype") == "box" ||
-                           attributes.value("subtype") == "timefrequencybox") {
+                } else if (attributes.value("subtype") == QString("box") ||
+                           attributes.value("subtype") == QString("timefrequencybox")) {
                     auto model = std::make_shared<BoxModel>
                         (sampleRate, resolution, notifyOnAdd);
                     model->setScaleUnits(units);
@@ -709,7 +757,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     m_models[id] = ModelById::add(model);
                 }
             } else {
-                if (attributes.value("subtype") == "region") {
+                if (attributes.value("subtype") == QString("region")) {
                     std::shared_ptr<RegionModel> model;
                     if (haveMinMax) {
                         model = std::make_shared<RegionModel>
@@ -723,7 +771,7 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
                     model->setScaleUnits(units);
                     model->setObjectName(name);
                     m_models[id] = ModelById::add(model);
-                } else if (attributes.value("subtype") == "flexinote") {
+                } else if (attributes.value("subtype") == QString("flexinote")) {
                     std::shared_ptr<NoteModel> model;
                     if (haveMinMax) {
                         model = std::make_shared<NoteModel>
@@ -828,9 +876,9 @@ SVFileReader::readModel(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readView(const QXmlAttributes &attributes)
+SVFileReader::readView(const QXmlStreamAttributes &attributes)
 {
-    QString type = attributes.value("type");
+    QString type = attributes.value("type").toString();
     m_currentPane = nullptr;
     
     if (type != "pane") {
@@ -859,7 +907,7 @@ SVFileReader::readView(const QXmlAttributes &attributes)
     READ_MANDATORY(int, zoom, toInt);
     READ_MANDATORY(int, followPan, toInt);
     READ_MANDATORY(int, followZoom, toInt);
-    QString tracking = attributes.value("tracking");
+    QString tracking = attributes.value("tracking").toString();
 
     ZoomLevel zoomLevel;
     int deepZoom = attributes.value("deepZoom").trimmed().toInt(&ok);
@@ -894,9 +942,9 @@ SVFileReader::readView(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readLayer(const QXmlAttributes &attributes)
+SVFileReader::readLayer(const QXmlStreamAttributes &attributes)
 {
-    QString type = attributes.value("type");
+    QString type = attributes.value("type").toString();
 
     int id;
     bool ok = false;
@@ -970,10 +1018,10 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 
     if (isNewLayer) {
 
-        QString name = attributes.value("name");
+        QString name = attributes.value("name").toString();
         layer->setObjectName(name);
 
-        QString presentationName = attributes.value("presentationName");
+        QString presentationName = attributes.value("presentationName").toString();
         layer->setPresentationName(presentationName);
 
         int modelId;
@@ -996,12 +1044,18 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
             }
         }
 
-        if (layer) layer->setProperties(attributes);
+        if (layer) {
+            LayerAttributes layerAttrs;
+            for (const auto &attr : attributes) {
+                layerAttrs[attr.name().toString()] = attr.value().toString();
+            }
+            layer->setProperties(layerAttrs);
+        }
     }
 
     if (!m_inData && m_currentPane && layer) {
 
-        QString visible = attributes.value("visible");
+        QString visible = attributes.value("visible").toString();
         bool dormant = (visible == "false");
 
         // We need to do this both before and after adding the layer
@@ -1025,7 +1079,7 @@ SVFileReader::readLayer(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
+SVFileReader::readDatasetStart(const QXmlStreamAttributes &attributes)
 {
     bool ok = false;
 
@@ -1072,7 +1126,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
     case 3:
         if (ModelById::isa<EditableDenseThreeDimensionalModel>(modelId)) {
             good = true;
-            m_datasetSeparator = attributes.value("separator");
+            m_datasetSeparator = attributes.value("separator").toString();
         } else {
             good =
                 (ModelById::isa<NoteModel>(modelId) ||
@@ -1092,7 +1146,7 @@ SVFileReader::readDatasetStart(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
+SVFileReader::addPointToDataset(const QXmlStreamAttributes &attributes)
 {
     bool ok = false;
 
@@ -1114,14 +1168,14 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     ModelId modelId = m_models[m_currentDataset];        
 
     if (auto sodm = ModelById::getAs<SparseOneDimensionalModel>(modelId)) {
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         sodm->add(Event(frame, label));
         return true;
     }
 
     if (auto stvm = ModelById::getAs<SparseTimeValueModel>(modelId)) {
         float value = attributes.value("value").trimmed().toFloat(&ok);
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         stvm->add(Event(frame, value, label));
         return ok;
     }
@@ -1129,7 +1183,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     if (auto nm = ModelById::getAs<NoteModel>(modelId)) {
         float value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = attributes.value("duration").trimmed().toInt(&ok);
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         float level = attributes.value("level").trimmed().toFloat(&ok);
         if (!ok) { // level is optional
             level = 1.f;
@@ -1142,14 +1196,14 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
     if (auto rm = ModelById::getAs<RegionModel>(modelId)) {
         float value = attributes.value("value").trimmed().toFloat(&ok);
         int duration = attributes.value("duration").trimmed().toInt(&ok);
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         rm->add(Event(frame, value, duration, label));
         return ok;
     }
 
     if (auto tm = ModelById::getAs<TextModel>(modelId)) {
         float height = attributes.value("height").trimmed().toFloat(&ok);
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         tm->add(Event(frame, height, label));
         return ok;
     }
@@ -1164,14 +1218,14 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
         }
         float extent = attributes.value("extent").trimmed().toFloat(&ok);
         int duration = attributes.value("duration").trimmed().toInt(&ok);
-        QString label = attributes.value("label");
+        QString label = attributes.value("label").toString();
         bm->add(Event(frame, value, duration, extent, label));
         return ok;
     }
 
     if (auto im = ModelById::getAs<ImageModel>(modelId)) {
-        QString image = attributes.value("image");
-        QString label = attributes.value("label");
+        QString image = attributes.value("image").toString();
+        QString label = attributes.value("label").toString();
         im->add(Event(frame).withURI(image).withLabel(label));
         return ok;
     }
@@ -1183,7 +1237,7 @@ SVFileReader::addPointToDataset(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
+SVFileReader::addBinToDataset(const QXmlStreamAttributes &attributes)
 {
     if (!haveModel(m_currentDataset)) {
         SVCERR << "WARNING: SV-XML: Bin definition found in incompatible dataset"
@@ -1204,7 +1258,7 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
             return false;
         }
 
-        QString name = attributes.value("name");
+        QString name = attributes.value("name").toString();
         dtdm->setBinName(n, name);
         return true;
     }
@@ -1217,7 +1271,7 @@ SVFileReader::addBinToDataset(const QXmlAttributes &attributes)
 
 
 bool
-SVFileReader::addRowToDataset(const QXmlAttributes &attributes)
+SVFileReader::addRowToDataset(const QXmlStreamAttributes &attributes)
 {
     m_inRow = false;
 
@@ -1284,7 +1338,7 @@ SVFileReader::readRowData(const QString &text)
 }
 
 bool
-SVFileReader::readDerivation(const QXmlAttributes &attributes)
+SVFileReader::readDerivation(const QXmlStreamAttributes &attributes)
 {
     int modelExportId = 0;
     bool modelOk = false;
@@ -1323,7 +1377,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
     if (ok) m_currentTransformChannel = channel;
     else m_currentTransformChannel = -1;
 
-    QString type = attributes.value("type");
+    QString type = attributes.value("type").toString();
 
     if (type == "transform") {
         m_currentTransformIsNewStyle = true;
@@ -1334,7 +1388,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
                   << endl;
     }
 
-    QString transformId = attributes.value("transform");
+    QString transformId = attributes.value("transform").toString();
 
     m_currentTransform.setIdentifier(transformId);
 
@@ -1352,8 +1406,8 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
 
     sv_samplerate_t sampleRate = currentTransformSourceModel->getSampleRate();
 
-    QString startFrameStr = attributes.value("startFrame");
-    QString durationStr = attributes.value("duration");
+    QString startFrameStr = attributes.value("startFrame").toString();
+    QString durationStr = attributes.value("duration").toString();
 
     int startFrame = 0;
     int duration = 0;
@@ -1377,7 +1431,7 @@ SVFileReader::readDerivation(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
+SVFileReader::readPlayParameters(const QXmlStreamAttributes &attributes)
 {
     m_currentPlayParameters = {};
 
@@ -1405,7 +1459,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
             return false;
         }
         
-        bool muted = (attributes.value("mute").trimmed() == "true");
+        bool muted = (attributes.value("mute").trimmed() == QString("true"));
         parameters->setPlayMuted(muted);
         
         float pan = attributes.value("pan").toFloat(&ok);
@@ -1414,7 +1468,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
         float gain = attributes.value("gain").toFloat(&ok);
         if (ok) parameters->setPlayGain(gain);
         
-        QString clipId = attributes.value("clipId");
+        QString clipId = attributes.value("clipId").toString();
         if (clipId != "") parameters->setPlayClipId(clipId);
         
         m_currentPlayParameters = parameters;
@@ -1432,7 +1486,7 @@ SVFileReader::readPlayParameters(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readPlugin(const QXmlAttributes &attributes)
+SVFileReader::readPlugin(const QXmlStreamAttributes &attributes)
 {
     if (m_pendingDerivedModel != XmlExportable::NO_ID) {
         return readPluginForTransform(attributes);
@@ -1445,7 +1499,7 @@ SVFileReader::readPlugin(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readPluginForTransform(const QXmlAttributes &attributes)
+SVFileReader::readPluginForTransform(const QXmlStreamAttributes &attributes)
 {
     if (m_currentTransformIsNewStyle) {
         // Not needed, we have the transform element instead
@@ -1456,8 +1510,8 @@ SVFileReader::readPluginForTransform(const QXmlAttributes &attributes)
 
     for (int i = 0; i < attributes.length(); ++i) {
         configurationXml += QString(" %1=\"%2\"")
-            .arg(attributes.qName(i))
-            .arg(XmlExportable::encodeEntities(attributes.value(i)));
+            .arg(attributes[i].name().toString())
+            .arg(XmlExportable::encodeEntities(attributes[i].value().toString()));
     }
 
     configurationXml += "/>";
@@ -1469,13 +1523,13 @@ SVFileReader::readPluginForTransform(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readPluginForPlayback(const QXmlAttributes &attributes)
+SVFileReader::readPluginForPlayback(const QXmlStreamAttributes &attributes)
 {
     // Obsolete but supported for compatibility
 
-    QString ident = attributes.value("identifier");
+    QString ident = attributes.value("identifier").toString();
     if (ident == "sample_player") {
-        QString clipId = attributes.value("program");
+        QString clipId = attributes.value("program").toString();
         if (clipId != "") m_currentPlayParameters->setPlayClipId(clipId);
     }
 
@@ -1483,7 +1537,7 @@ SVFileReader::readPluginForPlayback(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readTransform(const QXmlAttributes &attributes)
+SVFileReader::readTransform(const QXmlStreamAttributes &attributes)
 {
     if (m_pendingDerivedModel == XmlExportable::NO_ID) {
         SVCERR << "WARNING: SV-XML: Transform found outside derivation" << endl;
@@ -1491,19 +1545,24 @@ SVFileReader::readTransform(const QXmlAttributes &attributes)
     }
 
     m_currentTransform = Transform();
-    m_currentTransform.setFromXmlAttributes(attributes);
+
+    Transform::Attributes ta;
+    for (const auto &attr : attributes) {
+        ta[attr.name().toString()] = attr.value().toString();
+    }
+    m_currentTransform.setFromAttributes(ta);
     return true;
 }
 
 bool
-SVFileReader::readParameter(const QXmlAttributes &attributes)
+SVFileReader::readParameter(const QXmlStreamAttributes &attributes)
 {
     if (m_pendingDerivedModel == XmlExportable::NO_ID) {
         SVCERR << "WARNING: SV-XML: Parameter found outside derivation" << endl;
         return false;
     }
 
-    QString name = attributes.value("name");
+    QString name = attributes.value("name").toString();
     if (name == "") {
         SVCERR << "WARNING: SV-XML: Ignoring nameless transform parameter"
                   << endl;
@@ -1517,7 +1576,7 @@ SVFileReader::readParameter(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readSelection(const QXmlAttributes &attributes)
+SVFileReader::readSelection(const QXmlStreamAttributes &attributes)
 {
     bool ok;
 
@@ -1530,7 +1589,7 @@ SVFileReader::readSelection(const QXmlAttributes &attributes)
 }
 
 bool
-SVFileReader::readMeasurement(const QXmlAttributes &attributes)
+SVFileReader::readMeasurement(const QXmlStreamAttributes &attributes)
 {
     SVDEBUG << "SVFileReader::readMeasurement: inLayer "
               << m_inLayer << ", layer " << m_currentLayer << endl;
@@ -1540,7 +1599,12 @@ SVFileReader::readMeasurement(const QXmlAttributes &attributes)
         return false;
     }
 
-    m_currentLayer->addMeasurementRect(attributes);
+    LayerAttributes layerAttrs;
+    for (const auto &attr : attributes) {
+        layerAttrs[attr.name().toString()] = attr.value().toString();
+    }
+
+    m_currentLayer->addMeasurementRect(layerAttrs);
     return true;
 }
 
@@ -1549,7 +1613,7 @@ SVFileReaderPaneCallback::~SVFileReaderPaneCallback()
 }
 
 
-class SVFileIdentifier : public QXmlDefaultHandler
+class SVFileIdentifier
 {
 public:
     SVFileIdentifier() :
@@ -1557,23 +1621,45 @@ public:
         m_inData(false),
         m_type(SVFileReader::UnknownFileType)
     { }
-    ~SVFileIdentifier() override { }
+    ~SVFileIdentifier() { }
 
-    void parse(QXmlInputSource &source) {
-        QXmlSimpleReader reader;
-        reader.setContentHandler(this);
-        reader.setErrorHandler(this);
-        reader.parse(source);
+    void parseFile(QString filename) {
+        QFile file(filename);
+        if (file.open(QFile::ReadOnly)) {
+            QXmlStreamReader reader(&file);
+            parseWith(reader);
+        }
     }
 
     SVFileReader::FileType getType() const { return m_type; }
 
-    bool startElement(const QString &,
-                              const QString &,
-                              const QString &qName,
-                              const QXmlAttributes& atts) override
-    {
-        QString name = qName.toLower();
+    void parseWith(QXmlStreamReader &reader) {
+        while (!reader.atEnd()) {
+            switch (reader.readNext()) {
+            case QXmlStreamReader::Invalid:
+                m_type = SVFileReader::UnknownFileType;
+                return;
+            case QXmlStreamReader::StartElement:
+                if (!startElement(reader.name().toString(),
+                                  reader.attributes())) {
+                    return;
+                }
+                break;
+            case QXmlStreamReader::EndElement:
+                if (!endElement(reader.name().toString())) {
+                    return;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+        
+    bool startElement(const QString &localName,
+                      const QXmlStreamAttributes &atts) {
+
+        QString name = localName.toLower();
 
         // SV session files have an sv element containing a data
         // element containing a model element with mainModel="true".
@@ -1594,7 +1680,7 @@ public:
             m_inData = true;
         } else if (name == "model") {
             if (!m_inData) return true;
-            if (atts.value("mainModel").trimmed() == "true") {
+            if (atts.value("mainModel").trimmed() == QString("true")) {
                 if (m_type == SVFileReader::SVLayerFile) {
                     m_type = SVFileReader::SVSessionFile;
                     return false; // done
@@ -1604,11 +1690,9 @@ public:
         return true;
     }
 
-    bool endElement(const QString &,
-                            const QString &,
-                            const QString &qName) override
-    {
-        QString name = qName.toLower();
+    bool endElement(const QString &localName) {
+        
+        QString name = localName.toLower();
 
         if (name == "sv") {
             if (m_inSv) {
@@ -1635,10 +1719,8 @@ private:
 SVFileReader::FileType
 SVFileReader::identifyXmlFile(QString path)
 {
-    QFile file(path);
     SVFileIdentifier identifier;
-    QXmlInputSource source(&file);
-    identifier.parse(source);
+    identifier.parseFile(path);
     return identifier.getType();
 }
 

@@ -98,14 +98,13 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QTextStream>
-#include <QTextCodec>
+#include <QStringConverter>
 #include <QProcess>
 #include <QShortcut>
 #include <QSettings>
 #include <QDateTime>
 #include <QProcess>
 #include <QCheckBox>
-#include <QRegExp>
 #include <QScrollArea>
 #include <QScreen>
 #include <QSignalMapper>
@@ -1963,8 +1962,7 @@ MainWindowBase::openLayer(FileSource source)
              Qt::QueuedConnection);
         reader.setCurrentPane(pane);
         
-        QXmlInputSource inputSource(&file);
-        reader.parse(inputSource);
+        reader.parseFile(&file);
         
         if (!reader.isOK()) {
             SVCERR << "ERROR: MainWindowBase::openLayer("
@@ -2194,7 +2192,6 @@ MainWindowBase::openSession(FileSource source)
         }
     }
 
-    QXmlInputSource *inputSource = nullptr;
     BZipFileDevice *bzFile = nullptr;
     QFile *rawFile = nullptr;
 
@@ -2204,15 +2201,12 @@ MainWindowBase::openSession(FileSource source)
             delete bzFile;
             return FileOpenFailed;
         }
-        inputSource = new QXmlInputSource(bzFile);
     } else {
         rawFile = new QFile(source.getLocalFilename());
-        inputSource = new QXmlInputSource(rawFile);
     }
 
     if (!checkSaveModified()) {
         if (bzFile) bzFile->close();
-        delete inputSource;
         delete bzFile;
         delete rawFile;
         return FileOpenCancelled;
@@ -2235,7 +2229,11 @@ MainWindowBase::openSession(FileSource source)
          this, SLOT(modelRegenerationWarning(QString, QString, QString)),
          Qt::QueuedConnection);
 
-    reader.parse(*inputSource);
+    if (bzFile) {
+        reader.parseFile(bzFile);
+    } else {
+        reader.parseFile(rawFile);
+    }
     
     if (!reader.isOK()) {
         error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
@@ -2243,7 +2241,6 @@ MainWindowBase::openSession(FileSource source)
     
     if (bzFile) bzFile->close();
 
-    delete inputSource;
     delete bzFile;
     delete rawFile;
 
@@ -2326,15 +2323,7 @@ MainWindowBase::openSessionTemplate(FileSource source)
     if (!source.isAvailable()) return FileOpenFailed;
     source.waitForData();
 
-    QXmlInputSource *inputSource = nullptr;
-    QFile *file = nullptr;
-
-    file = new QFile(source.getLocalFilename());
-    inputSource = new QXmlInputSource(file);
-
     if (!checkSaveModified()) {
-        delete inputSource;
-        delete file;
         return FileOpenCancelled;
     }
 
@@ -2342,6 +2331,8 @@ MainWindowBase::openSessionTemplate(FileSource source)
     closeSession();
     createDocument();
 
+    QFile file(source.getLocalFilename());
+    
     PaneCallback callback(this);
     m_viewManager->clearSelections();
 
@@ -2355,14 +2346,11 @@ MainWindowBase::openSessionTemplate(FileSource source)
          this, SLOT(modelRegenerationWarning(QString, QString, QString)),
          Qt::QueuedConnection);
 
-    reader.parse(*inputSource);
+    reader.parseFile(&file);
     
     if (!reader.isOK()) {
         error = tr("SV XML file read error:\n%1").arg(reader.getErrorString());
     }
-    
-    delete inputSource;
-    delete file;
 
     bool ok = (error == "");
 
@@ -2788,7 +2776,7 @@ MainWindowBase::saveSessionFile(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&bzFile);
-        out.setCodec(QTextCodec::codecForName("UTF-8"));
+        out.setEncoding(QStringConverter::Utf8);
         toXml(out, false);
         out.flush();
 
@@ -2834,7 +2822,7 @@ MainWindowBase::saveSessionTemplate(QString path)
         QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
         QTextStream out(&file);
-        out.setCodec(QTextCodec::codecForName("UTF-8"));
+        out.setEncoding(QStringConverter::Utf8);
         toXml(out, true);
         out.flush();
 
@@ -2877,7 +2865,7 @@ MainWindowBase::exportLayerToSVL(Layer *layer,
         error = tr("Failed to open file %1 for writing").arg(path);
     } else {
         QTextStream out(&file);
-        out.setCodec(QTextCodec::codecForName("UTF-8"));
+        out.setEncoding(QStringConverter::Utf8);
         out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             << "<!DOCTYPE sonic-visualiser>\n"
             << "<sv>\n"
