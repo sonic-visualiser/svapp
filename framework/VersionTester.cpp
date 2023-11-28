@@ -37,7 +37,7 @@ VersionTester::VersionTester(QString hostname, QString versionFilePath,
     QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
     SVDEBUG << "VersionTester: URL is " << url << endl;
     m_reply = m_nm->get(QNetworkRequest(url));
-    connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
+    connect(m_reply, SIGNAL(errorOccurred(QNetworkReply::NetworkError)),
             this, SLOT(error(QNetworkReply::NetworkError)));
     connect(m_reply, SIGNAL(finished()), this, SLOT(finished()));
 }
