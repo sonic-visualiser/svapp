@@ -287,7 +287,7 @@ public:
         // We can't automatically regenerate the additional models on
         // reload - so they go in m_additionalModels instead of m_models
         QStringList names;
-        foreach (ModelId modelId, models) {
+        for (ModelId modelId : models) {
             m_doc->addAdditionalModel(modelId);
             names.push_back(QString());
         }
@@ -305,7 +305,7 @@ public:
     }
 
     void cancel() {
-        foreach (Layer *layer, m_primary) {
+        for (Layer *layer : m_primary) {
             m_doc->setModel(layer, {});
         }
     }
