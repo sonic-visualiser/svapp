@@ -125,7 +125,7 @@ ClipMixer::mix(float **toBuffers,
                std::vector<NoteStart> newNotes, 
                std::vector<NoteEnd> endingNotes)
 {
-    foreach (NoteStart note, newNotes) {
+    for (NoteStart note : newNotes) {
         if (note.frequency > 20 && 
             note.frequency < 5000) {
             m_playing.push_back(note);
@@ -142,7 +142,7 @@ ClipMixer::mix(float **toBuffers,
          << endl;
 #endif
 
-    foreach (NoteStart note, m_playing) {
+    for (NoteStart note : m_playing) {
 
         for (int c = 0; c < m_channels; ++c) {
             levels[c] = note.level * gain;
@@ -158,7 +158,7 @@ ClipMixer::mix(float **toBuffers,
 
         bool ending = false;
 
-        foreach (NoteEnd end, endingNotes) {
+        for (NoteEnd end : endingNotes) {
             if (end.frequency == note.frequency &&
                 // This is > rather than >= because if we have a
                 // note-off and a note-on at the same time, the
