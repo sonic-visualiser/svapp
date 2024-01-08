@@ -26,6 +26,8 @@
 
 //#define DEBUG_AUDIO_CALLBACK_RECORD_TARGET 1
 
+namespace sv {
+
 static const int recordUpdateTimeout = 200; // ms
 
 AudioCallbackRecordTarget::AudioCallbackRecordTarget(ViewManagerBase *manager,
@@ -317,4 +319,6 @@ AudioCallbackRecordTarget::stopRecording()
     emit recordCompleted();
 }
 
+
+} // end namespace sv
 

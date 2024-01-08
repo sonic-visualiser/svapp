@@ -113,6 +113,8 @@
 #include <cstdio>
 #include <errno.h>
 
+namespace sv {
+
 using std::vector;
 using std::map;
 using std::set;
@@ -4477,4 +4479,6 @@ MainWindowBase::openLocalFolder(QString path)
 #endif
     }
 }
+
+} // end namespace sv
 

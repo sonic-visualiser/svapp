@@ -27,6 +27,8 @@
 
 #include <QSettings>
 
+namespace sv {
+
 MATCHAligner::MATCHAligner(Document *doc,
                            ModelId reference,
                            ModelId toAlign,
@@ -422,3 +424,5 @@ MATCHAligner::alignmentCompletionChanged(ModelId pathOutputModelId)
         emit complete(m_alignmentModel);
     }
 }
+} // end namespace sv
+

@@ -26,6 +26,8 @@
 
 #include <stdexcept>
 
+namespace sv {
+
 class OSCScript : public QThread
 {
     Q_OBJECT
@@ -126,6 +128,8 @@ private:
     OSCQueue *m_queue; // I do not own this
     bool m_abandoning;
 };
+
+} // end namespace sv
 
 #endif
 

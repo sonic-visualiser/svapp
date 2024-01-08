@@ -36,6 +36,8 @@
 #include <QDir>
 #include <QFile>
 
+namespace sv {
+
 const sv_frame_t
 AudioGenerator::m_processingBlockSize = 1024;
 
@@ -748,4 +750,6 @@ AudioGenerator::mixContinuousSynthModel(ModelId modelId,
 
     return got;
 }
+
+} // end namespace sv
 

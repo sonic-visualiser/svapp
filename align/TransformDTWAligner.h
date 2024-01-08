@@ -25,6 +25,8 @@
 
 #include <QMutex>
 
+namespace sv {
+
 class AlignmentModel;
 class Document;
 
@@ -122,5 +124,7 @@ private:
 
     static QMutex m_dtwMutex;
 };
+
+} // end namespace sv
 
 #endif

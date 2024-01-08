@@ -25,6 +25,8 @@
 
 #include "framework/Document.h"
 
+namespace sv {
+
 ExternalProgramAligner::ExternalProgramAligner(Document *doc,
                                                ModelId reference,
                                                ModelId toAlign,
@@ -288,3 +290,5 @@ done:
         emit failed(m_toAlign, errorText);
     }
 }
+} // end namespace sv
+

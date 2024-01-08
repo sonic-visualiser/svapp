@@ -30,6 +30,8 @@
 
 #include <typeinfo>
 
+namespace sv {
+
 static QWidget *parentWidget = nullptr;
 
 void
@@ -239,4 +241,6 @@ TransformUserConfigurator::configure(ModelTransformer::Input &input,
 
     return ok;
 }
+
+} // end namespace sv
 

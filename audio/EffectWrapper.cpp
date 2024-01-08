@@ -22,6 +22,8 @@
 
 using namespace std;
 
+namespace sv {
+
 static const int DEFAULT_RING_BUFFER_SIZE = 131071;
 
 EffectWrapper::EffectWrapper(ApplicationPlaybackSource *source) :
@@ -269,3 +271,5 @@ EffectWrapper::audioProcessingOverload()
 {
     m_source->audioProcessingOverload();
 }
+} // end namespace sv
+

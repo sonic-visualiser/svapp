@@ -20,6 +20,8 @@
 
 //#define DEBUG_DTW 1
 
+namespace sv {
+
 template <typename Value>
 class DTW
 {
@@ -275,5 +277,7 @@ inline std::ostream &operator<<(std::ostream &s, const RiseFallDTW::Value v) {
              v.direction == RiseFallDTW::Direction::Up ? "+" : "-")
             << v.distance);
 }
+
+} // end namespace sv
 
 #endif

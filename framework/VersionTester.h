@@ -28,6 +28,8 @@
 
 class QNetworkAccessManager;
 
+namespace sv {
+
 class VersionTester : public QObject
 {
     Q_OBJECT
@@ -51,6 +53,8 @@ private:
     bool m_httpFailed;
     QNetworkAccessManager *m_nm;
 };
+
+} // end namespace sv
 
 #endif
 

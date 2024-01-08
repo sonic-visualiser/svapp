@@ -25,6 +25,8 @@
 #include <map>
 #include <set>
 
+namespace sv {
+
 class Model;
 class Layer;
 class View;
@@ -483,5 +485,7 @@ protected:
 
     bool m_isIncomplete;
 };
+
+} // end namespace sv
 
 #endif

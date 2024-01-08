@@ -17,6 +17,8 @@
 
 #include "base/BaseTypes.h"
 
+namespace sv {
+
 /**
  * Mix into a target buffer a signal synthesised so as to sound at a
  * specific frequency. The frequency may change with each processing
@@ -61,5 +63,7 @@ private:
 
     int m_wavetype;
 };
+
+} // end namespace sv
 
 #endif

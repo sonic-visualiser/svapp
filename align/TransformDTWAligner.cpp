@@ -30,6 +30,8 @@
 #include <QMutex>
 #include <QMutexLocker>
 
+namespace sv {
+
 using std::vector;
 
 static
@@ -494,3 +496,5 @@ TransformDTWAligner::performAlignmentRiseFall()
     m_incomplete = false;
     return true;
 }
+} // end namespace sv
+

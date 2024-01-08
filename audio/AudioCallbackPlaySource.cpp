@@ -34,13 +34,15 @@
 
 #include "bqvec/VectorOps.h"
 
-using breakfastquay::v_zero_channels;
-
 #include <iostream>
 #include <cassert>
 
+using breakfastquay::v_zero_channels;
+
 using std::cout;
 using std::endl;
+
+namespace sv {
 
 //#define DEBUG_AUDIO_PLAY_SOURCE 1
 //#define DEBUG_AUDIO_PLAY_SOURCE_PLAYING 1
@@ -1661,4 +1663,6 @@ AudioCallbackPlaySource::FillThread::run()
 
     s.m_mutex.unlock();
 }
+
+} // end namespace sv
 

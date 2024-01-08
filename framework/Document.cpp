@@ -39,6 +39,8 @@
 #include "data/model/AlignmentModel.h"
 #include "align/Align.h"
 
+namespace sv {
+
 using std::vector;
 
 //#define DEBUG_DOCUMENT 1
@@ -1658,4 +1660,6 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
 
     out << indent << "</derivation>\n";
 }
+
+} // end namespace sv
 

@@ -21,13 +21,16 @@
 
 #include <map>
 
+class QXmlStreamReader;
+class QXmlStreamAttributes;
+
+namespace sv {
+
 class Pane;
 class Model;
 class Path;
 class Document;
 class PlayParameters;
-class QXmlStreamReader;
-class QXmlStreamAttributes;
 
 class SVFileReaderPaneCallback
 {
@@ -291,5 +294,7 @@ protected:
     QString m_errorString;
     bool m_ok;
 };
+
+} // end namespace sv
 
 #endif

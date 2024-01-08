@@ -28,6 +28,8 @@
 #include "base/BaseTypes.h"
 #include "base/RingBuffer.h"
 
+namespace sv {
+
 class ViewManagerBase;
 class WritableWaveFileModel;
 
@@ -103,5 +105,7 @@ private:
 
     void recreateBuffers();
 };
+
+} // end namespace sv
 
 #endif

@@ -22,6 +22,8 @@
 
 //#define DEBUG_CLIP_MIXER 1
 
+namespace sv {
+
 ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize) :
     m_channels(channels),
     m_sampleRate(sampleRate),
@@ -250,4 +252,6 @@ ClipMixer::mixNote(float **toBuffers,
     }
 }
 
+
+} // end namespace sv
 

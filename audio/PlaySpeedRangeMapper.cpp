@@ -29,6 +29,8 @@
 // (higher = faster, 100 = normal speed), and the "position" is an
 // integer step on the dial's scale (0-120, 60 = centre).
 
+namespace sv {
+
 PlaySpeedRangeMapper::PlaySpeedRangeMapper() :
     m_minpos(0),
     m_maxpos(120)
@@ -99,3 +101,5 @@ PlaySpeedRangeMapper::getUnit() const
 {
     return "%";
 }
+} // end namespace sv
+

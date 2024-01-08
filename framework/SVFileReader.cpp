@@ -54,6 +54,8 @@
 
 #include <iostream>
 
+namespace sv {
+
 SVFileReader::SVFileReader(Document *document,
                            SVFileReaderPaneCallback &callback,
                            QString location) :
@@ -1726,3 +1728,5 @@ SVFileReader::identifyXmlFile(QString path)
 
     
     
+} // end namespace sv
+

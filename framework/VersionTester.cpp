@@ -27,6 +27,8 @@
 #include <QRegularExpression>
 
 
+namespace sv {
+
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
                              QString myVersion) :
     m_myVersion(myVersion),
@@ -115,4 +117,6 @@ VersionTester::finished()
     }
 }
 
+
+} // end namespace sv
 

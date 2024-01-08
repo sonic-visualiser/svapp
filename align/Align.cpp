@@ -29,6 +29,8 @@
 #include <QSettings>
 #include <QTimer>
 
+namespace sv {
+
 using std::make_shared;
 
 QString
@@ -340,4 +342,6 @@ Align::removeAligner(QObject *obj)
         }
     }
 }
+
+} // end namespace sv
 

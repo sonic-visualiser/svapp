@@ -40,6 +40,21 @@
 
 #include <map>
 
+class QMenu;
+class QLabel;
+class QCheckBox;
+class QTreeView;
+class QPushButton;
+class QSignalMapper;
+class QShortcut;
+
+namespace breakfastquay {
+    class SystemPlaybackTarget;
+    class SystemAudioIO;
+}
+
+namespace sv {
+
 class Document;
 class PaneStack;
 class Pane;
@@ -53,30 +68,17 @@ class AudioCallbackPlaySource;
 class TimeStretchWrapper;
 class AudioCallbackRecordTarget;
 class CommandHistory;
-class QMenu;
 class AudioDial;
 class LevelPanWidget;
 class LevelPanToolButton;
-class QLabel;
-class QCheckBox;
-class PreferencesDialog;
-class QTreeView;
-class QPushButton;
 class OSCMessage;
 class OSCScript;
 class MIDIInput;
 class KeyReference;
 class Labeller;
 class ModelDataTableDialog;
-class QSignalMapper;
-class QShortcut;
 class AlignmentModel;
 class LayerGeometryProvider;
-
-namespace breakfastquay {
-    class SystemPlaybackTarget;
-    class SystemAudioIO;
-}
 
 /**
  * The base class for the SV main window.  This includes everything to
@@ -598,5 +600,7 @@ protected:
     virtual void toXml(QTextStream &stream, bool asTemplate);
 };
 
+
+} // end namespace sv
 
 #endif
