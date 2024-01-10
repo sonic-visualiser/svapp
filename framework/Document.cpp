@@ -113,7 +113,35 @@ Document::~Document()
     }
     
     m_mainModel = {};
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: everything released, emitting signal" << endl;
+#endif
+
     emit mainModelChanged({});
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: done" << endl;
+#endif
+}
+
+std::set<ModelId>
+Document::getModels() const
+{
+    std::set<ModelId> models;
+    if (!m_mainModel.isNone()) models.insert(m_mainModel);
+    for (auto m: m_models) models.insert(m.first);
+    for (auto m: m_aggregateModels) models.insert(m);
+    for (auto m: m_alignmentModels) models.insert(m);
+    return models;
+}
+
+std::set<Layer *>
+Document::getLayers() const
+{
+    std::set<Layer *> layers;
+    for (auto layer: m_layers) layers.insert(layer);
+    return layers;
 }
 
 Layer *

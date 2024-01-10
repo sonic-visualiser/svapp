@@ -325,6 +325,12 @@ public:
     void toXml(QTextStream &, QString indent, QString extraAttributes) const override;
     void toXmlAsTemplate(QTextStream &, QString indent, QString extraAttributes) const;
 
+    /** Return all model IDs, including the main model. */
+    std::set<ModelId> getModels() const;
+
+    /** Return pointers to all current layers. */
+    std::set<Layer *> getLayers() const;
+    
 signals:
     void layerAdded(Layer *);
     void layerRemoved(Layer *);
