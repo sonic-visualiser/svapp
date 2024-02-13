@@ -17,6 +17,8 @@
 
 #include "Aligner.h"
 
+namespace sv {
+
 class AlignmentModel;
 class Document;
 
@@ -61,5 +63,7 @@ private:
     float m_tuningFrequency;
     bool m_incomplete;
 };
+
+} // end namespace sv
 
 #endif

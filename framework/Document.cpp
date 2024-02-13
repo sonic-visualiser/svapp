@@ -39,6 +39,8 @@
 #include "data/model/AlignmentModel.h"
 #include "align/Align.h"
 
+namespace sv {
+
 using std::vector;
 
 //#define DEBUG_DOCUMENT 1
@@ -111,7 +113,35 @@ Document::~Document()
     }
     
     m_mainModel = {};
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: everything released, emitting signal" << endl;
+#endif
+
     emit mainModelChanged({});
+
+#ifdef DEBUG_DOCUMENT
+    SVCERR << "Document::~Document: done" << endl;
+#endif
+}
+
+std::set<ModelId>
+Document::getModels() const
+{
+    std::set<ModelId> models;
+    if (!m_mainModel.isNone()) models.insert(m_mainModel);
+    for (auto m: m_models) models.insert(m.first);
+    for (auto m: m_aggregateModels) models.insert(m);
+    for (auto m: m_alignmentModels) models.insert(m);
+    return models;
+}
+
+std::set<Layer *>
+Document::getLayers() const
+{
+    std::set<Layer *> layers;
+    for (auto layer: m_layers) layers.insert(layer);
+    return layers;
 }
 
 Layer *
@@ -287,7 +317,7 @@ public:
         // We can't automatically regenerate the additional models on
         // reload - so they go in m_additionalModels instead of m_models
         QStringList names;
-        foreach (ModelId modelId, models) {
+        for (ModelId modelId : models) {
             m_doc->addAdditionalModel(modelId);
             names.push_back(QString());
         }
@@ -305,7 +335,7 @@ public:
     }
 
     void cancel() {
-        foreach (Layer *layer, m_primary) {
+        for (Layer *layer : m_primary) {
             m_doc->setModel(layer, {});
         }
     }
@@ -1658,4 +1688,6 @@ Document::writeBackwardCompatibleDerivation(QTextStream &out, QString indent,
 
     out << indent << "</derivation>\n";
 }
+
+} // end namespace sv
 

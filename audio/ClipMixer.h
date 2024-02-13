@@ -21,6 +21,8 @@
 
 #include "base/BaseTypes.h"
 
+namespace sv {
+
 /**
  * Mix in synthetic notes produced by resampling a prerecorded
  * clip. (i.e. this is an implementation of a digital sampler in the
@@ -90,5 +92,7 @@ private:
                  bool isEnd);
 };
 
+
+} // end namespace sv
 
 #endif

@@ -19,6 +19,8 @@
 
 #include <memory>
 
+namespace sv {
+
 class TransformUserConfigurator : public ModelTransformerFactory::UserConfigurator
 {
 public:
@@ -43,5 +45,7 @@ private:
                          int &min, int &max);
 
 };
+
+} // end namespace sv
 
 #endif

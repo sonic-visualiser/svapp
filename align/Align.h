@@ -25,6 +25,8 @@
 
 #include "transform/Transform.h"
 
+namespace sv {
+
 class AlignmentModel;
 class Document;
 
@@ -218,6 +220,8 @@ private:
     bool addAligner(Document *doc, ModelId reference, ModelId toAlign);
     void removeAligner(QObject *);
 };
+
+} // end namespace sv
 
 #endif
 

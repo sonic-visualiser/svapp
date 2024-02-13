@@ -15,12 +15,19 @@
 
 #include "ClipMixer.h"
 
-#include <sndfile.h>
+#include <bqaudiostream/AudioReadStreamFactory.h>
+#include <bqaudiostream/AudioReadStream.h>
+
 #include <cmath>
+#include <vector>
 
 #include "base/Debug.h"
 
 //#define DEBUG_CLIP_MIXER 1
+
+using std::vector;
+
+namespace sv {
 
 ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize) :
     m_channels(channels),
@@ -35,7 +42,7 @@ ClipMixer::ClipMixer(int channels, sv_samplerate_t sampleRate, sv_frame_t blockS
 
 ClipMixer::~ClipMixer()
 {
-    if (m_clipData) free(m_clipData);
+    delete[] m_clipData;
 }
 
 void
@@ -48,53 +55,55 @@ bool
 ClipMixer::loadClipData(QString path, double f0, double level)
 {
     if (m_clipData) {
-        cerr << "ClipMixer::loadClipData: Already have clip loaded" << endl;
+        SVCERR << "ClipMixer::loadClipData: Already have clip loaded" << endl;
         return false;
     }
 
-    SF_INFO info;
-    SNDFILE *file;
-    float *tmpFrames;
-    sv_frame_t i;
+    breakfastquay::AudioReadStream *stream = nullptr;
+    try {
+        stream = breakfastquay::AudioReadStreamFactory::createReadStream
+            (path.toStdString());
+    } catch (const std::exception &e) {
+        SVCERR << "ClipMixer::loadClipData: ERROR: " << e.what() << endl;
+        return false;
+    } 
 
-    info.format = 0;
-    file = sf_open(path.toLocal8Bit().data(), SFM_READ, &info);
-    if (!file) {
-        cerr << "ClipMixer::loadClipData: Failed to open file path \""
-             << path << "\": " << sf_strerror(file) << endl;
+    auto channels = stream->getChannelCount();
+    auto rate = stream->getSampleRate();
+    auto frames = stream->getEstimatedFrameCount();
+        
+    if (!stream->isSeekable() || frames == 0) {
+        SVCERR << "ClipMixer::loadClipData: ERROR: Audio file \""
+               << path << "\" must be of a format with known length"
+               << endl;
+        delete stream;
+        return false;
+    }
+        
+    vector<float> interleaved(frames * channels);
+    auto obtained = stream->getInterleavedFrames(frames, interleaved.data());
+    delete stream;
+    
+    if (obtained < frames) {
+        SVCERR << "ClipMixer::loadClipData: ERROR: Too few frames read from \""
+               << path << "\" (expected " << frames << ", got " << obtained
+               << ")" << endl;
         return false;
     }
 
-    tmpFrames = (float *)malloc(info.frames * info.channels * sizeof(float));
-    if (!tmpFrames) {
-        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * info.channels * sizeof(float) << ") failed" << endl;
-        return false;
-    }
-
-    sf_readf_float(file, tmpFrames, info.frames);
-    sf_close(file);
-
-    m_clipData = (float *)malloc(info.frames * sizeof(float));
-    if (!m_clipData) {
-        cerr << "ClipMixer::loadClipData: malloc(" << info.frames * sizeof(float) << ") failed" << endl;
-        free(tmpFrames);
-        return false;
-    }
-
-    for (i = 0; i < info.frames; ++i) {
-        int j;
+    m_clipData = new float[frames];
+    
+    for (size_t i = 0; i < frames; ++i) {
         m_clipData[i] = 0.0f;
-        for (j = 0; j < info.channels; ++j) {
-            m_clipData[i] += tmpFrames[i * info.channels + j] * float(level);
+        for (int j = 0; j < channels; ++j) {
+            m_clipData[i] += interleaved[i * channels + j] * float(level);
         }
     }
-
-    free(tmpFrames);
-
-    m_clipLength = info.frames;
+    
+    m_clipLength = frames;
     m_clipF0 = f0;
-    m_clipRate = info.samplerate;
-
+    m_clipRate = rate;
+        
     return true;
 }
 
@@ -122,27 +131,27 @@ ClipMixer::getResampledClipDuration(double frequency)
 void
 ClipMixer::mix(float **toBuffers, 
                float gain,
-               std::vector<NoteStart> newNotes, 
-               std::vector<NoteEnd> endingNotes)
+               vector<NoteStart> newNotes, 
+               vector<NoteEnd> endingNotes)
 {
-    foreach (NoteStart note, newNotes) {
+    for (NoteStart note : newNotes) {
         if (note.frequency > 20 && 
             note.frequency < 5000) {
             m_playing.push_back(note);
         }
     }
 
-    std::vector<NoteStart> remaining;
+    vector<NoteStart> remaining;
 
     float *levels = new float[m_channels];
 
 #ifdef DEBUG_CLIP_MIXER
-    cerr << "ClipMixer::mix: have " << m_playing.size() << " playing note(s)"
+    SVCERR << "ClipMixer::mix: have " << m_playing.size() << " playing note(s)"
          << " and " << endingNotes.size() << " note(s) ending here"
          << endl;
 #endif
 
-    foreach (NoteStart note, m_playing) {
+    for (NoteStart note : m_playing) {
 
         for (int c = 0; c < m_channels; ++c) {
             levels[c] = note.level * gain;
@@ -158,7 +167,7 @@ ClipMixer::mix(float **toBuffers,
 
         bool ending = false;
 
-        foreach (NoteEnd end, endingNotes) {
+        for (NoteEnd end : endingNotes) {
             if (end.frequency == note.frequency &&
                 // This is > rather than >= because if we have a
                 // note-off and a note-on at the same time, the
@@ -250,4 +259,6 @@ ClipMixer::mixNote(float **toBuffers,
     }
 }
 
+
+} // end namespace sv
 

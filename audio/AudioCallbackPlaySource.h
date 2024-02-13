@@ -40,6 +40,8 @@ namespace breakfastquay {
     class ResamplerWrapper;
 }
 
+namespace sv {
+
 class Model;
 class ViewManagerBase;
 class AudioGenerator;
@@ -436,6 +438,8 @@ protected:
     EffectWrapper *m_auditioningEffectWrapper;
     void checkWrappers();
 };
+
+} // end namespace sv
 
 #endif
 

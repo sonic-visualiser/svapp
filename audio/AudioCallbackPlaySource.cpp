@@ -34,10 +34,15 @@
 
 #include "bqvec/VectorOps.h"
 
-using breakfastquay::v_zero_channels;
-
 #include <iostream>
 #include <cassert>
+
+using breakfastquay::v_zero_channels;
+
+using std::cout;
+using std::endl;
+
+namespace sv {
 
 //#define DEBUG_AUDIO_PLAY_SOURCE 1
 //#define DEBUG_AUDIO_PLAY_SOURCE_PLAYING 1
@@ -261,8 +266,8 @@ AudioCallbackPlaySource::addModel(ModelId modelId)
     }
 
     if (!m_writeBuffers || (int)m_writeBuffers->size() < getTargetChannelCount()) {
-        cerr << "m_writeBuffers size = " << (m_writeBuffers ? m_writeBuffers->size() : 0) << endl;
-        cerr << "target channel count = " << (getTargetChannelCount()) << endl;
+        SVCERR << "m_writeBuffers size = " << (m_writeBuffers ? m_writeBuffers->size() : 0) << endl;
+        SVCERR << "target channel count = " << (getTargetChannelCount()) << endl;
         clearRingBuffers(true, getTargetChannelCount());
         buffersIncreased = true;
     } else {
@@ -1166,7 +1171,7 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
         int rs = rb->getReadSpace();
         if (rs < count) {
 #ifdef DEBUG_AUDIO_PLAY_SOURCE
-            cerr << "WARNING: AudioCallbackPlaySource::getSourceSamples: "
+            SVCERR << "WARNING: AudioCallbackPlaySource::getSourceSamples: "
                       << "Ring buffer for channel " << ch << " has only "
                       << rs << " (of " << count << ") samples available ("
                       << "ring buffer size is " << rb->getSize() << ", write "
@@ -1658,4 +1663,6 @@ AudioCallbackPlaySource::FillThread::run()
 
     s.m_mutex.unlock();
 }
+
+} // end namespace sv
 

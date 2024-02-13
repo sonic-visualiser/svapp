@@ -19,9 +19,12 @@
 #include "layer/LayerFactory.h"
 #include "transform/Transform.h"
 
-#include <QXmlDefaultHandler>
-
 #include <map>
+
+class QXmlStreamReader;
+class QXmlStreamAttributes;
+
+namespace sv {
 
 class Pane;
 class Model;
@@ -163,7 +166,7 @@ public:
  */
 
 
-class SVFileReader : public QObject, QXmlDefaultHandler
+class SVFileReader : public QObject
 {
     Q_OBJECT
 
@@ -173,8 +176,9 @@ public:
                  QString location = ""); // for audio file locate mechanism
     virtual ~SVFileReader();
 
-    void parse(const QString &xmlData);
-    void parse(QXmlInputSource &source);
+    void parseXml(QString xmlData);
+    void parseFile(QString filename);
+    void parseFile(QIODevice *file);
 
     bool isOK();
     QString getErrorString() const { return m_errorString; }
@@ -182,20 +186,6 @@ public:
     // For loading a single layer onto an existing pane
     void setCurrentPane(Pane *pane) { m_currentPane = pane; }
     
-    bool startElement(const QString &namespaceURI,
-                      const QString &localName,
-                      const QString &qName,
-                      const QXmlAttributes& atts) override;
-    
-    bool characters(const QString &) override;
-
-    bool endElement(const QString &namespaceURI,
-                    const QString &localName,
-                    const QString &qName) override;
-
-    bool error(const QXmlParseException &exception) override;
-    bool fatalError(const QXmlParseException &exception) override;
-
     enum FileType
     {
         SVSessionFile,
@@ -212,24 +202,31 @@ signals:
                                   QString message);
 
 protected:
-    bool readWindow(const QXmlAttributes &);
-    bool readModel(const QXmlAttributes &);
-    bool readView(const QXmlAttributes &);
-    bool readLayer(const QXmlAttributes &);
-    bool readDatasetStart(const QXmlAttributes &);
-    bool addBinToDataset(const QXmlAttributes &);
-    bool addPointToDataset(const QXmlAttributes &);
-    bool addRowToDataset(const QXmlAttributes &);
+    void parseWith(QXmlStreamReader &);
+    bool startElement(const QString &localName,
+                      const QXmlStreamAttributes& atts);
+    bool characters(const QString &);
+    bool endElement(const QString &localName);
+
+    
+    bool readWindow(const QXmlStreamAttributes &);
+    bool readModel(const QXmlStreamAttributes &);
+    bool readView(const QXmlStreamAttributes &);
+    bool readLayer(const QXmlStreamAttributes &);
+    bool readDatasetStart(const QXmlStreamAttributes &);
+    bool addBinToDataset(const QXmlStreamAttributes &);
+    bool addPointToDataset(const QXmlStreamAttributes &);
+    bool addRowToDataset(const QXmlStreamAttributes &);
     bool readRowData(const QString &);
-    bool readDerivation(const QXmlAttributes &);
-    bool readPlayParameters(const QXmlAttributes &);
-    bool readPlugin(const QXmlAttributes &);
-    bool readPluginForTransform(const QXmlAttributes &);
-    bool readPluginForPlayback(const QXmlAttributes &);
-    bool readTransform(const QXmlAttributes &);
-    bool readParameter(const QXmlAttributes &);
-    bool readSelection(const QXmlAttributes &);
-    bool readMeasurement(const QXmlAttributes &);
+    bool readDerivation(const QXmlStreamAttributes &);
+    bool readPlayParameters(const QXmlStreamAttributes &);
+    bool readPlugin(const QXmlStreamAttributes &);
+    bool readPluginForTransform(const QXmlStreamAttributes &);
+    bool readPluginForPlayback(const QXmlStreamAttributes &);
+    bool readTransform(const QXmlStreamAttributes &);
+    bool readParameter(const QXmlStreamAttributes &);
+    bool readSelection(const QXmlStreamAttributes &);
+    bool readMeasurement(const QXmlStreamAttributes &);
 
     void makeAggregateModels();
     void addUnaddedModels();
@@ -297,5 +294,7 @@ protected:
     QString m_errorString;
     bool m_ok;
 };
+
+} // end namespace sv
 
 #endif

@@ -18,6 +18,8 @@
 
 #include "base/RangeMapper.h"
 
+namespace sv {
+
 class PlaySpeedRangeMapper : public RangeMapper
 {
 public:
@@ -45,5 +47,7 @@ protected:
     int m_maxpos;
 };
 
+
+} // end namespace sv
 
 #endif

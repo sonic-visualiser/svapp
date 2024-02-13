@@ -25,6 +25,8 @@
 
 #include <QApplication>
 
+namespace sv {
+
 LinearAligner::LinearAligner(Document *doc,
                              ModelId reference,
                              ModelId toAlign,
@@ -170,3 +172,5 @@ LinearAligner::getTrimmedExtents(ModelId modelId,
 
     return (end > start);
 }
+} // end namespace sv
+

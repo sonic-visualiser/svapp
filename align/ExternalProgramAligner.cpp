@@ -25,6 +25,8 @@
 
 #include "framework/Document.h"
 
+namespace sv {
+
 ExternalProgramAligner::ExternalProgramAligner(Document *doc,
                                                ModelId reference,
                                                ModelId toAlign,
@@ -164,7 +166,7 @@ ExternalProgramAligner::logStderrOutput()
     
     QString str = QString::fromUtf8(buffer);
 
-    cerr << str << endl;
+    SVCERR << str << endl;
     
 #if (QT_VERSION >= 0x050300)
     QString pfx = QString("[pid%1] ").arg(m_process->processId());
@@ -288,3 +290,5 @@ done:
         emit failed(m_toAlign, errorText);
     }
 }
+} // end namespace sv
+

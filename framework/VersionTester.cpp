@@ -24,7 +24,10 @@
 #include <iostream>
 
 #include <QNetworkAccessManager>
+#include <QRegularExpression>
 
+
+namespace sv {
 
 VersionTester::VersionTester(QString hostname, QString versionFilePath,
                              QString myVersion) :
@@ -36,7 +39,7 @@ VersionTester::VersionTester(QString hostname, QString versionFilePath,
     QUrl url(QString("http://%1/%2").arg(hostname).arg(versionFilePath));
     SVDEBUG << "VersionTester: URL is " << url << endl;
     m_reply = m_nm->get(QNetworkRequest(url));
-    connect(m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
+    connect(m_reply, SIGNAL(errorOccurred(QNetworkReply::NetworkError)),
             this, SLOT(error(QNetworkReply::NetworkError)));
     connect(m_reply, SIGNAL(finished()), this, SLOT(finished()));
 }
@@ -53,9 +56,9 @@ VersionTester::~VersionTester()
 bool
 VersionTester::isVersionNewerThan(QString a, QString b)
 {
-    QRegExp re("[._-]");
-    QStringList alist = a.split(re, QString::SkipEmptyParts);
-    QStringList blist = b.split(re, QString::SkipEmptyParts);
+    QRegularExpression re("[._-]");
+    QStringList alist = a.split(re, Qt::SkipEmptyParts);
+    QStringList blist = b.split(re, Qt::SkipEmptyParts);
     int ae = alist.size();
     int be = blist.size();
     int e = std::max(ae, be);
@@ -103,7 +106,7 @@ VersionTester::finished()
 
     QByteArray responseData = r->readAll();
     QString str = QString::fromUtf8(responseData.data());
-    QStringList lines = str.split('\n', QString::SkipEmptyParts);
+    QStringList lines = str.split('\n', Qt::SkipEmptyParts);
     if (lines.empty()) return;
 
     QString latestVersion = lines[0];
@@ -114,4 +117,6 @@ VersionTester::finished()
     }
 }
 
+
+} // end namespace sv
 

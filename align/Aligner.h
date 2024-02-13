@@ -19,6 +19,8 @@
 
 #include "data/model/Model.h"
 
+namespace sv {
+
 class Aligner : public QObject
 {
     Q_OBJECT
@@ -45,5 +47,7 @@ signals:
      */
     void failed(ModelId toAlign, QString errorText); // the toAlign model
 };
+
+} // end namespace sv
 
 #endif

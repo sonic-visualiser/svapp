@@ -26,6 +26,8 @@ namespace RubberBand {
     class RubberBandStretcher;
 }
 
+namespace sv {
+
 /**
  * A breakfastquay::ApplicationPlaybackSource wrapper that implements
  * time-stretching using Rubber Band. Note that the stretcher is
@@ -126,6 +128,8 @@ private:
     TimeStretchWrapper(const TimeStretchWrapper &)=delete;
     TimeStretchWrapper &operator=(const TimeStretchWrapper &)=delete;
 };
+
+} // end namespace sv
 
 #endif
 

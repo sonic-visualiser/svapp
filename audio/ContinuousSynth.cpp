@@ -19,6 +19,8 @@
 
 #include <cmath>
 
+namespace sv {
+
 ContinuousSynth::ContinuousSynth(int channels, sv_samplerate_t sampleRate, sv_frame_t blockSize, int waveType) :
     m_channels(channels),
     m_sampleRate(sampleRate),
@@ -146,4 +148,6 @@ ContinuousSynth::mix(float **toBuffers, float gain, float pan, float f0f)
 
     delete[] levels;
 }
+
+} // end namespace sv
 

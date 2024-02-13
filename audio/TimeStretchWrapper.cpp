@@ -21,6 +21,8 @@
 using namespace RubberBand;
 using namespace std;
 
+namespace sv {
+
 TimeStretchWrapper::TimeStretchWrapper(ApplicationPlaybackSource *source) :
     m_source(source),
     m_stretcher(nullptr),
@@ -292,3 +294,5 @@ TimeStretchWrapper::audioProcessingOverload()
 {
     m_source->audioProcessingOverload();
 }
+} // end namespace sv
+

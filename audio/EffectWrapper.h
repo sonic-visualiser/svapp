@@ -26,6 +26,8 @@
 #include <mutex>
 #include <memory>
 
+namespace sv {
+
 /**
  * A breakfastquay::ApplicationPlaybackSource wrapper that applies a
  * real-time effect plugin.
@@ -114,6 +116,8 @@ private:
     EffectWrapper(const EffectWrapper &)=delete;
     EffectWrapper &operator=(const EffectWrapper &)=delete;
 };
+
+} // end namespace sv
 
 #endif
 

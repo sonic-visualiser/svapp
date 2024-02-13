@@ -17,6 +17,8 @@
 
 #include "Aligner.h"
 
+namespace sv {
+
 class AlignmentModel;
 class Document;
 
@@ -46,5 +48,7 @@ private:
 
     bool getTrimmedExtents(ModelId model, sv_frame_t &start, sv_frame_t &end);
 };
+
+} // end namespace sv
 
 #endif

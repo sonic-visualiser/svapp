@@ -16,14 +16,6 @@
 #ifndef SV_AUDIO_GENERATOR_H
 #define SV_AUDIO_GENERATOR_H
 
-class NoteModel;
-class FlexiNoteModel;
-class DenseTimeValueModel;
-class SparseOneDimensionalModel;
-class Playable;
-class ClipMixer;
-class ContinuousSynth;
-
 #include <QObject>
 #include <QMutex>
 
@@ -33,6 +25,16 @@ class ContinuousSynth;
 
 #include "base/BaseTypes.h"
 #include "data/model/Model.h"
+
+namespace sv {
+
+class NoteModel;
+class FlexiNoteModel;
+class DenseTimeValueModel;
+class SparseOneDimensionalModel;
+class Playable;
+class ClipMixer;
+class ContinuousSynth;
 
 class AudioGenerator : public QObject
 {
@@ -182,6 +184,8 @@ protected:
     sv_frame_t m_channelBufSiz;
     int m_channelBufCount;
 };
+
+} // end namespace sv
 
 #endif
 

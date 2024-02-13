@@ -20,6 +20,8 @@
 #include <QProcess>
 #include <QString>
 
+namespace sv {
+
 class AlignmentModel;
 class Document;
 
@@ -52,5 +54,7 @@ private:
     QString m_program;
     QProcess *m_process;
 };
+
+} // end namespace sv
 
 #endif
