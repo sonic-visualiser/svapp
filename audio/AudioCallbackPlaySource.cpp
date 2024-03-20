@@ -79,6 +79,7 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_levelsSet(false),
     m_playStartFrame(0),
     m_playStartFramePassed(false),
+    m_enforceStereo(true),
     m_fillThread(nullptr),
     m_resamplerWrapper(nullptr),
     m_timeStretchWrapper(nullptr),
@@ -1057,7 +1058,7 @@ AudioCallbackPlaySource::getSourceChannelCount() const
 int
 AudioCallbackPlaySource::getTargetChannelCount() const
 {
-    if (m_sourceChannelCount < 2) return 2;
+    if (m_enforceStereo && m_sourceChannelCount < 2) return 2;
     return m_sourceChannelCount;
 }
 

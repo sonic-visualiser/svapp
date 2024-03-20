@@ -309,6 +309,17 @@ public:
      */
     void clearSoloModelSet();
 
+    /**
+     * For historical reasons AudioCallbackPlaySource by default
+     * always emits at least 2 channels, and insists that the output
+     * device (or whatever abstraction is provided for it) supports at
+     * least 2. Call setEnforceStereo(false) to avoid this and reduce
+     * the minimum number of channels to 1.
+     */
+    void setEnforceStereo(bool enforce) {
+        m_enforceStereo = enforce;
+    }
+
     virtual std::string getClientName() const override {
         return m_clientName;
     }
@@ -380,6 +391,7 @@ protected:
     sv_frame_t                        m_playStartFrame;
     bool                              m_playStartFramePassed;
     RealTime                          m_playStartedAt;
+    bool                              m_enforceStereo;
 
     RingBuffer<float> *getWriteRingBuffer(int c) {
         if (m_writeBuffers && c < (int)m_writeBuffers->size()) {
