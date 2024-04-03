@@ -384,6 +384,10 @@ protected:
     bool                              m_exiting;
     sv_frame_t                        m_lastModelEndFrame;
     int                               m_ringBufferSize;
+    float                            *m_tmpMixbuf;
+    sv_frame_t                        m_tmpMixbufSize;
+    float                           **m_chunkBufferPtrs;
+    int                               m_chunkBufferPtrCount;
     float                             m_outputLeft;
     float                             m_outputRight;
     bool                              m_levelsSet;

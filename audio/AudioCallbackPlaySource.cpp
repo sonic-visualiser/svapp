@@ -74,6 +74,10 @@ AudioCallbackPlaySource::AudioCallbackPlaySource(ViewManagerBase *manager,
     m_exiting(false),
     m_lastModelEndFrame(0),
     m_ringBufferSize(DEFAULT_RING_BUFFER_SIZE),
+    m_tmpMixbuf(nullptr),
+    m_tmpMixbufSize(0),
+    m_chunkBufferPtrs(nullptr),
+    m_chunkBufferPtrCount(0),
     m_outputLeft(0.0),
     m_outputRight(0.0),
     m_levelsSet(false),
@@ -129,6 +133,8 @@ AudioCallbackPlaySource::~AudioCallbackPlaySource()
     }
 
     delete m_writeBuffers;
+    delete[] m_tmpMixbuf;
+    delete[] m_chunkBufferPtrs;
 
     delete m_audioGenerator;
 
@@ -1234,9 +1240,6 @@ AudioCallbackPlaySource::getSourceSamples(float *const *buffer,
 bool
 AudioCallbackPlaySource::fillBuffers()
 {
-    static float *tmp = nullptr;
-    static sv_frame_t tmpSize = 0;
-
     sv_frame_t space = 0;
     for (int c = 0; c < getTargetChannelCount(); ++c) {
         RingBuffer<float> *wb = getWriteRingBuffer(c);
@@ -1296,18 +1299,18 @@ AudioCallbackPlaySource::fillBuffers()
         return false;
     }
 
-    if (tmpSize < channels * space) {
-        delete[] tmp;
-        tmp = new float[channels * space];
-        tmpSize = channels * space;
+    if (m_tmpMixbufSize < channels * space) {
+        delete[] m_tmpMixbuf;
+        m_tmpMixbufSize = channels * space;
+        m_tmpMixbuf = new float[m_tmpMixbufSize];
     }
 
     for (int c = 0; c < channels; ++c) {
 
-        bufferPtrs[c] = tmp + c * space;
+        bufferPtrs[c] = m_tmpMixbuf + c * space;
             
         for (int i = 0; i < space; ++i) {
-            tmp[c * space + i] = 0.0f;
+            m_tmpMixbuf[c * space + i] = 0.0f;
         }
     }
 
@@ -1376,14 +1379,14 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
     static float **chunkBufferPtrs = nullptr;
     static int chunkBufferPtrCount = 0;
 
-    if (chunkBufferPtrCount < channels) {
-        if (chunkBufferPtrs) delete[] chunkBufferPtrs;
-        chunkBufferPtrs = new float *[channels];
-        chunkBufferPtrCount = channels;
+    if (m_chunkBufferPtrCount < channels) {
+        if (m_chunkBufferPtrs) delete[] m_chunkBufferPtrs;
+        m_chunkBufferPtrCount = channels;
+        m_chunkBufferPtrs = new float *[m_chunkBufferPtrCount];
     }
 
     for (int c = 0; c < channels; ++c) {
-        chunkBufferPtrs[c] = buffers[c];
+        m_chunkBufferPtrs[c] = buffers[c];
     }
 
     while (processed < count) {
@@ -1498,12 +1501,12 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
              mi != m_models.end(); ++mi) {
             
             (void) m_audioGenerator->mixModel(*mi, chunkStart, 
-                                              chunkSize, chunkBufferPtrs,
+                                              chunkSize, m_chunkBufferPtrs,
                                               fadeIn, fadeOut);
         }
 
         for (int c = 0; c < channels; ++c) {
-            chunkBufferPtrs[c] += chunkSize;
+            m_chunkBufferPtrs[c] += chunkSize;
         }
 
         processed += chunkSize;
