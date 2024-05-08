@@ -1376,9 +1376,6 @@ AudioCallbackPlaySource::mixModels(sv_frame_t &frame, sv_frame_t count, float **
     }
 #endif
     
-    static float **chunkBufferPtrs = nullptr;
-    static int chunkBufferPtrCount = 0;
-
     if (m_chunkBufferPtrCount < channels) {
         if (m_chunkBufferPtrs) delete[] m_chunkBufferPtrs;
         m_chunkBufferPtrCount = channels;
