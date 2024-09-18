@@ -3805,8 +3805,10 @@ MainWindowBase::stop()
     }
 }
 
-MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw) :
+MainWindowBase::AddPaneCommand::AddPaneCommand(MainWindowBase *mw,
+                                               int atIndex) :
     m_mw(mw),
+    m_atIndex(atIndex),
     m_pane(nullptr),
     m_prevCurrentPane(nullptr),
     m_added(false)
@@ -3831,7 +3833,7 @@ MainWindowBase::AddPaneCommand::execute()
 {
     if (!m_pane) {
         m_prevCurrentPane = m_mw->m_paneStack->getCurrentPane();
-        m_pane = m_mw->m_paneStack->addPane();
+        m_pane = m_mw->m_paneStack->addPane(m_atIndex);
 
         connect(m_pane, SIGNAL(contextHelpChanged(const QString &)),
                 m_mw, SLOT(contextHelpChanged(const QString &)));
