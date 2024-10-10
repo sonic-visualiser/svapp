@@ -4323,6 +4323,7 @@ void
 MainWindowBase::alignmentComplete(ModelId alignmentModelId)
 {
     SVCERR << "MainWindowBase::alignmentComplete(" << alignmentModelId << ")" << endl;
+    updateMenuStates();
 }
 
 void
