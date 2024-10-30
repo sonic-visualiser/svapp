@@ -912,8 +912,6 @@ MainWindowBase::currentPaneChanged(Pane *p)
 
     sv_frame_t frame = m_playSource->getCurrentBufferedFrame();
 
-    SVCERR << "currentPaneChanged: current frame (in ref model) = " << frame << endl;
-
     View::ModelSet soloModels = p->getModels();
     
     View::ModelSet sources;
@@ -4330,6 +4328,7 @@ void
 MainWindowBase::alignmentComplete(ModelId alignmentModelId)
 {
     SVCERR << "MainWindowBase::alignmentComplete(" << alignmentModelId << ")" << endl;
+    updateMenuStates();
 }
 
 void
