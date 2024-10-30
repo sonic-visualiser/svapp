@@ -3377,7 +3377,7 @@ MainWindowBase::record()
         SVDEBUG << "MainWindowBase::record: about to create audio IO" << endl;
         createAudioIO();
     }
-
+    
     if (!m_audioIO) {
         if (!m_playTarget) {
             // Don't need to report this, createAudioIO should have
@@ -3414,6 +3414,7 @@ MainWindowBase::record()
     if (m_viewManager) m_viewManager->setGlobalCentreFrame(0);
     
     SVCERR << "MainWindowBase::record: about to resume" << endl;
+    m_audioIO->suppressRecordSide(false);
     m_audioIO->resume();
 
     WritableWaveFileModel *modelPtr = m_recordTarget->startRecording();
@@ -3430,6 +3431,7 @@ MainWindowBase::record()
         SVCERR << "MainWindowBase::record: Model not OK, stopping and suspending" << endl;
         m_recordTarget->stopRecording();
         m_audioIO->suspend();
+        m_audioIO->suppressRecordSide(true);
         if (action) action->setChecked(false);
         delete modelPtr;
         return;
@@ -3454,6 +3456,7 @@ MainWindowBase::record()
                 SVCERR << "MainWindowBase::record: Session template open cancelled, stopping and suspending" << endl;
                 m_recordTarget->stopRecording();
                 m_audioIO->suspend();
+                m_audioIO->suppressRecordSide(true);
                 ModelById::release(modelId);
                 return;
             }
@@ -3794,8 +3797,12 @@ MainWindowBase::stop()
 
     SVDEBUG << "MainWindowBase::stop: suspending" << endl;
     
-    if (m_audioIO) m_audioIO->suspend();
-    else if (m_playTarget) m_playTarget->suspend();
+    if (m_audioIO) {
+        m_audioIO->suspend();
+        m_audioIO->suppressRecordSide(true);
+    } else if (m_playTarget) {
+        m_playTarget->suspend();
+    }
     
     if (m_paneStack && m_paneStack->getCurrentPane()) {
         updateVisibleRangeDisplay(m_paneStack->getCurrentPane());
