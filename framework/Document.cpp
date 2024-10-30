@@ -861,6 +861,7 @@ Document::releaseModel(ModelId modelId)
 #pragma clang diagnostic ignored "-Wpotentially-evaluated-expression"
 #endif
 
+#ifdef DEBUG_DOCUMENT
     if (auto model = ModelById::get(modelId)) {
         SVCERR << "Document::releaseModel(" << modelId << "), name "
                << model->objectName() << ", type "
@@ -868,6 +869,7 @@ Document::releaseModel(ModelId modelId)
     } else {
         SVCERR << "Document::releaseModel(" << modelId << ")" << endl;
     }
+#endif
     
     if (modelId.isNone()) {
         return;
