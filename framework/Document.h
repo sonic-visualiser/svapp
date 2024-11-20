@@ -192,6 +192,15 @@ public:
     void setMainModel(ModelId); // a WaveFileModel
 
     /**
+     * Set the main model (the source for playback sample rate, etc)
+     * to the given wave file model. The given model must be one that
+     * has already been added to the Document. The old main model, if
+     * there was one, will not be removed or altered - it just won't
+     * be the main model any more.
+     */
+    void switchMainModel(ModelId); // a WaveFileModel
+
+    /**
      * Get the main model (the source for playback sample rate, etc).
      */
     ModelId getMainModel() { return m_mainModel; }

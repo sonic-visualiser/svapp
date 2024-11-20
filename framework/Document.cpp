@@ -489,6 +489,27 @@ Document::setMainModel(ModelId modelId)
 }
 
 void
+Document::switchMainModel(ModelId modelId)
+{
+    SVDEBUG << "Document::switchMainModel: switching main model "
+            << m_mainModel << " to model " << modelId << endl;
+
+    if (m_mainModel == modelId) {
+        return;
+    }
+    
+    m_mainModel = modelId;
+    
+    if (auto model = ModelById::get(modelId)) {
+        emit activity(tr("Switch main model to %1").arg(model->objectName()));
+    } else {
+        emit activity(tr("Switch main model to nothing"));
+    }
+
+    emit mainModelChanged(m_mainModel);
+}
+
+void
 Document::refreshModel(ModelId modelId)
 {
     SVDEBUG << "Document::refreshModel: refreshing model " << modelId << endl;
