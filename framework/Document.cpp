@@ -498,6 +498,7 @@ Document::switchMainModel(ModelId modelId)
         return;
     }
     
+    m_models.erase(modelId);
     m_mainModel = modelId;
     
     if (auto model = ModelById::get(modelId)) {
