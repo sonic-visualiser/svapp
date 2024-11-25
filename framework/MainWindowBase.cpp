@@ -4272,7 +4272,8 @@ void
 MainWindowBase::modelAdded(ModelId model)
 {
 //    SVDEBUG << "MainWindowBase::modelAdded(" << model << ")" << endl;
-    std::cerr << "\nAdding model " << model << " to playsource " << std::endl;
+//    auto m = ModelById::get(model);
+//    std::cerr << "\nAdding model " << model << " (" << (m ?  m->getTypeName() : "<unknown>") << ") to playsource " << std::endl;
     m_playSource->addModel(model);
 }
 
