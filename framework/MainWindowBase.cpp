@@ -4248,6 +4248,24 @@ MainWindowBase::layerInAView(Layer *layer, bool inAView)
         }
     }
 
+    // Check whether we need to add to the solo model set
+    if (inAView && m_viewManager->getPlaySoloMode()) {
+        Pane *currentPane = m_paneStack->getCurrentPane();
+        bool found = false;
+        if (currentPane) {
+            for (int j = 0; j < currentPane->getLayerCount(); ++j) {
+                Layer *pl = currentPane->getLayer(j);
+                if (pl == layer) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                currentPaneChanged(currentPane);
+            }
+        }
+    }
+    
     updateMenuStates();
 }
 
