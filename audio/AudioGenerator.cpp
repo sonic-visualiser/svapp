@@ -689,7 +689,9 @@ AudioGenerator::mixContinuousSynthModel(ModelId modelId,
     // only type we support here at the moment
     auto stvm = ModelById::getAs<SparseTimeValueModel>(modelId);
     if (!stvm) return 0;
-    if (stvm->getScaleUnits() != "Hz") return 0;
+    if (UnitDatabase::asCommonUnit(stvm->getScaleUnits()) != "Hz") {
+        return 0;
+    }
 
     int blocks = int(frames / m_processingBlockSize);
 
