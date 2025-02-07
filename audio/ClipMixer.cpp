@@ -95,7 +95,7 @@ ClipMixer::loadClipData(QString path, double f0, double level)
     
     for (size_t i = 0; i < frames; ++i) {
         m_clipData[i] = 0.0f;
-        for (int j = 0; j < channels; ++j) {
+        for (size_t j = 0; j < channels; ++j) {
             m_clipData[i] += interleaved[i * channels + j] * float(level);
         }
     }
