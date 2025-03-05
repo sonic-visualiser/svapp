@@ -568,7 +568,7 @@ SVFileReader::readModel(const QXmlStreamAttributes &attributes)
         SVDEBUG << "Wave file originalPath = " << originalPath << ", path = "
                   << path << endl;
 
-        ProgressDialog dialog(tr("Opening file or URL..."), true, 2000);
+        ProgressDialog dialog(tr("Opening audio file or URL..."), true, 2000);
         FileSource file(path, &dialog);
         file.waitForStatus();
 
