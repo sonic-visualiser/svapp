@@ -3059,7 +3059,7 @@ MainWindowBase::toXml(QTextStream &out, bool asTemplate)
 Pane *
 MainWindowBase::addPaneToStack()
 {
-    SVCERR << "MainWindowBase::addPaneToStack()" << endl;
+//    SVCERR << "MainWindowBase::addPaneToStack()" << endl;
     AddPaneCommand *command = new AddPaneCommand(this);
     CommandHistory::getInstance()->addCommand(command);
     Pane *pane = command->getPane();
